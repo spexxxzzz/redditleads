@@ -1,0 +1,67 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  // ... other user fields
+  campaigns Campaign[]
+}
+
+model Campaign {
+  id                  String    @id @default(cuid())
+  userId              String
+  user                User      @relation(fields: [userId], references: [id])
+  
+  analyzedUrl         String
+  generatedKeywords   String[]  // Store keywords as an array of strings
+  generatedDescription String
+  
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  Lead Lead[]
+}
+
+// ... existing User and Campaign models ...
+
+// ...existing User and Campaign models...
+
+model Lead {
+  id               String   @id @default(cuid())
+  redditId         String   @unique // The Reddit post ID (e.g., "xyz123") to prevent duplicates
+  title            String   @db.Text
+  author           String
+  subreddit        String
+  url              String   @unique
+  body             String?  @db.Text
+  
+  // The timestamp from Reddit when the post was created
+  postedAt         DateTime
+
+  // The timestamp when our system discovered this lead
+  discoveredAt     DateTime @default(now())
+  
+  // The calculated score
+  opportunityScore Int
+
+  // The status of the lead in our system's workflow
+  status           String   @default("new") // e.g., "new", "contacted", "archived"
+
+  // Relation to the campaign that found this lead
+  campaignId       String
+  campaign         Campaign @relation(fields: [campaignId], references: [id])
+}
