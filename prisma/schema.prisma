@@ -19,6 +19,9 @@ model User {
   email     String     @unique
   // ... other user fields
   campaigns Campaign[]
+  plan               String   @default("free") // e.g., "free", "pro"
+  stripeCustomerId   String?  @unique // To link with Stripe for payments
+  subscriptionStatus String?  // e.g., "active", "canceled", "past_due"
 }
 
  model Campaign {

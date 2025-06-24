@@ -2,16 +2,16 @@ import { RequestHandler } from 'express';
 import { PrismaClient } from '@prisma/client';
 
 import { findLeadsOnReddit } from '../services/reddit.service';
-import { calculateLeadScore } from '../services/scoring.service';
-// --- LAYER 2: Import the AI Context Analyzer ---
-import { analyzeLeadIntent } from '../services/ai.service';
+// --- DRY PRINCIPLE: Import the new centralized enrichment service ---
+// We no longer need to import calculateLeadScore or analyzeLeadIntent here.
+import { enrichLeadsForUser } from '../services/enrichment.service';
 
 const prisma = new PrismaClient();
 
 /**
  * Manually triggers a lead discovery for a specific campaign.
  * This is useful for immediate results without waiting for the scheduled worker.
- * It enriches each found lead with an AI-generated intent classification.
+ * The quality of the analysis depends on the user's subscription plan.
  */
 export const runManualDiscovery: RequestHandler = async (req, res, next) => {
     const { campaignId } = req.params;
@@ -22,39 +22,34 @@ export const runManualDiscovery: RequestHandler = async (req, res, next) => {
     }
 
     try {
-        // 1. Fetch the specific campaign from the database
+        // 1. Fetch the campaign and include the user to check their plan
         const campaign = await prisma.campaign.findUnique({
             where: { id: campaignId },
+            include: { user: true } // Eager load the user object
         });
 
-        if (!campaign) {
-              res.status(404).json({ message: 'Campaign not found.' });
-              return;
+        if (!campaign || !campaign.user) {
+              res.status(404).json({ message: 'Campaign or associated user not found.' });
+              return
         }
 
         if (campaign.targetSubreddits.length === 0) {
               res.status(400).json({ message: 'Campaign has no target subreddits configured.' });
-              return;
+              return
         }
 
-        // 2. Fetch raw leads from Reddit using campaign-specific data
-        const leads = await findLeadsOnReddit(campaign.generatedKeywords, campaign.targetSubreddits);
+        const user = campaign.user;
 
-        // --- LAYER 2: Enrich leads with intent and score in parallel ---
-        const enrichedLeads = await Promise.all(leads.map(async (lead) => {
-            const intent = await analyzeLeadIntent(lead.title, lead.body);
-            const opportunityScore = calculateLeadScore(lead);
-            return {
-                ...lead,
-                intent, // Add the AI-generated intent
-                opportunityScore,
-            };
-        }));
+        // 2. Fetch raw leads from Reddit
+        const rawLeads = await findLeadsOnReddit(campaign.generatedKeywords, campaign.targetSubreddits);
 
-        // 4. Sort the enriched leads by score
+        // --- DRY PRINCIPLE: All tier-aware logic is now handled by a single service call ---
+        const enrichedLeads = await enrichLeadsForUser(rawLeads, user);
+
+        // 3. Sort the enriched leads by score
         const sortedLeads = enrichedLeads.sort((a, b) => b.opportunityScore - a.opportunityScore);
 
-        // 5. Return the prioritized list
+        // 4. Return the prioritized list
         res.status(200).json(sortedLeads);
 
     } catch (error) {
@@ -75,7 +70,7 @@ export const getLeadsForCampaign: RequestHandler = async (req, res, next) => {
 
     if (!campaignId) {
           res.status(400).json({ message: 'Campaign ID is required.' });
-          return;
+          return
     }
 
     try {

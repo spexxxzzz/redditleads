@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { findLeadsOnReddit } from '../services/reddit.service';
-import { calculateLeadScore } from '../services/scoring.service';
-import { analyzeLeadIntent } from '../services/ai.service';
+// --- DRY PRINCIPLE: Import the new centralized enrichment service ---
+import { enrichLeadsForUser } from '../services/enrichment.service';
 
 const prisma = new PrismaClient();
 
@@ -23,30 +23,31 @@ export const runLeadDiscoveryWorker = async () => {
 
     // 2. Process each campaign individually
     for (const campaign of campaigns) {
-         // If a campaign has no specific subreddits, skip it to avoid errors and wasted API calls.
         if (!campaign.targetSubreddits || campaign.targetSubreddits.length === 0) {
             console.log(`Skipping campaign ${campaign.id}: No target subreddits are configured.`);
-            continue; // Move to the next campaign
+            continue;
         }
 
         try {
-            console.log(`Processing campaign: ${campaign.id} for user: ${campaign.userId}`);
+            // --- TIER-AWARE LOGIC: Fetch the user to check their plan ---
+            const user = await prisma.user.findUnique({ where: { id: campaign.userId } });
+
+            if (!user) {
+                console.warn(`Skipping campaign ${campaign.id}: Associated user not found.`);
+                continue;
+            }
+
+            console.log(`Processing campaign: ${campaign.id} for user: ${user.id} (Plan: ${user.plan})`);
             
-            const leadsFromReddit = await findLeadsOnReddit(
+            const rawLeads = await findLeadsOnReddit(
                 campaign.generatedKeywords, 
                 campaign.targetSubreddits
             );
 
-            // --- LAYER 2: Enrich leads with intent and score in parallel ---
-            const enrichedLeads = await Promise.all(leadsFromReddit.map(async (lead) => {
-                const intent = await analyzeLeadIntent(lead.title, lead.body);
-                const opportunityScore = calculateLeadScore(lead);
-                return {
-                    ...lead,
-                    intent, // Add the AI-generated intent
-                    opportunityScore,
-                };
-            }));
+            // --- DRY PRINCIPLE: All tier-aware logic is now handled by a single service call ---
+            const enrichedLeads = await enrichLeadsForUser(rawLeads, user);
+
+            // 3. Loop through the fully enriched leads and save them to the database
             for (const lead of enrichedLeads) {
                 try {
                     await prisma.lead.create({
@@ -60,17 +61,15 @@ export const runLeadDiscoveryWorker = async () => {
                             postedAt: new Date(lead.createdAt * 1000),
                             opportunityScore: lead.opportunityScore,
                             campaignId: campaign.id,
-                            intent: lead.intent, // Save the new intent field
+                            intent: lead.intent,
                         }
                     });
                     totalNewLeads++;
-                    console.log(`  -> Saved new lead: "${lead.title.substring(0, 40)}..."`);
+                    console.log(`  -> Saved new lead: "${lead.title.substring(0, 40)}..." (Score: ${lead.opportunityScore}, Plan: ${user.plan})`);
                 } catch (error: any) {
-                    // This error is expected if the lead already exists due to the @unique constraint
                     if (error.code === 'P2002') {
                         // It's a duplicate, so we can safely ignore it.
                     } else {
-                        // It's a different error, so we should log it.
                         console.error(`Failed to save lead ${lead.id}:`, error.message);
                     }
                 }
