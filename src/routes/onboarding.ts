@@ -4,10 +4,14 @@ import { analyzeWebsite, completeOnboarding } from '../controllers/onboarding.co
  
 const onboardingRouter =  express.Router();
 
+console.log("--- [ROUTER LOG] Loading onboarding.ts router file...");
 
 
-onboardingRouter.post('/onboarding/analyze-website', analyzeWebsite);
+onboardingRouter.post('/onboarding/analyze', analyzeWebsite);
+console.log("--- [ROUTER LOG] Route POST /onboarding/analyze configured.");
+
 onboardingRouter.post('/onboarding/complete', completeOnboarding);
+console.log("--- [ROUTER LOG] Route POST /onboarding/complete configured.");
 
 
-module.exports = onboardingRouter;
+export default onboardingRouter;

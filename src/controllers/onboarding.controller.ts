@@ -3,14 +3,16 @@ import {
     scrapeWebsiteTextSimple, 
     scrapeWebsiteTextAdvanced 
 } from '../services/scraper.service';
-import { generateKeywords, generateDescription } from '../services/ai.service';
-import { PrismaClient } from '../../generated/prisma';
- 
- 
+import { generateKeywords, generateDescription, generateSubredditSuggestions } from '../services/ai.service';
+import { PrismaClient } from '@prisma/client';
+
+console.log("--- [CONTROLLER LOG] Top of onboarding.controller.ts reached.");
+
 const MIN_CONTENT_LENGTH = 300;
 
 const prisma = new PrismaClient();
- 
+console.log("--- [CONTROLLER LOG] PrismaClient instantiated in onboarding.controller.ts.");
+
 export const analyzeWebsite: RequestHandler = async (req, res, next) => {
     const { websiteUrl } = req.body;
 
@@ -44,9 +46,11 @@ export const analyzeWebsite: RequestHandler = async (req, res, next) => {
     }
 };
 
+// ...existing imports...
+
+// ... existing analyzeWebsite function ...
 
 export const completeOnboarding: RequestHandler = async (req, res, next) => {
-    // In a real app, userId would come from auth middleware (e.g., req.user.id)
     const { userId, websiteUrl, generatedKeywords, generatedDescription } = req.body;
 
     if (!userId || !websiteUrl || !generatedKeywords || !generatedDescription) {
@@ -55,15 +59,15 @@ export const completeOnboarding: RequestHandler = async (req, res, next) => {
     }
 
     try {
-        // Check if a campaign for this user and URL already exists to avoid duplicates
-        const existingCampaign = await prisma.campaign.findFirst({
-            where: { userId, analyzedUrl: websiteUrl }
-        });
+        // --- DEBUG LOG 1 ---
+        console.log(`[1/4] Entering completeOnboarding for user: ${userId}`);
 
-        if (existingCampaign) {
-             res.status(409).json({ message: 'Campaign for this website already exists.' });
-             return;
-        }
+        // --- DEBUG LOG 2 ---
+        console.log('[2/4] Calling AI to generate subreddit suggestions...');
+        const subreddits = await generateSubredditSuggestions(generatedDescription);
+        
+        // --- DEBUG LOG 3 ---
+        console.log(`[3/4] AI call successful. Received ${subreddits.length} subreddits.`);
 
         const newCampaign = await prisma.campaign.create({
             data: {
@@ -71,11 +75,17 @@ export const completeOnboarding: RequestHandler = async (req, res, next) => {
                 analyzedUrl: websiteUrl,
                 generatedKeywords,
                 generatedDescription,
+                targetSubreddits: subreddits,
             }
         });
 
+        // --- DEBUG LOG 4 ---
+        console.log(`[4/4] Campaign ${newCampaign.id} saved. Sending response.`);
         res.status(201).json(newCampaign);
+
     } catch (error) {
-        next(error);
+        // --- CRITICAL: Log the actual error ---
+        console.error("!!! ERROR in completeOnboarding:", error);
+        next(error); // Pass the error to the default error handler
     }
 };

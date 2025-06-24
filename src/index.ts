@@ -2,6 +2,8 @@ import 'dotenv/config';
 import express from 'express';
 import leadRouter from './routes/leads';
 import { initializeScheduler } from '../src/jobs/leadDiscovery'; // Import the new scheduler initializer
+import onboardingRouter from './routes/onboarding';
+
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -13,6 +15,7 @@ app.get('/', (_req, res) => {
 });
 
 app.use('/api/leads', leadRouter);
+app.use('/api/onboarding', onboardingRouter);
 
 
 app.get("/api/auth/reddit/callback", async (req, res) => {
@@ -27,5 +30,5 @@ app.get("/api/auth/reddit/callback", async (req, res) => {
     console.log(`Server running on http://localhost:${PORT}`);
   
     // Initialize all scheduled background jobs
-    initializeScheduler();
+    // initializeScheduler();
   });

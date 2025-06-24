@@ -1,6 +1,7 @@
-import { PrismaClient } from '../../generated/prisma';
+import { PrismaClient } from '@prisma/client';
 import { findLeadsOnReddit } from '../services/reddit.service';
 import { calculateLeadScore } from '../services/scoring.service';
+import { analyzeLeadIntent } from '../services/ai.service';
 
 const prisma = new PrismaClient();
 
@@ -20,20 +21,33 @@ export const runLeadDiscoveryWorker = async () => {
     console.log(`Found ${campaigns.length} campaigns to process.`);
     let totalNewLeads = 0;
 
-    // 2. Process each campaign
+    // 2. Process each campaign individually
     for (const campaign of campaigns) {
+         // If a campaign has no specific subreddits, skip it to avoid errors and wasted API calls.
+        if (!campaign.targetSubreddits || campaign.targetSubreddits.length === 0) {
+            console.log(`Skipping campaign ${campaign.id}: No target subreddits are configured.`);
+            continue; // Move to the next campaign
+        }
+
         try {
             console.log(`Processing campaign: ${campaign.id} for user: ${campaign.userId}`);
             
-            // 3. Find leads using the services we already built
-            const leadsFromReddit = await findLeadsOnReddit(campaign.generatedKeywords, ['forhire', 'jobbit']); // You can make subreddits dynamic later
-            const scoredLeads = leadsFromReddit.map(lead => ({
-                ...lead,
-                opportunityScore: calculateLeadScore(lead)
-            }));
+            const leadsFromReddit = await findLeadsOnReddit(
+                campaign.generatedKeywords, 
+                campaign.targetSubreddits
+            );
 
-            // 4. Save new leads to the database, skipping duplicates
-            for (const lead of scoredLeads) {
+            // --- LAYER 2: Enrich leads with intent and score in parallel ---
+            const enrichedLeads = await Promise.all(leadsFromReddit.map(async (lead) => {
+                const intent = await analyzeLeadIntent(lead.title, lead.body);
+                const opportunityScore = calculateLeadScore(lead);
+                return {
+                    ...lead,
+                    intent, // Add the AI-generated intent
+                    opportunityScore,
+                };
+            }));
+            for (const lead of enrichedLeads) {
                 try {
                     await prisma.lead.create({
                         data: {
@@ -43,9 +57,10 @@ export const runLeadDiscoveryWorker = async () => {
                             subreddit: lead.subreddit,
                             url: lead.url,
                             body: lead.body,
-                            postedAt: new Date(lead.createdAt * 1000), // Convert Unix timestamp to DateTime
+                            postedAt: new Date(lead.createdAt * 1000),
                             opportunityScore: lead.opportunityScore,
                             campaignId: campaign.id,
+                            intent: lead.intent, // Save the new intent field
                         }
                     });
                     totalNewLeads++;

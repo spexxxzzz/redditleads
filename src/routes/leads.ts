@@ -1,16 +1,11 @@
 import express, { Request, Response } from 'express'
-import { discoverLeads } from '../controllers/lead.controller'
-import { analyzeWebsite } from '../controllers/onboarding.controller'
+import { getLeadsForCampaign, runManualDiscovery } from '../controllers/lead.controller';
+
 const leadRouter = express.Router()
 
+//Get the "inbox" of saved leads for a specific campaign
+leadRouter.get('/campaign/:campaignId', getLeadsForCampaign);
 
-leadRouter.get('/', (req : Request, res : Response) =>  {
-      res.status(200).json({
-        message: 'Leads endpoint is working',
-      })
-})
-
-
-leadRouter.get('/discover', discoverLeads);
-
+// Manually trigger a new search for a campaign
+leadRouter.post('/discover/manual/:campaignId', runManualDiscovery);
 export default leadRouter;

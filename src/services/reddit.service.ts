@@ -1,5 +1,6 @@
 import snoowrap from 'snoowrap';
 
+// Initialize snoowrap with credentials from environment variables
 const r = new snoowrap({
     userAgent: process.env.REDDIT_USER_AGENT!,
     clientId: process.env.REDDIT_CLIENT_ID!,
@@ -7,39 +8,56 @@ const r = new snoowrap({
     refreshToken: process.env.REDDIT_REFRESH_TOKEN!
 });
 
+/**
+ * Searches a list of subreddits for posts matching a set of keywords.
+ * This function is designed to be resilient and will not crash if one of the
+ * subreddits is banned, private, or otherwise inaccessible.
+ * 
+ * @param keywords An array of keywords to search for.
+ * @param subreddits An array of subreddit names (without the 'r/').
+ * @returns A promise that resolves to an array of formatted lead objects.
+ */
 export const findLeadsOnReddit = async (keywords: string[], subreddits: string[]) => {
-    try {
-        const searchQuery = keywords.join(' OR ');
-        const searchPromises = subreddits.map(subreddit => 
-            r.getSubreddit(subreddit).search({ query: searchQuery, sort: 'new', time: 'week' })
-        );
+    const searchQuery = keywords.join(' OR ');
+    // --- THIS IS THE FIX ---
+    // We are collecting submissions into a simple array, so the type should be Submission[].
+    const allPosts: snoowrap.Submission[] = [];
 
-        const searchResults = await Promise.all(searchPromises);
-        const posts = searchResults.flat();
+    console.log(`Starting Reddit search for ${subreddits.length} subreddits.`);
 
-        return posts.map(post => ({
-            id: post.id,
-            title: post.title,
-            // Use optional chaining (?.) to safely access .name
-            // Use nullish coalescing (??) to provide a fallback value
-            author: post.author?.name ?? '[deleted]',
-            subreddit: post.subreddit?.display_name ?? '[unknown]', // Also make this defensive
-            url: `https://reddit.com${post.permalink}`,
-            body: post.selftext,
-            createdAt: post.created_utc, // Unix timestamp (seconds)
-            numComments: post.num_comments,
-            upvoteRatio: post.upvote_ratio,
-        }));
-    
-    }catch (error: any) { // Catch the error to inspect it
-        // --- IMPROVED LOGGING ---
-        // Log the detailed error from the Reddit API to your console
-        console.error("--- Reddit API Error Details ---");
-        console.error("Status:", error.statusCode); // e.g., 401 for Unauthorized
-        console.error("Message:", error.message);   // e.g., "invalid_grant"
-        console.error("------------------------------");
-
-        // Throw a more informative error to the controller
-        throw new Error(`Failed to fetch from Reddit (Status: ${error.statusCode}). Check console for details.`);
+    // Use a for...of loop to process each subreddit individually.
+    // This allows us to handle errors for one subreddit without stopping the entire search.
+    for (const subreddit of subreddits) {
+        try {
+            console.log(`  -> Searching in r/${subreddit}...`);
+            const searchResults = await r.getSubreddit(subreddit).search({ 
+                query: searchQuery, 
+                sort: 'new', 
+                time: 'week' 
+            });
+            // The searchResults is a Listing, which is array-like. We spread its contents into our simple array.
+            allPosts.push(...searchResults);
+        } catch (error: any) {
+            // If a single subreddit fails, log a warning and continue to the next one.
+            console.warn(`⚠️  Could not search subreddit 'r/${subreddit}'. It might be private, banned, or non-existent. Skipping.`);
+            // For deeper debugging, you can uncomment the line below:
+            // console.error(`   Reddit API error for r/${subreddit}:`, error.message);
+        }
     }
+
+    console.log(`Reddit search complete. Found ${allPosts.length} total posts before filtering.`);
+
+    // Map the raw post data to our desired Lead format.
+    return allPosts.map(post => ({
+        id: post.id,
+        title: post.title,
+        // Use optional chaining (?.) and nullish coalescing (??) for safety
+        author: post.author?.name ?? '[deleted]',
+        subreddit: post.subreddit?.display_name ?? '[unknown]',
+        url: `https://reddit.com${post.permalink}`,
+        body: post.selftext,
+        createdAt: post.created_utc, // Unix timestamp (seconds)
+        numComments: post.num_comments,
+        upvoteRatio: post.upvote_ratio,
+    }));
 };

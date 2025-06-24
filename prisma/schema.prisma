@@ -6,7 +6,7 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma"
+  // output   = "../generated/prisma"
 }
 
 datasource db {
@@ -21,19 +21,23 @@ model User {
   campaigns Campaign[]
 }
 
-model Campaign {
+ model Campaign {
   id                  String    @id @default(cuid())
   userId              String
   user                User      @relation(fields: [userId], references: [id])
   
   analyzedUrl         String
-  generatedKeywords   String[]  // Store keywords as an array of strings
-  generatedDescription String
-  
+  generatedKeywords   String[]
+  generatedDescription String   @db.Text
+
+  // --- NEW FIELD ---
+  // Stores the list of subreddits recommended by the AI for this specific campaign
+  targetSubreddits    String[]  @default([])
+
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
-  Lead Lead[]
+  leads               Lead[]
 }
 
 // ... existing User and Campaign models ...
@@ -48,7 +52,7 @@ model Lead {
   subreddit        String
   url              String   @unique
   body             String?  @db.Text
-  
+  intent           String?  // e.g., "pain_point", "solution_seeking"
   // The timestamp from Reddit when the post was created
   postedAt         DateTime
 

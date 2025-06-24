@@ -1,41 +1,109 @@
 import { RequestHandler } from 'express';
-import { findLeadsOnReddit } from '../services/reddit.service';
+import { PrismaClient } from '@prisma/client';
 
-// To save leads, you would uncomment the following lines:
-import { PrismaClient } from '../../generated/prisma';
+import { findLeadsOnReddit } from '../services/reddit.service';
 import { calculateLeadScore } from '../services/scoring.service';
+// --- LAYER 2: Import the AI Context Analyzer ---
+import { analyzeLeadIntent } from '../services/ai.service';
+
 const prisma = new PrismaClient();
 
-export const discoverLeads: RequestHandler = async (req, res, next) => {
-    const { keywords, subreddits } = req.query;
+/**
+ * Manually triggers a lead discovery for a specific campaign.
+ * This is useful for immediate results without waiting for the scheduled worker.
+ * It enriches each found lead with an AI-generated intent classification.
+ */
+export const runManualDiscovery: RequestHandler = async (req, res, next) => {
+    const { campaignId } = req.params;
 
-    if (!keywords || typeof keywords !== 'string') {
-        res.status(400).json({ message: 'Keywords are required as a comma-separated string in query params.' });
-        // This plain 'return' satisfies the RequestHandler type (returns void)
-        return;
+    if (!campaignId) {
+          res.status(400).json({ message: 'Campaign ID is required.' });
+          return;
     }
-  
-    // Because of the 'return' above, TypeScript now knows 'keywords' MUST be a string here.
-    const keywordList = keywords.split(',').map(k => k.trim());
-    const subredditsToSearch = (subreddits && typeof subreddits === 'string')
-        ? subreddits.split(',').map(s => s.trim())
-        : ['forhire', 'jobbit', 'freelance_for_hire'];  
 
     try {
-         // 1. Fetch the enriched leads from Reddit
-         const leads = await findLeadsOnReddit(keywordList, subredditsToSearch);
+        // 1. Fetch the specific campaign from the database
+        const campaign = await prisma.campaign.findUnique({
+            where: { id: campaignId },
+        });
 
-         // 2. Calculate a score for each lead and add it to the object
-         const scoredLeads = leads.map(lead => ({
-             ...lead,
-             opportunityScore: calculateLeadScore(lead)
-         }));
- 
-         // 3. Sort the leads by the new score in descending order
-         const sortedLeads = scoredLeads.sort((a, b) => b.opportunityScore - a.opportunityScore);
- 
-         // 4. Return the prioritized list
-         res.status(200).json(sortedLeads);
+        if (!campaign) {
+              res.status(404).json({ message: 'Campaign not found.' });
+              return;
+        }
+
+        if (campaign.targetSubreddits.length === 0) {
+              res.status(400).json({ message: 'Campaign has no target subreddits configured.' });
+              return;
+        }
+
+        // 2. Fetch raw leads from Reddit using campaign-specific data
+        const leads = await findLeadsOnReddit(campaign.generatedKeywords, campaign.targetSubreddits);
+
+        // --- LAYER 2: Enrich leads with intent and score in parallel ---
+        const enrichedLeads = await Promise.all(leads.map(async (lead) => {
+            const intent = await analyzeLeadIntent(lead.title, lead.body);
+            const opportunityScore = calculateLeadScore(lead);
+            return {
+                ...lead,
+                intent, // Add the AI-generated intent
+                opportunityScore,
+            };
+        }));
+
+        // 4. Sort the enriched leads by score
+        const sortedLeads = enrichedLeads.sort((a, b) => b.opportunityScore - a.opportunityScore);
+
+        // 5. Return the prioritized list
+        res.status(200).json(sortedLeads);
+
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+/**
+ * Fetches saved leads from the database for a specific campaign's "Lead Inbox".
+ * Results are paginated and sorted by the highest opportunity score.
+ */
+export const getLeadsForCampaign: RequestHandler = async (req, res, next) => {
+    const { campaignId } = req.params;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const skip = (page - 1) * limit;
+
+    if (!campaignId) {
+          res.status(400).json({ message: 'Campaign ID is required.' });
+          return;
+    }
+
+    try {
+        const leads = await prisma.lead.findMany({
+            where: { 
+                campaignId: campaignId,
+                status: 'new' // Only show new, un-actioned leads
+            },
+            orderBy: {
+                opportunityScore: 'desc' // Show the best leads first
+            },
+            take: limit,
+            skip: skip,
+        });
+
+        const totalLeads = await prisma.lead.count({
+            where: { campaignId: campaignId, status: 'new' }
+        });
+
+        res.status(200).json({
+            data: leads,
+            pagination: {
+                total: totalLeads,
+                page,
+                limit,
+                totalPages: Math.ceil(totalLeads / limit)
+            }
+        });
     } catch (error) {
         next(error);
     }
