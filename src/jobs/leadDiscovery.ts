@@ -1,5 +1,6 @@
 import cron from 'node-cron';
-import { runLeadDiscoveryWorker } from '..//workers/lead.worker';
+import { runLeadDiscoveryWorker } from '../workers/lead.worker';
+import { runSubredditAnalysisWorker } from '../workers/subreddit.worker';
 
 /**
  * Initializes and starts all scheduled background jobs for the application.
@@ -18,12 +19,15 @@ export const initializeScheduler = () => {
         });
     });
 
-    // --- FUTURE JOBS CAN BE ADDED HERE ---
-    // Example: A job to clean up old data every day at midnight
-    // cron.schedule('0 0 * * *', () => {
-    //   console.log('Running daily cleanup job...');
-    //   runCleanupWorker().catch(err => console.error('Cleanup job failed:', err));
-    // });
+    // --- JOB 2: Subreddit Intelligence Worker ---
+    // This schedule runs once per day at 2:00 AM.
+    cron.schedule('0 2 * * *', () => {
+        console.log('-------------------------------------');
+        console.log('Triggering daily subreddit intelligence analysis...');
+        runSubredditAnalysisWorker().catch(err => {
+            console.error('A critical error occurred during the subreddit analysis worker run:', err);
+        });
+    });
 
     console.log('✅ All jobs have been scheduled.');
 };
