@@ -70,3 +70,87 @@ Cultural Summary:`;
     const result = await model.generateContent(prompt);
     return result.response.text().trim();
 };
+
+
+/**
+ * Generates multiple, context-aware reply options for a given lead.
+ * @param leadTitle The title of the lead's post.
+ * @param leadBody The body of the lead's post.
+ * @param companyDescription A description of the user's company/product.
+ * @param subredditCultureNotes The AI-generated notes about the subreddit's culture.
+ * @param subredditRules The official rules of the subreddit.
+ * @returns A promise that resolves to an array of 3-5 distinct reply options.
+ */
+export const generateAIReplies = async (
+    leadTitle: string,
+    leadBody: string | null,
+    companyDescription: string,
+    subredditCultureNotes: string,
+    subredditRules: string[]
+): Promise<string[]> => {
+    const rulesText = subredditRules.map((rule, index) => `${index + 1}. ${rule}`).join('\n');
+
+    const prompt = `
+You are a world-class Reddit marketing expert who specializes in subtle, helpful, and non-spammy engagement. Your primary goal is to be helpful to the user first, and promotional second.
+
+**Your Task:**
+Generate 3 distinct, high-quality response options to the following Reddit post.
+
+**Context:**
+1.  **The Lead's Post:**
+    *   Title: "${leadTitle}"
+    *   Body: "${leadBody}"
+
+2.  **My Product/Company:**
+    *   Description: "${companyDescription}"
+
+3.  **Subreddit Intelligence (CRITICAL):**
+    *   Culture & Vibe: "${subredditCultureNotes}"
+    *   Rules to Follow:
+${rulesText}
+
+**Instructions for Replies:**
+-   Acknowledge the user's post directly.
+-   Subtly connect their need to a feature of "My Product/Company".
+-   Adhere strictly to the subreddit's culture and rules. If the culture is technical, be technical. If it's casual, be casual.
+-   Do NOT use corporate jargon or sound like a press release.
+-   Each reply option should have a slightly different tone (e.g., one purely helpful, one more direct, one asking a question).
+-   Return the response as a JSON array of strings. Example: ["Response 1", "Response 2", "Response 3"]
+`;
+
+    const result = await model.generateContent(prompt);
+    const responseText = result.response.text();
+
+    // Clean up the response and parse it as JSON
+    try {
+        // The AI might wrap the JSON in markdown backticks, so we remove them.
+        const cleanedText = responseText.replace(/```json\n?|\n?```/g, '');
+        return JSON.parse(cleanedText);
+    } catch (error) {
+        console.error("Failed to parse AI response as JSON:", responseText);
+        // Fallback: return an error message as a single option
+        return ["Sorry, I couldn't generate a valid response. Please try again."];
+    }
+};
+/**
+ * Refines a given text based on a specific instruction.
+ * @param originalText The AI-generated reply that the user wants to change.
+ * @param instruction The user's command (e.g., "make it shorter", "be more polite").
+ * @returns A promise that resolves to the refined text.
+ */
+export const refineAIReply = async (originalText: string, instruction: string): Promise<string> => {
+    const prompt = `
+You are a text editing assistant. Your task is to rewrite the following text based on the user's instruction.
+Do not add any commentary or explanation. Only return the refined text.
+
+**Original Text:**
+"${originalText}"
+
+**User's Instruction:**
+"${instruction}"
+
+**Refined Text:**`;
+
+    const result = await model.generateContent(prompt);
+    return result.response.text().trim();
+};

@@ -39,7 +39,7 @@ model User {
 
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
-
+  description        String?   @db.Text // Optional description for the campaign 
   leads               Lead[]
 }
 
