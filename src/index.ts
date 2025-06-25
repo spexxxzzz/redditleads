@@ -27,6 +27,13 @@ app.get("/api/auth/reddit/callback", async (req, res) => {
     res.redirect("/dashboard"); // or wherever you want
   });
   
+  app.use((err: any, req: any, res: any, next: any) => {
+    console.error(err.stack);
+    res.status(401).json({ 
+        error: 'Unauthenticated!',
+        message: err.message 
+    });
+});
 
   app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);

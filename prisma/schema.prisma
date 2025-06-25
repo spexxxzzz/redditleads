@@ -15,9 +15,9 @@ datasource db {
 }
 
 model User {
-  id        String     @id @default(cuid())
+   id        String     @id
   email     String     @unique
-  // ... other user fields
+  // ... other user fieldss
   campaigns Campaign[]
   plan               String   @default("free") // e.g., "free", "pro"
   stripeCustomerId   String?  @unique // To link with Stripe for payments
