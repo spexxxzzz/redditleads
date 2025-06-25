@@ -72,3 +72,18 @@ model Lead {
   campaignId       String
   campaign         Campaign @relation(fields: [campaignId], references: [id])
 }
+
+
+// This table will store pre-analyzed data about subreddits to inform
+// engagement strategies and AI-powered response generation in Layer 3.
+model SubredditProfile {
+  id   String @id @default(cuid())
+  name String @unique // The name of the subreddit (e.g., "solana")
+
+  // Data fetched and analyzed by a background worker
+  rules            String[] @default([]) // A list of the subreddit's official rules
+  cultureNotes     String?  @db.Text    // AI-generated summary of the subreddit's vibe and posting style
+  peakActivityTime String?  // e.g., "weekdays_afternoon_et"
+
+  lastAnalyzedAt DateTime @updatedAt
+}

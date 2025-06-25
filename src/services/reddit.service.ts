@@ -51,13 +51,14 @@ export const findLeadsOnReddit = async (keywords: string[], subreddits: string[]
     return allPosts.map(post => ({
         id: post.id,
         title: post.title,
-        // Use optional chaining (?.) and nullish coalescing (??) for safety
         author: post.author?.name ?? '[deleted]',
         subreddit: post.subreddit?.display_name ?? '[unknown]',
-        url: `https://reddit.com${post.permalink}`,
+        // Provide a fallback for the URL if permalink is missing
+        url: post.permalink ? `https://reddit.com${post.permalink}` : `https://www.reddit.com/r/${post.subreddit?.display_name ?? 'unknown'}/comments/${post.id}`,
         body: post.selftext,
-        createdAt: post.created_utc, // Unix timestamp (seconds)
-        numComments: post.num_comments,
-        upvoteRatio: post.upvote_ratio,
+        createdAt: post.created_utc,
+        // Provide default values for numeric fields to prevent NaN scores
+        numComments: post.num_comments ?? 0,
+        upvoteRatio: post.upvote_ratio ?? 0.5, // Default to a neutral 50%
     }));
 };

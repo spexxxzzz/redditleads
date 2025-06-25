@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Get API key from your .env file
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
 /**
  * Generates a list of keywords based on website text.
@@ -45,6 +45,28 @@ export const generateSubredditSuggestions = async (businessDescription: string):
 
 export const analyzeLeadIntent = async (title: string, body: string | null): Promise<string> => {
     const prompt = `Analyze the following Reddit post for user intent. Classify it as 'pain_point', 'solution_seeking', 'brand_comparison', or 'general_discussion'. Return only the single classification. Post Title: "${title}". Post Body: "${body}"`;
+    const result = await model.generateContent(prompt);
+    return result.response.text().trim();
+};
+
+/**
+ * Analyzes a subreddit's rules and description to generate a summary of its culture.
+ * @param description The public description or sidebar text of the subreddit.
+ * @param rules An array of the subreddit's official rules.
+ * @returns A promise that resolves to a string containing the AI-generated cultural notes.
+ */
+export const generateCultureNotes = async (description: string, rules: string[]): Promise<string> => {
+    const rulesText = rules.map((rule, index) => `${index + 1}. ${rule}`).join('\n');
+    const prompt = `You are a Reddit community analyst. Based on the following subreddit description and rules, provide a brief, one-paragraph summary of the community's culture and posting etiquette. Focus on the general vibe (e.g., "highly technical," "meme-friendly," "strictly moderated") and what a new user should know before posting.
+
+Subreddit Description:
+"${description}"
+
+Subreddit Rules:
+"${rulesText}"
+
+Cultural Summary:`;
+
     const result = await model.generateContent(prompt);
     return result.response.text().trim();
 };
