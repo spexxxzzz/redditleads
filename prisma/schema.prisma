@@ -14,15 +14,24 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-   id        String     @id
-  email     String     @unique
-  // ... other user fieldss
-  campaigns Campaign[]
-  plan               String   @default("free") // e.g., "free", "pro"
-  stripeCustomerId   String?  @unique // To link with Stripe for payments
-  subscriptionStatus String?  // e.g., "active", "canceled", "past_due"
+ model User {
+  id                  String    @id @default(cuid())
+  email               String    @unique
+  // ... other user fields
+  plan                String    @default("free")
+  subscriptionStatus  String?
+  
+  // New fields for Reddit Automation
+  redditUsername      String?
+  redditRefreshToken  String?   @db.Text // Encrypt this field in a real production app
+  redditKarma         Int?      @default(0)
+  lastKarmaCheck      DateTime?
+
+  campaigns           Campaign[]
+  leads               Lead[]
+  scheduledReplies    ScheduledReply[] // Add relation
 }
+
 
  model Campaign {
   id                  String    @id @default(cuid())
@@ -64,6 +73,8 @@ model Lead {
   
   // The calculated score
   opportunityScore Int
+  user                User      @relation(fields: [id], references: [id])
+  scheduledReplies    ScheduledReply[] // Add relation
 
   // The status of the lead in our system's workflow
   status           String   @default("new") // e.g., "new", "contacted", "archived"
@@ -86,4 +97,41 @@ model SubredditProfile {
   peakActivityTime String?  // e.g., "weekdays_afternoon_et"
 
   lastAnalyzedAt DateTime @updatedAt
+}
+
+model ScheduledReply {
+  id          String                @id @default(cuid())
+  content     String                @db.Text
+  status      ScheduledReplyStatus  @default(PENDING)
+  scheduledAt DateTime
+  postedAt    DateTime?
+  
+  // The ID of the comment once posted on Reddit
+  redditPostId String?
+
+  // To store any errors during posting
+  failReason  String?
+
+  leadId      String
+  lead        Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  upvotes         Int?      @default(0)
+  authorReplied   Boolean?  @default(false)
+  lastCheckedAt   DateTime?
+
+  
+}
+
+// New Enum for Status
+enum ScheduledReplyStatus {
+  PENDING
+  POSTED
+  FAILED
+  CANCELLED
 }

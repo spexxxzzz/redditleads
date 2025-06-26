@@ -3,17 +3,17 @@ import { Target, Zap, Sparkles } from "lucide-react";
 const features = [
   {
     name: "True Purchase Intent",
-    description: "Our AI goes beyond keywords. It understands context, nuance, and sarcasm to find users genuinely looking to buy, not just browsing.",
+    description: "Our AI understands context and nuance, not just keywords.",
     icon: Target,
   },
   {
     name: "Real-Time Opportunity Engine",
-    description: "The moment a high-intent conversation begins, you're notified. Be the first to engage with potential customers, not the last.",
+    description: "Get instant alerts and be the first to engage with new leads.",
     icon: Zap,
   },
   {
     name: "Discover Untapped Markets",
-    description: "Uncover new customer segments and subreddits you never knew were discussing problems your product solves. Expand your reach effortlessly.",
+    description: "Find hidden customer conversations and expand your market reach.",
     icon: Sparkles,
   },
 ];
@@ -33,7 +33,7 @@ export const WhyRedLead = () => {
             Why Settle for Noise? Get Pure Signal.
           </p>
           <p className="mt-4 max-w-2xl mx-auto text-xl text-gray-400">
-            Stop chasing dead ends. Our AI is trained to distinguish between casual chatter and genuine buying signals, so you only spend time on leads that matter.
+            Our AI pinpoints customers ready to buy, so you only engage with high-intent leads.
           </p>
         </div>
 

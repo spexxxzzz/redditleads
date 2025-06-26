@@ -1,6 +1,7 @@
 import express from 'express';
 import { getReplyOptions, postRefineReply } from '../controllers/engagement.controller';
 import { checkSubscription } from '../middleware/gateKeeper';
+import { postReplyToLead } from '../controllers/post.controller';
 
 const engagementRouter = express.Router();
 
@@ -12,5 +13,7 @@ engagementRouter.post('/generate', getReplyOptions);
 
 // Route to refine an existing reply
 engagementRouter.post('/refine', postRefineReply);
+
+engagementRouter.post('/post-reply', postReplyToLead);
 
 export default engagementRouter;

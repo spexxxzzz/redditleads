@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import { runLeadDiscoveryWorker } from '../workers/lead.worker';
 import { runSubredditAnalysisWorker } from '../workers/subreddit.worker';
+import { runReplyTrackingWorker } from '../workers/replyTracking.worker';
 
 /**
  * Initializes and starts all scheduled background jobs for the application.
@@ -26,6 +27,16 @@ export const initializeScheduler = () => {
         console.log('Triggering daily subreddit intelligence analysis...');
         runSubredditAnalysisWorker().catch(err => {
             console.error('A critical error occurred during the subreddit analysis worker run:', err);
+        });
+    });
+
+        // --- JOB 3: Reply Success Tracking Worker ---
+    // This schedule runs every hour.
+    cron.schedule('0 * * * *', () => {
+        console.log('-------------------------------------');
+        console.log('Triggering hourly reply success tracking...');
+        runReplyTrackingWorker().catch(err => {
+            console.error('A critical error occurred during the reply tracking worker run:', err);
         });
     });
 
