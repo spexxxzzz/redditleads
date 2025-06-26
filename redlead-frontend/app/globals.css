@@ -1,0 +1,94 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #fff7ed;
+  --color-foreground: #111827;
+  --color-card: #ffffff;
+  --color-primary: #ff4500;
+  --color-primary-hover: #e03d00;
+  --color-muted-foreground: #4b5563;
+  --color-border: #e5e7eb;
+  
+  --font-family-sans: var(--font-inter), system-ui, sans-serif;
+}
+
+@layer utilities {
+  .bg-background {
+    background-color: var(--color-background);
+  }
+  
+  .text-foreground {
+    color: var(--color-foreground);
+  }
+  
+  .bg-card {
+    background-color: var(--color-card);
+  }
+  
+  .text-primary {
+    color: var(--color-primary);
+  }
+  
+  .bg-primary {
+    background-color: var(--color-primary);
+  }
+  
+  .bg-primary-hover:hover {
+    background-color: var(--color-primary-hover);
+  }
+  
+  .text-muted-foreground {
+    color: var(--color-muted-foreground);
+  }
+  
+  .border-border {
+    border-color: var(--color-border);
+  }
+}
+
+/* Custom Animations */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.6s ease-out;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.8s ease-out;
+}
+
+.delay-150 {
+  animation-delay: 0.15s;
+}
+
+.delay-300 {
+  animation-delay: 0.3s;
+}
+
+.delay-500 {
+  animation-delay: 0.5s;
+}
+
+.delay-700 {
+  animation-delay: 0.7s;
+}
