@@ -52,34 +52,28 @@ datasource db {
   leads               Lead[]
 }
 
-// ... existing User and Campaign models ...
-
-// ...existing User and Campaign models...
-
 model Lead {
   id               String   @id @default(cuid())
-  redditId         String   @unique // The Reddit post ID (e.g., "xyz123") to prevent duplicates
+  redditId         String   @unique
   title            String   @db.Text
   author           String
   subreddit        String
   url              String   @unique
   body             String?  @db.Text
-  intent           String?  // e.g., "pain_point", "solution_seeking"
-  // The timestamp from Reddit when the post was created
+  intent           String?
   postedAt         DateTime
-
-  // The timestamp when our system discovered this lead
   discoveredAt     DateTime @default(now())
-  
-  // The calculated score
   opportunityScore Int
-  user                User      @relation(fields: [id], references: [id])
-  scheduledReplies    ScheduledReply[] // Add relation
+  status           String   @default("new")
 
-  // The status of the lead in our system's workflow
-  status           String   @default("new") // e.g., "new", "contacted", "archived"
+  // --- FIX IS HERE ---
+  // We add a dedicated `userId` field to store the owner's ID
+  userId           String
+  // The relation now correctly uses `userId` to link to the `User`'s `id`
+  user             User     @relation(fields: [userId], references: [id])
+  
+  scheduledReplies ScheduledReply[]
 
-  // Relation to the campaign that found this lead
   campaignId       String
   campaign         Campaign @relation(fields: [campaignId], references: [id])
 }

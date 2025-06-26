@@ -62,6 +62,9 @@ export const runLeadDiscoveryWorker = async () => {
                             opportunityScore: lead.opportunityScore,
                             campaignId: campaign.id,
                             intent: lead.intent,
+                            // --- FIX IS HERE ---
+                            // We now correctly provide the ID of the user who owns this lead.
+                            userId: user.id,
                         }
                     });
                     totalNewLeads++;
