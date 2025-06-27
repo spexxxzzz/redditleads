@@ -1,52 +1,95 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: #fff7ed;
-  --color-foreground: #111827;
-  --color-card: #ffffff;
-  --color-primary: #ff4500;
+  /* Force light theme colors - your original cream theme */
+  --background: #fff7ed;  /* Your cream background */
+  --foreground: #111827;
+  --card: #ffffff;
+  --card-foreground: #111827;
+  --popover: #ffffff;
+  --popover-foreground: #111827;
+  --primary: #ff4500;  /* Your Reddit orange */
+  --primary-foreground: #ffffff;
+  --secondary: #f3f4f6;
+  --secondary-foreground: #111827;
+  --muted: #f9fafb;
+  --muted-foreground: #6b7280;
+  --accent: #f3f4f6;
+  --accent-foreground: #111827;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #e5e7eb;
+  --input: #e5e7eb;
+  --ring: #ff4500;
+  --radius: 0.5rem;
+
+  /* Your custom color mappings for compatibility */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-primary: var(--primary);
   --color-primary-hover: #e03d00;
-  --color-muted-foreground: #4b5563;
-  --color-border: #e5e7eb;
-  
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+
   --font-family-sans: var(--font-inter), system-ui, sans-serif;
 }
 
+/* Force light theme - override any dark mode preferences */
+:root {
+  --background: #fff7ed !important;  /* Force cream background */
+  --foreground: #111827 !important;
+  --card: #ffffff !important;
+  --card-foreground: #111827 !important;
+  --popover: #ffffff !important;
+  --popover-foreground: #111827 !important;
+  --primary: #ff4500 !important;
+  --primary-foreground: #ffffff !important;
+  --secondary: #f3f4f6 !important;
+  --secondary-foreground: #111827 !important;
+  --muted: #f9fafb !important;
+  --muted-foreground: #6b7280 !important;
+  --accent: #f3f4f6 !important;
+  --accent-foreground: #111827 !important;
+  --destructive: #ef4444 !important;
+  --destructive-foreground: #ffffff !important;
+  --border: #e5e7eb !important;
+  --input: #e5e7eb !important;
+  --ring: #ff4500 !important;
+}
+
+/* Remove dark mode media queries completely */
+/* We don't want any dark mode behavior */
+
+/* Custom utilities to maintain your existing classes */
 @layer utilities {
   .bg-background {
-    background-color: var(--color-background);
+    background-color: var(--background);
   }
-  
   .text-foreground {
-    color: var(--color-foreground);
+    color: var(--foreground);
   }
-  
   .bg-card {
-    background-color: var(--color-card);
+    background-color: var(--card);
   }
-  
   .text-primary {
-    color: var(--color-primary);
+    color: var(--primary);
   }
-  
   .bg-primary {
-    background-color: var(--color-primary);
+    background-color: var(--primary);
   }
-  
   .bg-primary-hover:hover {
     background-color: var(--color-primary-hover);
   }
-  
   .text-muted-foreground {
-    color: var(--color-muted-foreground);
+    color: var(--muted-foreground);
   }
-  
   .border-border {
-    border-color: var(--color-border);
+    border-color: var(--border);
   }
 }
 
-/* Custom Animations */
+/* Your custom animations */
 @keyframes fade-in {
   from {
     opacity: 0;
