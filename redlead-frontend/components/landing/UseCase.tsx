@@ -21,8 +21,7 @@ const useCases = [
   {
     title: "AI & SaaS Tools",
     lead: `"I'm looking for a Calendly alternative that has better team features. Any suggestions?"`,
-    subreddit: "r/saas",
-    model: "🤖", // We'll replace this with CSS 3D
+    subreddit: "r/saas", // We'll replace this with CSS 3D
     color: "from-blue-400 to-blue-600",
     bgGradient: "from-blue-50 to-blue-100"
   },
@@ -30,7 +29,6 @@ const useCases = [
     title: "Local Coffee Shops",
     lead: `"Where can I find the best artisan coffee in downtown? Looking for a cozy spot to work."`,
     subreddit: "r/Coffee",
-    model: "☕", 
     color: "from-amber-600 to-orange-600",
     bgGradient: "from-amber-50 to-orange-100"
   },
@@ -38,7 +36,6 @@ const useCases = [
     title: "E-commerce Brands",
     lead: `"Where can I buy high-quality, ethically sourced products online?"`,
     subreddit: "r/BuyItForLife",
-    model: "🛍️",
     color: "from-purple-400 to-purple-600",
     bgGradient: "from-purple-50 to-purple-100"
   },
@@ -46,7 +43,7 @@ const useCases = [
     title: "Game Developers",
     lead: `"My friends and I are looking for a new co-op indie game to play on Steam, any hidden gems?"`,
     subreddit: "r/gamingsuggestions",
-    model: "🎮",
+  
     color: "from-red-400 to-red-600",
     bgGradient: "from-red-50 to-red-100"
   },
@@ -54,15 +51,14 @@ const useCases = [
     title: "Creative Agencies",
     lead: `"We need to hire a freelance graphic designer for a new branding project. Where's the best place to find talent?"`,
     subreddit: "r/forhire",
-    model: "🎨",
+    
     color: "from-pink-400 to-pink-600",
-    bgGradient: "from-pink-50 to-pink-100"
+    
   },
   {
     title: "Tech Startups",
     lead: `"I'm so frustrated with current solutions. Are there any better alternatives for building modern apps?"`,
     subreddit: "r/programming",
-    model: "💻",
     color: "from-green-400 to-green-600",
     bgGradient: "from-green-50 to-green-100"
   },
@@ -436,7 +432,7 @@ export const UseCases = () => {
       `}</style>
 
       {/* Hero Section */}
-      <section className="min-h-screen w-full flex flex-col items-center justify-center text-center bg-gradient-to-br from-slate-50 via-white to-orange-50 p-6 relative overflow-hidden">
+ <section className="flex flex-col items-center justify-center text-center bg-gradient-to-br from-slate-50 via-white to-orange-50 py-20 px-6 relative overflow-hidden">
         {/* Background Elements */}
         <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
         <div className="absolute top-20 left-20 w-72 h-72 bg-orange-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-pulse"></div>
@@ -468,9 +464,12 @@ export const UseCases = () => {
           </p>
         </div>
       </section>
+ 
+ 
+ 
 
       {/* Use Cases Section */}
-      <section ref={targetRef} className="relative h-[700vh] bg-gradient-to-b from-slate-50 to-white">
+      <section ref={targetRef} className="relative h-[650vh] bg-gradient-to-b from-slate-50 to-white">
         <div className="sticky top-0 h-screen flex flex-col items-center justify-center overflow-hidden">
           {useCases.map((useCase, i) => {
             const segmentStart = i / useCases.length;
@@ -511,32 +510,33 @@ export const UseCases = () => {
                 style={{ opacity, scale, y }}
                 className="absolute flex flex-col items-center justify-center text-center px-8 max-w-4xl"
               >
-                {/* 3D Model */}
-                <motion.div
-                  style={{ rotateY }}
-                  className="mb-12 transform-gpu"
-                >
-                  <div className={`p-8 bg-gradient-to-br ${useCase.bgGradient} backdrop-blur-xl rounded-3xl shadow-2xl border border-white/50 relative overflow-hidden`}>
-                    <div className="absolute inset-0 bg-white/20 backdrop-blur-sm"></div>
-                    <div className="relative z-10">
-                      <ModelComponent className="mx-auto" />
-                    </div>
-                  </div>
-                </motion.div>
 
                 {/* Content */}
                 <div className="space-y-6">
-                  <h3 className={`text-4xl lg:text-5xl font-bold bg-gradient-to-r ${useCase.color} bg-clip-text text-transparent ${poppins.className}`}>
+                <h3 className={`text-7xl lg:text-8xl xl:text-9xl font-bold bg-gradient-to-r ${useCase.color} bg-clip-text text-transparent ${poppins.className}`}>
+
                     {useCase.title}
                   </h3>
                   
-                  <blockquote className="max-w-2xl">
-                    <p className={`text-xl lg:text-2xl text-slate-700 leading-relaxed italic font-medium ${inter.className}`}>
-                      {useCase.lead}
-                    </p>
-                  </blockquote>
-                  
-                  <div className="inline-flex items-center gap-3 text-lg font-semibold text-slate-600 bg-white/80 backdrop-blur-sm py-3 px-6 rounded-full border border-white/50 shadow-lg">
+                  <div className="max-w-4xl overflow-hidden">
+  <motion.div
+    style={{
+      x: useTransform(
+        scrollYProgress,
+        [segmentStart, fadeInPoint, fadeOutPoint, segmentEnd],
+        ["-100%", "0%", "0%", "100%"]
+      )
+    }}
+    className="whitespace-nowrap"
+  > 
+  <p className={`text-3xl lg:text-4xl xl:text-5xl text-gray-500 leading-relaxed italic font-medium ${inter.className}`}>
+       {useCase.lead}
+    </p>
+  </motion.div>
+</div>
+
+<div className="inline-flex items-center gap-4 text-2xl lg:text-3xl font-semibold text-gray-400 bg-white/80 backdrop-blur-sm py-4 px-8 rounded-full border border-white/50 shadow-lg">
+
                     <span>Found in</span>
                     <span className={`font-bold text-slate-800 inline-flex items-center gap-2 bg-gradient-to-r ${useCase.color} bg-clip-text text-transparent`}>
                       <FaReddit className="w-6 h-6 text-orange-500" />
