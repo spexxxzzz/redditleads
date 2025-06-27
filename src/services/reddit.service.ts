@@ -1,69 +1,95 @@
 import snoowrap from 'snoowrap';
 
-// Initialize snoowrap with credentials from environment variables
-const r = new snoowrap({
-    userAgent: process.env.REDDIT_USER_AGENT!,
-    clientId: process.env.REDDIT_CLIENT_ID!,
-    clientSecret: process.env.REDDIT_CLIENT_SECRET!,
-    refreshToken: process.env.REDDIT_REFRESH_TOKEN!
-});
+// This variable will hold our verified snoowrap instance.
+let r: snoowrap | null = null;
 
 /**
- * Searches a list of subreddits for posts matching a set of keywords.
- * This function is designed to be resilient and will not crash if one of the
- * subreddits is banned, private, or otherwise inaccessible.
- * 
- * @param keywords An array of keywords to search for.
- * @param subreddits An array of subreddit names (without the 'r/').
- * @returns A promise that resolves to an array of formatted lead objects.
+ * Initializes and verifies the main application-level snoowrap instance.
+ * It tries to authenticate and will throw a clear error if credentials are bad.
+ * This prevents silent failures where searches return empty results.
  */
-export const findLeadsOnReddit = async (keywords: string[], subreddits: string[]) => {
-    const searchQuery = keywords.join(' OR ');
-    const allPosts: any[] = [];
-
-    console.log(`Starting Reddit search for ${subreddits.length} subreddits.`);
-
-    // Use a for...of loop to process each subreddit individually.
-    // This allows us to handle errors for one subreddit without stopping the entire search.
-    for (const subreddit of subreddits) {
-        try {
-            console.log(`  -> Searching in r/${subreddit}...`);
-            const searchResults = await r.getSubreddit(subreddit).search({ 
-                query: searchQuery, 
-                sort: 'new', 
-                time: 'week' 
-            });
-            // Convert the Listing to array and add to our collection
-            const resultsArray = await searchResults.fetchAll();
-            allPosts.push(...resultsArray);
-        } catch (error: any) {
-            // If a single subreddit fails, log a warning and continue to the next one.
-            console.warn(`⚠️  Could not search subreddit 'r/${subreddit}'. It might be private, banned, or non-existent. Skipping.`);
-        }
+const getAppAuthenticatedInstance = async (): Promise<snoowrap> => {
+    // If we already have a verified instance, reuse it.
+    if (r) {
+        return r;
     }
 
-    console.log(`Reddit search complete. Found ${allPosts.length} total posts before filtering.`);
+    console.log('Initializing and verifying Reddit application credentials...');
+    try {
+        const tempR = new snoowrap({
+            userAgent: process.env.REDDIT_USER_AGENT!,
+            clientId: process.env.REDDIT_CLIENT_ID!,
+            clientSecret: process.env.REDDIT_CLIENT_SECRET!,
+            refreshToken: process.env.REDDIT_REFRESH_TOKEN!
+        });
 
-    // Map the raw post data to our desired Lead format.
-    return allPosts.map((post: any) => ({
-        id: post.id,
-        title: post.title,
-        author: post.author?.name ?? '[deleted]',
-        subreddit: post.subreddit?.display_name ?? '[unknown]',
-        url: post.permalink ? `https://reddit.com${post.permalink}` : `https://www.reddit.com/r/${post.subreddit?.display_name ?? 'unknown'}/comments/${post.id}`,
-        body: post.selftext,
-        createdAt: post.created_utc,
-        numComments: post.num_comments ?? 0,
-        upvoteRatio: post.upvote_ratio ?? 0.5,
-    }));
+        // --- THE CRITICAL VERIFICATION STEP ---
+        // We ask Reddit "who am I?". If this fails, the credentials are bad.
+        //@ts-expect-error
+        const me = await tempR.getMe();
+        console.log(`✅ Reddit credentials verified for user: u/${me.name}`);
+        
+        // Store the verified instance for future use.
+        r = tempR;
+        // --- FIX: Return the locally scoped constant to break the type inference cycle. ---
+        return tempR;
+
+    } catch (error: any) {
+        console.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+        console.error('!!! CRITICAL ERROR: FAILED TO AUTHENTICATE WITH REDDIT !!!');
+        console.error('!!! This is likely due to an invalid REDDIT_REFRESH_TOKEN in your .env file.');
+        console.error('!!! Please check your credentials on https://www.reddit.com/prefs/apps');
+        console.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+        throw new Error(`Reddit Authentication Failed: ${error.message}`);
+    }
 };
 
-/**
- * Creates a temporary snoowrap instance authenticated as a specific user.
- * This is critical for performing actions on behalf of a user.
- * @param userRefreshToken The user's securely stored refresh token.
- * @returns A user-authenticated snoowrap instance.
- */
+
+export const findLeadsOnReddit = async (keywords: string[], subreddits: string[]) => {
+    try {
+        // --- FIX: Always get a verified instance before searching ---
+        const reddit = await getAppAuthenticatedInstance();
+        const searchQuery = keywords.map(k => `"${k}"`).join(' OR ');
+        const allPosts: any[] = [];
+
+        console.log(`Starting Reddit search for ${subreddits.length} subreddits.`);
+        console.log(`  -> Using search query: ${searchQuery}`);
+
+        for (const subreddit of subreddits) {
+            try {
+                const searchResults = await reddit.getSubreddit(subreddit).search({ 
+                    query: searchQuery, 
+                    sort: 'new', 
+                    time: 'month' 
+                });
+                const resultsArray = await searchResults.fetchAll();
+                allPosts.push(...resultsArray);
+            } catch (error: any) {
+                console.warn(`⚠️  Could not search subreddit 'r/${subreddit}'. It might be private, banned, or non-existent. Skipping.`);
+            }
+        }
+
+        console.log(`Reddit search complete. Found ${allPosts.length} total posts before filtering.`);
+
+        return allPosts.map((post: any) => ({
+            id: post.id,
+            title: post.title,
+            author: post.author?.name ?? '[deleted]',
+            subreddit: post.subreddit?.display_name ?? '[unknown]',
+            url: post.permalink ? `https://reddit.com${post.permalink}` : `https://www.reddit.com/r/${post.subreddit?.display_name ?? 'unknown'}/comments/${post.id}`,
+            body: post.selftext,
+            createdAt: post.created_utc,
+            numComments: post.num_comments ?? 0,
+            upvoteRatio: post.upvote_ratio ?? 0.5,
+        }));
+
+    } catch (error) {
+        // If authentication failed, this will catch it and prevent the worker from crashing.
+        console.error("Could not perform Reddit search due to an error.", error);
+        return []; // Return an empty array to allow the worker to continue gracefully.
+    }
+};
+
 const getUserAuthenticatedInstance = (userRefreshToken: string) => {
     return new snoowrap({
         userAgent: process.env.REDDIT_USER_AGENT!,
@@ -72,19 +98,9 @@ const getUserAuthenticatedInstance = (userRefreshToken: string) => {
         refreshToken: userRefreshToken,
     });
 };
-
-/**
- * Posts a reply to a Reddit submission or comment on behalf of a user.
- * @param parentId The full ID of the post or comment to reply to (e.g., 't3_xxxx' or 't1_yyyy').
- * @param text The content of the reply.
- * @param userRefreshToken The refresh token of the user posting the reply.
- * @returns The full ID of the newly created comment.
- */
 export const postReply = async (parentId: string, text: string, userRefreshToken: string): Promise<string> => {
     try {
         const userR = getUserAuthenticatedInstance(userRefreshToken);
-        
-        // Use type assertion to avoid TypeScript recursion issues
         const newComment = await (userR.getComment(parentId).reply(text) as Promise<any>);
         return newComment.name as string;
     } catch (error: any) {
@@ -92,17 +108,9 @@ export const postReply = async (parentId: string, text: string, userRefreshToken
         throw new Error(`Reddit API Error: ${error.message}`);
     }
 };
-
-/**
- * Fetches the karma for a specific user.
- * @param userRefreshToken The refresh token of the user.
- * @returns The user's combined karma count.
- */
 export const getUserKarma = async (userRefreshToken: string): Promise<number> => {
     try {
         const userR = getUserAuthenticatedInstance(userRefreshToken);
-        
-        // Use type assertion to avoid TypeScript recursion issues
         const me = await (userR.getMe() as Promise<any>);
         return (me.link_karma || 0) + (me.comment_karma || 0);
     } catch (error: any) {
@@ -110,13 +118,6 @@ export const getUserKarma = async (userRefreshToken: string): Promise<number> =>
         throw new Error(`Reddit API Error while fetching karma: ${error.message}`);
     }
 };
-
-/**
- * Checks if a user has enough karma to post safely in most subreddits.
- * @param userRefreshToken The refresh token of the user.
- * @param minimumKarma The minimum karma threshold (default: 10).
- * @returns Whether the user meets the karma requirement.
- */
 export const checkKarmaThreshold = async (userRefreshToken: string, minimumKarma: number = 10): Promise<boolean> => {
     try {
         const karma = await getUserKarma(userRefreshToken);
@@ -126,36 +127,18 @@ export const checkKarmaThreshold = async (userRefreshToken: string, minimumKarma
         return false;
     }
 };
-
-/**
- * Gets optimal posting time based on subreddit activity (simplified version).
- * In a real implementation, this would analyze historical data.
- * @param subredditName The name of the subreddit.
- * @returns A delay in minutes before posting for optimal engagement.
- */
 export const getOptimalPostingDelay = (subredditName: string): number => {
-    // Simplified logic - in production, this would use historical data
     const popularSubreddits = ['askreddit', 'todayilearned', 'worldnews', 'pics'];
-    
     if (popularSubreddits.includes(subredditName.toLowerCase())) {
-        // For popular subreddits, post immediately as competition is high
         return 0;
     } else {
-        // For smaller subreddits, wait 5-15 minutes for better visibility
         return Math.floor(Math.random() * 10) + 5;
     }
 };
-
- 
-/**
- * Fetches the full details of a specific comment by its ID.
- * @param commentId The full ID of the comment (e.g., 't1_xxxxxx').
- * @returns A snoowrap Comment object.
- */
 export const getCommentById = async (commentId: string): Promise<any> => {
     try {
-        // We can use the app's global, read-only instance for this.
-         const comment = await (r.getComment(commentId).fetch() as Promise<any>);
+        const reddit = await getAppAuthenticatedInstance();
+        const comment = await (reddit.getComment(commentId).fetch() as Promise<any>);
         return comment;
     } catch (error: any) {
         console.error(`Failed to fetch comment ${commentId}:`, error.message);

@@ -2,13 +2,13 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Get API key from your .env file
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
 /**
  * Generates a list of keywords based on website text.
  */
 export const generateKeywords = async (websiteText: string): Promise<string[]> => {
-    const prompt = `Based on the following website text, generate a list of 15 relevant, high-intent keywords that potential customers might search for. Return the list as a simple comma-separated string. Do not include any other text or explanation. Website Text: "${websiteText}"`;
+    const prompt = `Based on the following website text, Generate keywords that real Reddit users would naturally use in casual conversation, not technical marketing terms. Focus on problems people have and simple language    Return the list as a simple comma-separated string. Do not include any other text or explanation. Website Text: "${websiteText}"`;
     
     const result = await model.generateContent(prompt);
     const response = result.response;

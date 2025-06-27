@@ -40,5 +40,5 @@ app.get("/api/auth/reddit/callback", async (req, res) => {
     console.log(`Server running on http://localhost:${PORT}`);
   
     // Initialize all scheduled background jobs
-    initializeScheduler();
+    // initializeScheduler();
   });
