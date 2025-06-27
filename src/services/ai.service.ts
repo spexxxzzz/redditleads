@@ -42,13 +42,6 @@ export const generateSubredditSuggestions = async (businessDescription: string):
     // Clean up the response and return as an array
     return text.split(',').map(s => s.trim()).filter(s => s); // filter(s => s) removes any empty strings
 };
-
-export const analyzeLeadIntent = async (title: string, body: string | null): Promise<string> => {
-    const prompt = `Analyze the following Reddit post for user intent. Classify it as 'pain_point', 'solution_seeking', 'brand_comparison', or 'general_discussion'. Return only the single classification. Post Title: "${title}". Post Body: "${body}"`;
-    const result = await model.generateContent(prompt);
-    return result.response.text().trim();
-};
-
 /**
  * Analyzes a subreddit's rules and description to generate a summary of its culture.
  * @param description The public description or sidebar text of the subreddit.
@@ -153,4 +146,51 @@ Do not add any commentary or explanation. Only return the refined text.
 
     const result = await model.generateContent(prompt);
     return result.response.text().trim();
+};
+
+export const analyzeLeadIntent = async (title: string, body: string | null): Promise<string> => {
+    const prompt = `Analyze the following Reddit post for user intent. Classify it as 'pain_point', 'solution_seeking', 'brand_comparison', or 'general_discussion'. Return only the single classification. Post Title: "${title}". Post Body: "${body}"`;
+    const result = await model.generateContent(prompt);
+    return result.response.text().trim();
+};
+
+/**
+ * Analyzes a Reddit post that mentions a competitor to determine the sentiment.
+ * @param title The title of the post.
+ * @param body The body of the post.
+ * @returns A promise that resolves to 'positive', 'negative', or 'neutral'.
+ */
+export const analyzeSentiment = async (title: string, body: string | null): Promise<string> => {
+    const prompt = `Analyze the sentiment of the following Reddit post. Is the user expressing a 'positive', 'negative', or 'neutral' opinion? Return only the single classification. Post Title: "${title}". Post Body: "${body}"`;
+    const result = await model.generateContent(prompt);
+    return result.response.text().trim().toLowerCase();
+};
+
+/**
+ * Discovers potential competitor products or companies mentioned in a text.
+ * @param text The text of the Reddit post or comment to analyze.
+ * @param ownProductDescription A description of the user's own product for context.
+ * @returns A promise that resolves to an array of discovered competitor names.
+ */
+export const discoverCompetitorsInText = async (text: string, ownProductDescription: string): Promise<string[]> => {
+    const prompt = `
+You are a market intelligence analyst. Your task is to identify potential competitor products or companies mentioned in the provided text.
+
+**My Product:**
+"${ownProductDescription}"
+
+**Text to Analyze:**
+"${text}"
+
+Based on my product description, analyze the text and extract the names of any other products or companies mentioned that seem to be in a similar market.
+Return the list as a simple JSON array of strings. Example: ["Competitor A", "Product B"]. If no competitors are found, return an empty array [].
+`;
+    const result = await model.generateContent(prompt);
+    const responseText = result.response.text().replace(/```json\n?|\n?```/g, '');
+    try {
+        const competitors = JSON.parse(responseText);
+        return Array.isArray(competitors) ? competitors : [];
+    } catch {
+        return []; // Return empty array if parsing fails
+    }
 };

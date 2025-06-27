@@ -1,12 +1,8 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
-  // output   = "../generated/prisma"
 }
 
 datasource db {
@@ -14,118 +10,174 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
- model User {
-  id                  String    @id @default(cuid())
-  email               String    @unique
-  // ... other user fields
-  plan                String    @default("free")
-  subscriptionStatus  String?
-  
-  // New fields for Reddit Automation
-  redditUsername      String?
-  redditRefreshToken  String?   @db.Text // Encrypt this field in a real production app
-  redditKarma         Int?      @default(0)
-  lastKarmaCheck      DateTime?
+// --- Core Models ---
 
-  campaigns           Campaign[]
-  leads               Lead[]
-  scheduledReplies    ScheduledReply[] // Add relation
+model User {
+  id    String @id @default(cuid())
+  email String @unique
+
+  // User's subscription and plan details
+  plan               String    @default("free")
+  subscriptionStatus String?
+
+  // Reddit-specific authentication and data
+  // SECURITY: The refreshToken should be encrypted at the application level before being stored.
+  redditUsername     String?
+  redditRefreshToken String?   @db.Text
+  redditKarma        Int?      @default(0)
+  lastKarmaCheck     DateTime?
+
+  // --- Relations ---
+  campaigns        Campaign[]
+  leads            Lead[]
+  scheduledReplies ScheduledReply[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  MarketInsight MarketInsight[]
 }
 
+model Campaign {
+  id   String @id @default(cuid())
+  // --- FIX: Added a default value for the new required field ---
+  name String @default("Untitled Campaign")
 
- model Campaign {
-  id                  String    @id @default(cuid())
-  userId              String
-  user                User      @relation(fields: [userId], references: [id])
-  
-  analyzedUrl         String
-  generatedKeywords   String[]
+  // AI-generated assets for the campaign
+  analyzedUrl          String
+  generatedKeywords    String[]
   generatedDescription String   @db.Text
+  targetSubreddits     String[] @default([])
+  competitors          String[] @default([])
 
-  // --- NEW FIELD ---
-  // Stores the list of subreddits recommended by the AI for this specific campaign
-  targetSubreddits    String[]  @default([])
+  // --- Relations ---
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  leads  Lead[]
 
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
-  description        String?   @db.Text // Optional description for the campaign 
-  leads               Lead[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  MarketInsight MarketInsight[]
 }
 
 model Lead {
-  id               String   @id @default(cuid())
-  redditId         String   @unique
-  title            String   @db.Text
-  author           String
-  subreddit        String
-  url              String   @unique
-  body             String?  @db.Text
+  id        String   @id @default(cuid())
+  redditId  String   @unique
+  title     String   @db.Text
+  author    String
+  subreddit String
+  url       String   @unique
+  body      String?  @db.Text
+
+  // Lead classification and scoring
+  type             LeadType @default(DIRECT_LEAD)
   intent           String?
-  postedAt         DateTime
-  discoveredAt     DateTime @default(now())
+  sentiment        String?
   opportunityScore Int
   status           String   @default("new")
 
-  // --- FIX IS HERE ---
-  // We add a dedicated `userId` field to store the owner's ID
+  // Timestamps
+  postedAt     DateTime // When the original post was made on Reddit
+  discoveredAt DateTime @default(now())
+
+  // --- Relations ---
   userId           String
-  // The relation now correctly uses `userId` to link to the `User`'s `id`
-  user             User     @relation(fields: [userId], references: [id])
-  
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaignId       String
+  campaign         Campaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   scheduledReplies ScheduledReply[]
 
-  campaignId       String
-  campaign         Campaign @relation(fields: [campaignId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+    insightAnalysisRan Boolean @default(false)
+
+
+  @@index([userId])
+  @@index([campaignId])
 }
 
+// --- Engagement & Automation Models ---
 
-// This table will store pre-analyzed data about subreddits to inform
-// engagement strategies and AI-powered response generation in Layer 3.
+model ScheduledReply {
+  id           String               @id @default(cuid())
+  content      String               @db.Text
+  status       ScheduledReplyStatus @default(PENDING)
+  scheduledAt  DateTime
+  postedAt     DateTime?
+  failReason   String?
+  redditPostId String?
+
+  // Performance tracking for A/B testing
+  upvotes       Int?     @default(0)
+  authorReplied Boolean? @default(false)
+  lastCheckedAt DateTime?
+
+  // --- Relations ---
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([leadId])
+}
+
+// Stores pre-analyzed data about subreddits to inform engagement strategies.
 model SubredditProfile {
   id   String @id @default(cuid())
   name String @unique // The name of the subreddit (e.g., "solana")
 
   // Data fetched and analyzed by a background worker
-  rules            String[] @default([]) // A list of the subreddit's official rules
-  cultureNotes     String?  @db.Text    // AI-generated summary of the subreddit's vibe and posting style
-  peakActivityTime String?  // e.g., "weekdays_afternoon_et"
+  rules            String[] @default([])
+  cultureNotes     String?  @db.Text
+  peakActivityTime String?
 
   lastAnalyzedAt DateTime @updatedAt
 }
 
-model ScheduledReply {
-  id          String                @id @default(cuid())
-  content     String                @db.Text
-  status      ScheduledReplyStatus  @default(PENDING)
-  scheduledAt DateTime
-  postedAt    DateTime?
-  
-  // The ID of the comment once posted on Reddit
-  redditPostId String?
+// --- Enums ---
 
-  // To store any errors during posting
-  failReason  String?
-
-  leadId      String
-  lead        Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
-
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  upvotes         Int?      @default(0)
-  authorReplied   Boolean?  @default(false)
-  lastCheckedAt   DateTime?
-
-  
-}
-
-// New Enum for Status
 enum ScheduledReplyStatus {
   PENDING
   POSTED
   FAILED
   CANCELLED
+}
+
+enum LeadType {
+  DIRECT_LEAD
+  COMPETITOR_MENTION
+}
+
+model MarketInsight {
+  id                      String        @id @default(cuid())
+  discoveredCompetitorName String
+  sourceUrl               String        @db.Text
+  sourceTextSnippet       String        @db.Text
+  context                 String        // e.g., "Mentioned as an alternative to your product"
+  status                  InsightStatus @default(NEW)
+
+  // --- Relations ---
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  discoveredAt DateTime @default(now())
+
+ 
+  @@index([campaignId])
+  @@unique([campaignId, discoveredCompetitorName])
+  @@index([userId])
+}
+
+enum InsightStatus {
+  NEW
+  VIEWED
+  ACTIONED // e.g., user added them to the monitored list
+  IGNORED
 }

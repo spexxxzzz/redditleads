@@ -18,7 +18,7 @@ export const analyzeWebsite: RequestHandler = async (req, res, next) => {
 
     if (!websiteUrl) {
           res.status(400).json({ message: 'Website URL is required.' });
-          return; // This satisfies the RequestHandler type (returns void)
+          return;
     }
 
     try {
@@ -34,7 +34,6 @@ export const analyzeWebsite: RequestHandler = async (req, res, next) => {
             generateDescription(scrapedText)
         ]);
 
-        // Immediately return the generated data. Do NOT save.
         res.status(200).json({
             websiteUrl,
             generatedKeywords: keywords,
@@ -46,12 +45,9 @@ export const analyzeWebsite: RequestHandler = async (req, res, next) => {
     }
 };
 
-// ...existing imports...
-
-// ... existing analyzeWebsite function ...
-
 export const completeOnboarding: RequestHandler = async (req, res, next) => {
-    const { userId, websiteUrl, generatedKeywords, generatedDescription } = req.body;
+    // --- FIX: Add `competitors` to the destructured request body ---
+    const { userId, websiteUrl, generatedKeywords, generatedDescription, competitors } = req.body;
 
     if (!userId || !websiteUrl || !generatedKeywords || !generatedDescription) {
          res.status(400).json({ message: 'All onboarding data is required.' });
@@ -59,14 +55,11 @@ export const completeOnboarding: RequestHandler = async (req, res, next) => {
     }
 
     try {
-        // --- DEBUG LOG 1 ---
         console.log(`[1/4] Entering completeOnboarding for user: ${userId}`);
 
-        // --- DEBUG LOG 2 ---
         console.log('[2/4] Calling AI to generate subreddit suggestions...');
         const subreddits = await generateSubredditSuggestions(generatedDescription);
         
-        // --- DEBUG LOG 3 ---
         console.log(`[3/4] AI call successful. Received ${subreddits.length} subreddits.`);
 
         const newCampaign = await prisma.campaign.create({
@@ -76,16 +69,17 @@ export const completeOnboarding: RequestHandler = async (req, res, next) => {
                 generatedKeywords,
                 generatedDescription,
                 targetSubreddits: subreddits,
+                // --- FIX: Include the new `competitors` field ---
+                // We use `|| []` to gracefully handle cases where it's not provided.
+                competitors: competitors || [],
             }
         });
 
-        // --- DEBUG LOG 4 ---
         console.log(`[4/4] Campaign ${newCampaign.id} saved. Sending response.`);
         res.status(201).json(newCampaign);
 
     } catch (error) {
-        // --- CRITICAL: Log the actual error ---
         console.error("!!! ERROR in completeOnboarding:", error);
-        next(error); // Pass the error to the default error handler
+        next(error);
     }
 };

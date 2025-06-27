@@ -31,7 +31,8 @@ export const generateReplyOptions = async (leadId: string): Promise<string[]> =>
     });
 
     // 2. Prepare the data for the AI
-    const companyDescription = lead.campaign.description;
+    // FIX: The field is named `generatedDescription` in the schema, not `description`.
+    const companyDescription = lead.campaign.generatedDescription;
     // Provide graceful fallbacks if the subreddit profile hasn't been generated yet
     const cultureNotes = subredditProfile?.cultureNotes ?? "No specific culture notes available. Be generally respectful and helpful.";
     const rules = subredditProfile?.rules ?? ["No spam."];

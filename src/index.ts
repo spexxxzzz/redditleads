@@ -4,7 +4,8 @@ import leadRouter from './routes/leads';
 import { initializeScheduler } from '../src/jobs/leadDiscovery'; // Import the new scheduler initializer
 import onboardingRouter from './routes/onboarding';
 import engagementRouter from './routes/engagement';
-
+// --- NEW: Import the new insight router ---
+import insightRouter from './routes/insights';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -18,7 +19,7 @@ app.get('/', (_req, res) => {
 app.use('/api/leads', leadRouter);
 app.use('/api/onboarding', onboardingRouter);
 app.use('/api/engagement', engagementRouter);
-
+app.use('/api/insights', insightRouter);
 
 app.get("/api/auth/reddit/callback", async (req, res) => {
     const code = req.query.code;
