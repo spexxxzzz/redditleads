@@ -1,104 +1,576 @@
 "use client";
-// 1. You might need to install react-icons: npm install react-icons
+import React, { useRef } from "react";
+import { motion, useScroll, useTransform } from "framer-motion";
 import { FaReddit } from "react-icons/fa";
-import { ArrowRight, Bot, Code, Gamepad, Palette, ShoppingCart, Smartphone, Sparkles } from "lucide-react";
-import React from "react";
+import { Sparkles } from "lucide-react";
 
-// Data arrays are unchanged
+// Import Google Fonts
+import { Inter, Poppins } from 'next/font/google';
+import { Mode } from "fs";
+
+const inter = Inter({ subsets: ['latin'] });
+const poppins = Poppins({ 
+  subsets: ['latin'], 
+  weight: ['400', '600', '700', '800', '900'] 
+});
+
+type ModelProps = {
+  className?: string;
+};
 const useCases = [
-    { icon: <Bot className="w-6 h-6 text-blue-600" />, title: "AI & SaaS Tools", lead: `"I'm looking for a Calendly alternative that has better team features. Any suggestions?"`, subreddit: "r/saas", borderColor: "border-blue-500", glowColor: "hover:shadow-blue-500/20" },
-    { icon: <Smartphone className="w-6 h-6 text-green-600" />, title: "Mobile Apps", lead: `"Does anyone know a good mobile app for tracking habits? I've tried a few but nothing sticks."`, subreddit: "r/apps", borderColor: "border-green-500", glowColor: "hover:shadow-green-500/20" },
-    { icon: <ShoppingCart className="w-6 h-6 text-purple-600" />, title: "E-commerce Brands", lead: `"Where can I buy high-quality, ethically sourced coffee beans online?"`, subreddit: "r/Coffee", borderColor: "border-purple-500", glowColor: "hover:shadow-purple-500/20" },
-    { icon: <Gamepad className="w-6 h-6 text-red-600" />, title: "Game Developers", lead: `"My friends and I are looking for a new co-op indie game to play on Steam, any hidden gems?"`, subreddit: "r/gamingsuggestions", borderColor: "border-red-500", glowColor: "hover:shadow-red-500/20" },
-    { icon: <Palette className="w-6 h-6 text-pink-600" />, title: "Creative Agencies", lead: `"We need to hire a freelance graphic designer for a new branding project. Where's the best place to find talent?"`, subreddit: "r/forhire", borderColor: "border-pink-500", glowColor: "hover:shadow-pink-500/20" },
-    { icon: <Code className="w-6 h-6 text-yellow-600" />, title: "DevTools", lead: `"I'm so frustrated with Electron. Are there any lighter alternatives for building desktop apps?"`, subreddit: "r/programming", borderColor: "border-yellow-500", glowColor: "hover:shadow-yellow-500/20" },
+  {
+    title: "AI & SaaS Tools",
+    lead: `"I'm looking for a Calendly alternative that has better team features. Any suggestions?"`,
+    subreddit: "r/saas",
+    model: "🤖", // We'll replace this with CSS 3D
+    color: "from-blue-400 to-blue-600",
+    bgGradient: "from-blue-50 to-blue-100"
+  },
+  {
+    title: "Local Coffee Shops",
+    lead: `"Where can I find the best artisan coffee in downtown? Looking for a cozy spot to work."`,
+    subreddit: "r/Coffee",
+    model: "☕", 
+    color: "from-amber-600 to-orange-600",
+    bgGradient: "from-amber-50 to-orange-100"
+  },
+  {
+    title: "E-commerce Brands",
+    lead: `"Where can I buy high-quality, ethically sourced products online?"`,
+    subreddit: "r/BuyItForLife",
+    model: "🛍️",
+    color: "from-purple-400 to-purple-600",
+    bgGradient: "from-purple-50 to-purple-100"
+  },
+  {
+    title: "Game Developers",
+    lead: `"My friends and I are looking for a new co-op indie game to play on Steam, any hidden gems?"`,
+    subreddit: "r/gamingsuggestions",
+    model: "🎮",
+    color: "from-red-400 to-red-600",
+    bgGradient: "from-red-50 to-red-100"
+  },
+  {
+    title: "Creative Agencies",
+    lead: `"We need to hire a freelance graphic designer for a new branding project. Where's the best place to find talent?"`,
+    subreddit: "r/forhire",
+    model: "🎨",
+    color: "from-pink-400 to-pink-600",
+    bgGradient: "from-pink-50 to-pink-100"
+  },
+  {
+    title: "Tech Startups",
+    lead: `"I'm so frustrated with current solutions. Are there any better alternatives for building modern apps?"`,
+    subreddit: "r/programming",
+    model: "💻",
+    color: "from-green-400 to-green-600",
+    bgGradient: "from-green-50 to-green-100"
+  },
 ];
 
-const businessTypes = [ "SaaS Startups", "Mobile Apps", "E-commerce", "Game Devs", "Creative Agencies", "No-Code", "AI Tools", "DevTools", "Marketing", "Creators", "B2B Services", "Design Studios" ];
+// 3D CSS Model Components
+const CoffeeModel = ({ className } : ModelProps) => (
+  <div className={`relative ${className}`}>
+    <div className="coffee-cup">
+      <div className="cup-body bg-gradient-to-b from-amber-100 to-amber-200 rounded-b-3xl shadow-2xl border-4 border-amber-300"></div>
+      <div className="cup-handle bg-amber-200 rounded-full shadow-lg"></div>
+      <div className="coffee-liquid bg-gradient-to-b from-amber-800 to-amber-900 rounded-t-sm"></div>
+      <div className="steam">
+        <div className="steam-line bg-gray-300 opacity-60 rounded-full animate-pulse"></div>
+        <div className="steam-line bg-gray-300 opacity-40 rounded-full animate-pulse delay-300"></div>
+        <div className="steam-line bg-gray-300 opacity-50 rounded-full animate-pulse delay-700"></div>
+      </div>
+    </div>
+  </div>
+);
+
+const RobotModel = ({ className }: { className?: string }) => (
+  <div className={`relative ${className}`}>
+    <div className="robot">
+      <div className="robot-head bg-gradient-to-b from-blue-400 to-blue-600 rounded-2xl shadow-2xl border-2 border-blue-300">
+        <div className="robot-eyes">
+          <div className="eye bg-white rounded-full shadow-inner">
+            <div className="pupil bg-blue-600 rounded-full animate-pulse"></div>
+          </div>
+          <div className="eye bg-white rounded-full shadow-inner">
+            <div className="pupil bg-blue-600 rounded-full animate-pulse"></div>
+          </div>
+        </div>
+        <div className="robot-mouth bg-blue-800 rounded-full"></div>
+      </div>
+      <div className="robot-body bg-gradient-to-b from-blue-500 to-blue-700 rounded-xl shadow-xl border-2 border-blue-400"></div>
+    </div>
+  </div>
+);
+
+const ShoppingBagModel = ({ className } : ModelProps) => (
+  <div className={`relative ${className}`}>
+    <div className="shopping-bag">
+      <div className="bag-body bg-gradient-to-b from-purple-300 to-purple-500 rounded-b-2xl shadow-2xl border-2 border-purple-400"></div>
+      <div className="bag-handles">
+        <div className="handle bg-purple-600 rounded-full shadow-lg"></div>
+        <div className="handle bg-purple-600 rounded-full shadow-lg"></div>
+      </div>
+      <div className="bag-logo bg-white rounded-full shadow-inner opacity-80"></div>
+    </div>
+  </div>
+);
+
+const GamepadModel = ({ className } : ModelProps) => (
+  <div className={`relative ${className}`}>
+    <div className="gamepad">
+      <div className="gamepad-body bg-gradient-to-b from-red-400 to-red-600 rounded-3xl shadow-2xl border-2 border-red-300"></div>
+      <div className="gamepad-buttons">
+        <div className="button bg-yellow-400 rounded-full shadow-lg"></div>
+        <div className="button bg-green-400 rounded-full shadow-lg"></div>
+        <div className="button bg-blue-400 rounded-full shadow-lg"></div>
+        <div className="button bg-red-400 rounded-full shadow-lg"></div>
+      </div>
+      <div className="gamepad-dpad bg-gray-700 rounded-sm shadow-inner"></div>
+    </div>
+  </div>
+);
+
+const PaletteModel = ({ className } : ModelProps) => (
+  <div className={`relative ${className}`}>
+    <div className="palette">
+      <div className="palette-body bg-gradient-to-br from-pink-200 to-pink-400 rounded-full shadow-2xl border-2 border-pink-300"></div>
+      <div className="paint-spots">
+        <div className="spot bg-red-500 rounded-full shadow-lg"></div>
+        <div className="spot bg-blue-500 rounded-full shadow-lg"></div>
+        <div className="spot bg-yellow-500 rounded-full shadow-lg"></div>
+        <div className="spot bg-green-500 rounded-full shadow-lg"></div>
+        <div className="spot bg-purple-500 rounded-full shadow-lg"></div>
+      </div>
+      <div className="brush bg-amber-600 rounded-full shadow-lg"></div>
+    </div>
+  </div>
+);
+
+const LaptopModel = ({ className } : ModelProps) => (
+  <div className={`relative ${className}`}>
+    <div className="laptop">
+      <div className="laptop-screen bg-gradient-to-b from-gray-800 to-gray-900 rounded-t-xl shadow-2xl border-2 border-gray-600">
+        <div className="screen-content bg-gradient-to-br from-green-400 to-blue-500 rounded-lg m-2 opacity-80"></div>
+      </div>
+      <div className="laptop-base bg-gradient-to-b from-gray-300 to-gray-500 rounded-b-xl shadow-xl border-2 border-gray-400"></div>
+      <div className="keyboard bg-gray-600 rounded-sm shadow-inner mx-4 mb-2"></div>
+    </div>
+  </div>
+);
+
+const getModelComponent = (index: number) => {
+  const models = [RobotModel, CoffeeModel, ShoppingBagModel, GamepadModel, PaletteModel, LaptopModel];
+  return models[index] || RobotModel;
+};
 
 export const UseCases = () => {
+  const targetRef = useRef(null);
+  const { scrollYProgress } = useScroll({
+    target: targetRef,
+    offset: ["start start", "end end"],
+  });
+
   return (
-    <section className="py-24 sm:py-32 bg-gradient-to-b from-background to-orange-50/30 overflow-x-hidden">
-      <div className="max-w-6xl mx-auto px-6 sm:px-8">
-        {/* Header */}
-        <div className="text-center mb-20">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/60 backdrop-blur-sm border border-orange-200/50 mb-6">
-            <Sparkles className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium text-foreground">One Tool, Every Niche</span>
-          </div>
-          <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-foreground mb-6">
-            If They're on Reddit,{" "}
-            <span className="bg-gradient-to-r from-primary to-orange-600 bg-clip-text text-transparent">
-              We'll Find Them
-            </span>
-          </h2>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            RedLead discovers leads across every business model. If people are discussing problems you solve, you'll know instantly.
-          </p>
-        </div>
-
-        {/* Floating Marquee */}
-        <div className="relative mb-20">
-          <div className="absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-background to-transparent z-10"></div>
-          <div className="absolute inset-y-0 right-0 w-20 bg-gradient-to-l from-background to-transparent z-10"></div>
-          <div className="overflow-hidden">
-            <div className="flex gap-4 py-4 marquee-content">
-              {[...businessTypes, ...businessTypes, ...businessTypes].map((type, index) => (
-                <div key={index} className="flex-shrink-0 px-6 py-3 bg-white/70 backdrop-blur-sm rounded-full text-sm font-medium text-foreground/80 border border-white/20 shadow-sm">
-                  {type}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Modern Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {useCases.map((useCase) => (
-            <div key={useCase.title} className={`flex flex-col h-full bg-white/60 backdrop-blur-lg rounded-2xl border border-slate-200/50 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${useCase.glowColor} border-t-2 ${useCase.borderColor}`}>
-              <div className="p-8 flex-grow">
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="p-3 bg-slate-100 rounded-lg border border-slate-200/80">
-                    {useCase.icon}
-                  </div>
-                  <h3 className="text-lg font-semibold text-slate-800">{useCase.title}</h3>
-                </div>
-                <p className="text-slate-600 leading-relaxed">
-                  {useCase.lead}
-                </p>
-              </div>
-              <div className="p-8 pt-0">
-                {/* 2. Modified this link to include the Reddit logo */}
-                <a href="#" className="group inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-primary transition-colors">
-                  From 
-                  <span className="font-semibold text-slate-700 inline-flex items-center gap-1.5">
-                    <FaReddit className="w-4 h-4 text-orange-600" />
-                    {useCase.subreddit}
-                  </span>
-                  <ArrowRight className="w-4 h-4 transition-transform duration-300 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0" />
-                </a>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Bottom CTA */}
-        <div className="text-center mt-20">
-            {/* ... content unchanged ... */}
-        </div>
-      </div>
-
-      {/* Modern CSS animations */}
+    <>
       <style jsx>{`
-        .marquee-content {
-          animation: scroll 35s linear infinite;
+        .coffee-cup {
+          width: 120px;
+          height: 140px;
+          position: relative;
+          transform-style: preserve-3d;
+          animation: float 3s ease-in-out infinite;
         }
-
-        @keyframes scroll {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-33.333%); }
+        
+        .cup-body {
+          width: 80px;
+          height: 100px;
+          position: absolute;
+          bottom: 0;
+          left: 50%;
+          transform: translateX(-50%) rotateX(-10deg);
+        }
+        
+        .cup-handle {
+          width: 20px;
+          height: 40px;
+          position: absolute;
+          right: -15px;
+          top: 30px;
+          border: 4px solid #f59e0b;
+          border-left: none;
+          border-radius: 0 20px 20px 0;
+        }
+        
+        .coffee-liquid {
+          width: 70px;
+          height: 8px;
+          position: absolute;
+          top: 20px;
+          left: 50%;
+          transform: translateX(-50%);
+        }
+        
+        .steam {
+          position: absolute;
+          top: -20px;
+          left: 50%;
+          transform: translateX(-50%);
+        }
+        
+        .steam-line {
+          width: 3px;
+          height: 20px;
+          margin: 0 2px;
+          display: inline-block;
+        }
+        
+        .robot {
+          width: 100px;
+          height: 120px;
+          position: relative;
+          animation: float 4s ease-in-out infinite;
+        }
+        
+        .robot-head {
+          width: 60px;
+          height: 60px;
+          position: relative;
+          margin: 0 auto 10px;
+        }
+        
+        .robot-eyes {
+          display: flex;
+          justify-content: space-between;
+          padding: 12px 8px 0;
+        }
+        
+        .eye {
+          width: 12px;
+          height: 12px;
+          position: relative;
+        }
+        
+        .pupil {
+          width: 6px;
+          height: 6px;
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+        }
+        
+        .robot-mouth {
+          width: 20px;
+          height: 8px;
+          position: absolute;
+          bottom: 8px;
+          left: 50%;
+          transform: translateX(-50%);
+        }
+        
+        .robot-body {
+          width: 80px;
+          height: 50px;
+          margin: 0 auto;
+        }
+        
+        .shopping-bag {
+          width: 100px;
+          height: 120px;
+          position: relative;
+          animation: float 3.5s ease-in-out infinite;
+        }
+        
+        .bag-body {
+          width: 80px;
+          height: 90px;
+          position: absolute;
+          bottom: 0;
+          left: 50%;
+          transform: translateX(-50%);
+        }
+        
+        .bag-handles {
+          position: absolute;
+          top: 0;
+          left: 50%;
+          transform: translateX(-50%);
+          display: flex;
+          gap: 30px;
+        }
+        
+        .handle {
+          width: 6px;
+          height: 30px;
+          border-radius: 10px 10px 0 0;
+        }
+        
+        .bag-logo {
+          width: 20px;
+          height: 20px;
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+        }
+        
+        .gamepad {
+          width: 120px;
+          height: 80px;
+          position: relative;
+          animation: float 4.2s ease-in-out infinite;
+        }
+        
+        .gamepad-body {
+          width: 100%;
+          height: 100%;
+          position: relative;
+        }
+        
+        .gamepad-buttons {
+          position: absolute;
+          right: 15px;
+          top: 15px;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 4px;
+        }
+        
+        .button {
+          width: 12px;
+          height: 12px;
+        }
+        
+        .gamepad-dpad {
+          position: absolute;
+          left: 15px;
+          top: 20px;
+          width: 20px;
+          height: 20px;
+        }
+        
+        .palette {
+          width: 100px;
+          height: 80px;
+          position: relative;
+          animation: float 3.8s ease-in-out infinite;
+        }
+        
+        .palette-body {
+          width: 80px;
+          height: 60px;
+          position: relative;
+          margin: 0 auto;
+        }
+        
+        .paint-spots {
+          position: absolute;
+          top: 10px;
+          left: 50%;
+          transform: translateX(-50%);
+          display: flex;
+          flex-wrap: wrap;
+          gap: 4px;
+          width: 50px;
+        }
+        
+        .spot {
+          width: 8px;
+          height: 8px;
+        }
+        
+        .brush {
+          position: absolute;
+          right: -10px;
+          top: 20px;
+          width: 4px;
+          height: 40px;
+        }
+        
+        .laptop {
+          width: 120px;
+          height: 80px;
+          position: relative;
+          animation: float 4.5s ease-in-out infinite;
+        }
+        
+        .laptop-screen {
+          width: 100px;
+          height: 60px;
+          position: absolute;
+          top: 0;
+          left: 50%;
+          transform: translateX(-50%) rotateX(-20deg);
+          transform-origin: bottom;
+        }
+        
+        .screen-content {
+          height: calc(100% - 16px);
+        }
+        
+        .laptop-base {
+          width: 110px;
+          height: 20px;
+          position: absolute;
+          bottom: 0;
+          left: 50%;
+          transform: translateX(-50%);
+        }
+        
+        .keyboard {
+          height: 8px;
+          margin-top: 4px;
+        }
+        
+        @keyframes float {
+          0%, 100% { transform: translateY(0px) rotateY(0deg); }
+          50% { transform: translateY(-10px) rotateY(5deg); }
+        }
+        
+        @keyframes parallaxFloat {
+          0%, 100% { transform: translateY(0px) rotateX(0deg) rotateY(0deg); }
+          33% { transform: translateY(-15px) rotateX(5deg) rotateY(10deg); }
+          66% { transform: translateY(-5px) rotateX(-3deg) rotateY(-5deg); }
         }
       `}</style>
-    </section>
+
+      {/* Hero Section */}
+      <section className="min-h-screen w-full flex flex-col items-center justify-center text-center bg-gradient-to-br from-slate-50 via-white to-orange-50 p-6 relative overflow-hidden">
+        {/* Background Elements */}
+        <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
+        <div className="absolute top-20 left-20 w-72 h-72 bg-orange-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-pulse"></div>
+        <div className="absolute bottom-20 right-20 w-72 h-72 bg-blue-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-pulse delay-1000"></div>
+        
+        <div className="relative z-10">
+          <div className="inline-flex items-center gap-3 px-6 py-3 rounded-full bg-white/80 backdrop-blur-sm border border-orange-200/50 mb-12 shadow-lg">
+            <Sparkles className="w-6 h-6 text-orange-500" />
+            <span className={`text-lg font-semibold text-slate-700 ${poppins.className}`}>One Tool, Every Niche</span>
+          </div>
+          
+          <h1 className={`text-6xl sm:text-7xl lg:text-8xl xl:text-9xl font-black tracking-tighter text-slate-900 mb-8 max-w-6xl leading-[0.9] ${poppins.className}`}>
+            If They're on{" "}
+            <span className="bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 bg-clip-text text-transparent animate-gradient-x">
+              Reddit
+            </span>
+            <br />
+            <span className="text-slate-600 text-5xl sm:text-6xl lg:text-7xl xl:text-8xl font-bold">
+              We'll Find Them
+            </span>
+          </h1>
+          
+          <p className={`text-2xl md:text-3xl lg:text-4xl text-slate-600 max-w-4xl mx-auto leading-relaxed font-medium ${inter.className}`}>
+            RedLead discovers leads across{" "}
+            <span className="text-orange-600 font-semibold">every business model</span>.
+            <br />
+            If people are discussing problems you solve,{" "}
+            <span className="text-slate-900 font-semibold">you'll know instantly</span>.
+          </p>
+        </div>
+      </section>
+
+      {/* Use Cases Section */}
+      <section ref={targetRef} className="relative h-[700vh] bg-gradient-to-b from-slate-50 to-white">
+        <div className="sticky top-0 h-screen flex flex-col items-center justify-center overflow-hidden">
+          {useCases.map((useCase, i) => {
+            const segmentStart = i / useCases.length;
+            const segmentEnd = (i + 1) / useCases.length;
+
+            const fadeInPoint = segmentStart + 0.08;
+            const fadeOutPoint = segmentEnd - 0.08;
+
+            const opacity = useTransform(
+              scrollYProgress,
+              [segmentStart, fadeInPoint, fadeOutPoint, segmentEnd],
+              [0, 1, 1, 0]
+            );
+
+            const scale = useTransform(
+              scrollYProgress,
+              [segmentStart, fadeInPoint, fadeOutPoint, segmentEnd],
+              [0.8, 1, 1, 0.8]
+            );
+
+            const y = useTransform(
+              scrollYProgress,
+              [segmentStart, segmentEnd],
+              ["100px", "-100px"]
+            );
+
+            const rotateY = useTransform(
+              scrollYProgress,
+              [segmentStart, segmentEnd],
+              [0, 360]
+            );
+
+            const ModelComponent = getModelComponent(i);
+
+            return (
+              <motion.div
+                key={useCase.title}
+                style={{ opacity, scale, y }}
+                className="absolute flex flex-col items-center justify-center text-center px-8 max-w-4xl"
+              >
+                {/* 3D Model */}
+                <motion.div
+                  style={{ rotateY }}
+                  className="mb-12 transform-gpu"
+                >
+                  <div className={`p-8 bg-gradient-to-br ${useCase.bgGradient} backdrop-blur-xl rounded-3xl shadow-2xl border border-white/50 relative overflow-hidden`}>
+                    <div className="absolute inset-0 bg-white/20 backdrop-blur-sm"></div>
+                    <div className="relative z-10">
+                      <ModelComponent className="mx-auto" />
+                    </div>
+                  </div>
+                </motion.div>
+
+                {/* Content */}
+                <div className="space-y-6">
+                  <h3 className={`text-4xl lg:text-5xl font-bold bg-gradient-to-r ${useCase.color} bg-clip-text text-transparent ${poppins.className}`}>
+                    {useCase.title}
+                  </h3>
+                  
+                  <blockquote className="max-w-2xl">
+                    <p className={`text-xl lg:text-2xl text-slate-700 leading-relaxed italic font-medium ${inter.className}`}>
+                      {useCase.lead}
+                    </p>
+                  </blockquote>
+                  
+                  <div className="inline-flex items-center gap-3 text-lg font-semibold text-slate-600 bg-white/80 backdrop-blur-sm py-3 px-6 rounded-full border border-white/50 shadow-lg">
+                    <span>Found in</span>
+                    <span className={`font-bold text-slate-800 inline-flex items-center gap-2 bg-gradient-to-r ${useCase.color} bg-clip-text text-transparent`}>
+                      <FaReddit className="w-6 h-6 text-orange-500" />
+                      {useCase.subreddit}
+                    </span>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </section>
+
+      <style jsx>{`
+        @keyframes gradient-x {
+          0%, 100% {
+            background-size: 200% 200%;
+            background-position: left center;
+          }
+          50% {
+            background-size: 200% 200%;
+            background-position: right center;
+          }
+        }
+        
+        .animate-gradient-x {
+          animation: gradient-x 3s ease infinite;
+        }
+        
+        .bg-grid-pattern {
+          background-image: radial-gradient(circle, #e2e8f0 1px, transparent 1px);
+          background-size: 20px 20px;
+        }
+      `}</style>
+    </>
   );
 };
