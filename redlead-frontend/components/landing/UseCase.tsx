@@ -1,4 +1,6 @@
 "use client";
+// 1. You might need to install react-icons: npm install react-icons
+import { FaReddit } from "react-icons/fa";
 import { ArrowRight, Bot, Code, Gamepad, Palette, ShoppingCart, Smartphone, Sparkles } from "lucide-react";
 import React from "react";
 
@@ -40,7 +42,6 @@ export const UseCases = () => {
           <div className="absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-background to-transparent z-10"></div>
           <div className="absolute inset-y-0 right-0 w-20 bg-gradient-to-l from-background to-transparent z-10"></div>
           <div className="overflow-hidden">
-            {/* FIX 1: Added custom `marquee-content` class and removed the inline style prop */}
             <div className="flex gap-4 py-4 marquee-content">
               {[...businessTypes, ...businessTypes, ...businessTypes].map((type, index) => (
                 <div key={index} className="flex-shrink-0 px-6 py-3 bg-white/70 backdrop-blur-sm rounded-full text-sm font-medium text-foreground/80 border border-white/20 shadow-sm">
@@ -67,8 +68,13 @@ export const UseCases = () => {
                 </p>
               </div>
               <div className="p-8 pt-0">
+                {/* 2. Modified this link to include the Reddit logo */}
                 <a href="#" className="group inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-primary transition-colors">
-                  From <span className="font-semibold text-slate-700">{useCase.subreddit}</span>
+                  From 
+                  <span className="font-semibold text-slate-700 inline-flex items-center gap-1.5">
+                    <FaReddit className="w-4 h-4 text-orange-600" />
+                    {useCase.subreddit}
+                  </span>
                   <ArrowRight className="w-4 h-4 transition-transform duration-300 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0" />
                 </a>
               </div>
@@ -84,7 +90,6 @@ export const UseCases = () => {
 
       {/* Modern CSS animations */}
       <style jsx>{`
-        /* FIX 2: Defined the animation on the class instead of using an inline style */
         .marquee-content {
           animation: scroll 35s linear infinite;
         }
