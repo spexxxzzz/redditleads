@@ -1,4 +1,5 @@
- import { Header } from "@/components/landing/Header";
+ import { Features } from "@/components/landing/Features";
+import { Header } from "@/components/landing/Header";
 import { Hero } from "@/components/landing/Hero";
 import { Hero2 } from "@/components/landing/Hero2";
 import { HowItWorks } from "@/components/landing/HowItworks";
@@ -12,7 +13,7 @@ export default function Home() {
       <Header />
       <Hero />
       <div className="space-y-0">
-      
+        <Features/>
         <HowItWorks/>
         <UseCases/>
         <Hero2/>
