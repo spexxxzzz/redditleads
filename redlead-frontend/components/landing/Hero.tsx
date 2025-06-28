@@ -1,4 +1,4 @@
- "use client";
+"use client";
 import Link from "next/link";
 import { FaReddit } from "react-icons/fa";
 import { ArrowRight, Sparkles } from "lucide-react";
@@ -51,7 +51,7 @@ export const Hero = () => {
             repeat: Infinity, 
             ease: "easeInOut" 
           }}
-          className="absolute top-1/4 left-1/3 size-96 bg-gradient-to-br from-orange-100/40 to-orange-200/30 rounded-full blur-3xl opacity-60"
+          className="absolute top-1/4 left-1/3 w-48 h-48 sm:w-96 sm:h-96 bg-gradient-to-br from-orange-100/40 to-orange-200/30 rounded-full blur-3xl opacity-60"
         />
         
         <motion.div
@@ -66,7 +66,7 @@ export const Hero = () => {
             ease: "easeInOut",
             delay: 5
           }}
-          className="absolute bottom-1/3 right-1/4 size-80 bg-gradient-to-tl from-orange-200/30 to-orange-300/20 rounded-full blur-3xl opacity-50"
+          className="absolute bottom-1/3 right-1/4 w-40 h-40 sm:w-80 sm:h-80 bg-gradient-to-tl from-orange-200/30 to-orange-300/20 rounded-full blur-3xl opacity-50"
         />
         
         {/* Light Gradient Lines */}
@@ -92,51 +92,52 @@ export const Hero = () => {
             <span className={`text-sm font-medium text-black/80 ${inter.className}`}>AI-Powered Lead Generation</span>
             <Sparkles className="size-4 text-orange-500" />
           </motion.div>
-
-          {/* Light Gradient Typography */}
-          <div className="space-y-4">
-          <motion.h1 
-  initial={{ opacity: 0, y: 30 }}
-  animate={{ opacity: 1, y: 0 }}
-  transition={{ duration: 1, ease: "easeOut", delay: 0.2 }}
-  className={`text-6xl sm:text-7xl lg:text-8xl xl:text-9xl font-black tracking-tighter leading-[1.1] text-black pb-4 ${poppins.className}`}
->
-  Turn{" "}
-  <motion.span
-    initial={{ scale: 0.8, opacity: 0 }}
-    animate={{ scale: 1, opacity: 1 }}
-    transition={{ duration: 0.8, delay: 0.5, ease: "backOut" }}
-    className="inline-block relative z-20"
+ {/* Enhanced Typography with REDUCED GAP */}
+<div className="space-y-2 overflow-visible">
+  <motion.h1 
+    initial={{ opacity: 0, y: 30 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 1, ease: "easeOut", delay: 0.2 }}
+    className={`text-6xl sm:text-7xl lg:text-8xl xl:text-9xl font-black tracking-tighter leading-[0.9] text-black mb-0 overflow-visible ${poppins.className}`}
     style={{ overflow: 'visible' }}
   >
-    <FaReddit className="inline size-16 sm:size-20 lg:size-24 xl:size-28 text-orange-500 mx-2 relative z-20" />
-  </motion.span>
-  <motion.span
-    initial={{ opacity: 0, x: -20 }}
-    animate={{ opacity: 1, x: 0 }}
-    transition={{ duration: 0.8, delay: 0.7 }}
-    className="bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 bg-clip-text text-transparent inline-block pb-2"
-    style={{ 
-      overflow: 'visible',
-      lineHeight: '1.2'
-    }}
+    Turn{" "}
+    <motion.span
+      initial={{ scale: 0.8, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ duration: 0.8, delay: 0.5, ease: "backOut" }}
+      className="inline-block relative z-20 overflow-visible"
+      style={{ overflow: 'visible', display: 'inline-block' }}
+    >
+      <FaReddit className="inline size-16 sm:size-20 lg:size-24 xl:size-28 text-orange-500 mx-2 relative z-20" />
+    </motion.span>
+    <motion.span
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.8, delay: 0.7 }}
+      className="bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 bg-clip-text text-transparent inline-block overflow-visible"
+      style={{ 
+        overflow: 'visible',
+        lineHeight: '0.9',
+        display: 'inline-block'
+      }}
+    >
+      Reddit
+    </motion.span>
+  </motion.h1>
+  
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.8, delay: 0.9 }}
+    className={`text-6xl sm:text-7xl lg:text-8xl xl:text-9xl font-black tracking-tighter leading-[0.9] text-black mt-0 overflow-visible ${poppins.className}`}
+    style={{ overflow: 'visible' }}
   >
-    Reddit
-  </motion.span>
-</motion.h1>
+    Into Leads
+  </motion.div>
+</div>
 
-            
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.9 }}
-              className={`text-6xl sm:text-7xl lg:text-8xl xl:text-9xl font-black tracking-tighter leading-[0.9] text-black ${poppins.className}`}
-            >
-              Into Leads
-            </motion.div>
-          </div>
-
-          {/* Light Gradient Text */}
+          {/* Light Gradient Text - Original Size */}
           <motion.p 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -155,7 +156,7 @@ export const Hero = () => {
             </motion.span>
           </motion.p>
 
-          {/* Light Gradient CTA Button */}
+          {/* Light Gradient CTA Button - Original Size */}
           <motion.div 
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -179,7 +180,7 @@ export const Hero = () => {
             </div>
           </motion.div>
 
-          {/* Light Gradient Trust Line */}
+          {/* Light Gradient Trust Line - Original Size */}
           <motion.p 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
