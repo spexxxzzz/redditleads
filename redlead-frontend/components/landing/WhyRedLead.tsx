@@ -34,7 +34,7 @@ export const WhyRedLead = () => {
           </p>
           <p className="mt-4 max-w-2xl mx-auto text-xl text-gray-400">
             Our AI pinpoints customers ready to buy, so you only engage with high-intent leads.
-          </p>
+          </p>a
         </div>
 
         <div className="relative mt-20">

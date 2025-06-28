@@ -12,9 +12,10 @@ export default function Home() {
       <Header />
       <Hero />
       <div className="space-y-0">
-        <Hero2/>
+      
         <HowItWorks/>
         <UseCases/>
+        <Hero2/>
       
       </div>
     </div>

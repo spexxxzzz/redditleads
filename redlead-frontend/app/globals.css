@@ -31,6 +31,10 @@
   --color-primary-hover: #e03d00;
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
+  --font-display: "Satoshi", "sans-serif";
+  --color-brand-orange: oklch(0.84 0.18 117.33);
+  --color-brand-black: oklch(0.15 0 0);
+  --ease-fluid: cubic-bezier(0.3, 0, 0, 1);
 
   --font-family-sans: var(--font-inter), system-ui, sans-serif;
 }
@@ -135,3 +139,4 @@
 .delay-700 {
   animation-delay: 0.7s;
 }
+
