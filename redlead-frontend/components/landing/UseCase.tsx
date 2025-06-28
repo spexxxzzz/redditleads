@@ -64,101 +64,7 @@ const useCases = [
   },
 ];
 
-// 3D CSS Model Components
-const CoffeeModel = ({ className } : ModelProps) => (
-  <div className={`relative ${className}`}>
-    <div className="coffee-cup">
-      <div className="cup-body bg-gradient-to-b from-amber-100 to-amber-200 rounded-b-3xl shadow-2xl border-4 border-amber-300"></div>
-      <div className="cup-handle bg-amber-200 rounded-full shadow-lg"></div>
-      <div className="coffee-liquid bg-gradient-to-b from-amber-800 to-amber-900 rounded-t-sm"></div>
-      <div className="steam">
-        <div className="steam-line bg-gray-300 opacity-60 rounded-full animate-pulse"></div>
-        <div className="steam-line bg-gray-300 opacity-40 rounded-full animate-pulse delay-300"></div>
-        <div className="steam-line bg-gray-300 opacity-50 rounded-full animate-pulse delay-700"></div>
-      </div>
-    </div>
-  </div>
-);
 
-const RobotModel = ({ className }: { className?: string }) => (
-  <div className={`relative ${className}`}>
-    <div className="robot">
-      <div className="robot-head bg-gradient-to-b from-blue-400 to-blue-600 rounded-2xl shadow-2xl border-2 border-blue-300">
-        <div className="robot-eyes">
-          <div className="eye bg-white rounded-full shadow-inner">
-            <div className="pupil bg-blue-600 rounded-full animate-pulse"></div>
-          </div>
-          <div className="eye bg-white rounded-full shadow-inner">
-            <div className="pupil bg-blue-600 rounded-full animate-pulse"></div>
-          </div>
-        </div>
-        <div className="robot-mouth bg-blue-800 rounded-full"></div>
-      </div>
-      <div className="robot-body bg-gradient-to-b from-blue-500 to-blue-700 rounded-xl shadow-xl border-2 border-blue-400"></div>
-    </div>
-  </div>
-);
-
-const ShoppingBagModel = ({ className } : ModelProps) => (
-  <div className={`relative ${className}`}>
-    <div className="shopping-bag">
-      <div className="bag-body bg-gradient-to-b from-purple-300 to-purple-500 rounded-b-2xl shadow-2xl border-2 border-purple-400"></div>
-      <div className="bag-handles">
-        <div className="handle bg-purple-600 rounded-full shadow-lg"></div>
-        <div className="handle bg-purple-600 rounded-full shadow-lg"></div>
-      </div>
-      <div className="bag-logo bg-white rounded-full shadow-inner opacity-80"></div>
-    </div>
-  </div>
-);
-
-const GamepadModel = ({ className } : ModelProps) => (
-  <div className={`relative ${className}`}>
-    <div className="gamepad">
-      <div className="gamepad-body bg-gradient-to-b from-red-400 to-red-600 rounded-3xl shadow-2xl border-2 border-red-300"></div>
-      <div className="gamepad-buttons">
-        <div className="button bg-yellow-400 rounded-full shadow-lg"></div>
-        <div className="button bg-green-400 rounded-full shadow-lg"></div>
-        <div className="button bg-blue-400 rounded-full shadow-lg"></div>
-        <div className="button bg-red-400 rounded-full shadow-lg"></div>
-      </div>
-      <div className="gamepad-dpad bg-gray-700 rounded-sm shadow-inner"></div>
-    </div>
-  </div>
-);
-
-const PaletteModel = ({ className } : ModelProps) => (
-  <div className={`relative ${className}`}>
-    <div className="palette">
-      <div className="palette-body bg-gradient-to-br from-pink-200 to-pink-400 rounded-full shadow-2xl border-2 border-pink-300"></div>
-      <div className="paint-spots">
-        <div className="spot bg-red-500 rounded-full shadow-lg"></div>
-        <div className="spot bg-blue-500 rounded-full shadow-lg"></div>
-        <div className="spot bg-yellow-500 rounded-full shadow-lg"></div>
-        <div className="spot bg-green-500 rounded-full shadow-lg"></div>
-        <div className="spot bg-purple-500 rounded-full shadow-lg"></div>
-      </div>
-      <div className="brush bg-amber-600 rounded-full shadow-lg"></div>
-    </div>
-  </div>
-);
-
-const LaptopModel = ({ className } : ModelProps) => (
-  <div className={`relative ${className}`}>
-    <div className="laptop">
-      <div className="laptop-screen bg-gradient-to-b from-gray-800 to-gray-900 rounded-t-xl shadow-2xl border-2 border-gray-600">
-        <div className="screen-content bg-gradient-to-br from-green-400 to-blue-500 rounded-lg m-2 opacity-80"></div>
-      </div>
-      <div className="laptop-base bg-gradient-to-b from-gray-300 to-gray-500 rounded-b-xl shadow-xl border-2 border-gray-400"></div>
-      <div className="keyboard bg-gray-600 rounded-sm shadow-inner mx-4 mb-2"></div>
-    </div>
-  </div>
-);
-
-const getModelComponent = (index: number) => {
-  const models = [RobotModel, CoffeeModel, ShoppingBagModel, GamepadModel, PaletteModel, LaptopModel];
-  return models[index] || RobotModel;
-};
 
 export const UseCases = () => {
   const targetRef = useRef(null);
@@ -169,267 +75,34 @@ export const UseCases = () => {
 
   return (
     <>
-      <style jsx>{`
-        .coffee-cup {
-          width: 120px;
-          height: 140px;
-          position: relative;
-          transform-style: preserve-3d;
-          animation: float 3s ease-in-out infinite;
-        }
-        
-        .cup-body {
-          width: 80px;
-          height: 100px;
-          position: absolute;
-          bottom: 0;
-          left: 50%;
-          transform: translateX(-50%) rotateX(-10deg);
-        }
-        
-        .cup-handle {
-          width: 20px;
-          height: 40px;
-          position: absolute;
-          right: -15px;
-          top: 30px;
-          border: 4px solid #f59e0b;
-          border-left: none;
-          border-radius: 0 20px 20px 0;
-        }
-        
-        .coffee-liquid {
-          width: 70px;
-          height: 8px;
-          position: absolute;
-          top: 20px;
-          left: 50%;
-          transform: translateX(-50%);
-        }
-        
-        .steam {
-          position: absolute;
-          top: -20px;
-          left: 50%;
-          transform: translateX(-50%);
-        }
-        
-        .steam-line {
-          width: 3px;
-          height: 20px;
-          margin: 0 2px;
-          display: inline-block;
-        }
-        
-        .robot {
-          width: 100px;
-          height: 120px;
-          position: relative;
-          animation: float 4s ease-in-out infinite;
-        }
-        
-        .robot-head {
-          width: 60px;
-          height: 60px;
-          position: relative;
-          margin: 0 auto 10px;
-        }
-        
-        .robot-eyes {
-          display: flex;
-          justify-content: space-between;
-          padding: 12px 8px 0;
-        }
-        
-        .eye {
-          width: 12px;
-          height: 12px;
-          position: relative;
-        }
-        
-        .pupil {
-          width: 6px;
-          height: 6px;
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-        }
-        
-        .robot-mouth {
-          width: 20px;
-          height: 8px;
-          position: absolute;
-          bottom: 8px;
-          left: 50%;
-          transform: translateX(-50%);
-        }
-        
-        .robot-body {
-          width: 80px;
-          height: 50px;
-          margin: 0 auto;
-        }
-        
-        .shopping-bag {
-          width: 100px;
-          height: 120px;
-          position: relative;
-          animation: float 3.5s ease-in-out infinite;
-        }
-        
-        .bag-body {
-          width: 80px;
-          height: 90px;
-          position: absolute;
-          bottom: 0;
-          left: 50%;
-          transform: translateX(-50%);
-        }
-        
-        .bag-handles {
-          position: absolute;
-          top: 0;
-          left: 50%;
-          transform: translateX(-50%);
-          display: flex;
-          gap: 30px;
-        }
-        
-        .handle {
-          width: 6px;
-          height: 30px;
-          border-radius: 10px 10px 0 0;
-        }
-        
-        .bag-logo {
-          width: 20px;
-          height: 20px;
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-        }
-        
-        .gamepad {
-          width: 120px;
-          height: 80px;
-          position: relative;
-          animation: float 4.2s ease-in-out infinite;
-        }
-        
-        .gamepad-body {
-          width: 100%;
-          height: 100%;
-          position: relative;
-        }
-        
-        .gamepad-buttons {
-          position: absolute;
-          right: 15px;
-          top: 15px;
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 4px;
-        }
-        
-        .button {
-          width: 12px;
-          height: 12px;
-        }
-        
-        .gamepad-dpad {
-          position: absolute;
-          left: 15px;
-          top: 20px;
-          width: 20px;
-          height: 20px;
-        }
-        
-        .palette {
-          width: 100px;
-          height: 80px;
-          position: relative;
-          animation: float 3.8s ease-in-out infinite;
-        }
-        
-        .palette-body {
-          width: 80px;
-          height: 60px;
-          position: relative;
-          margin: 0 auto;
-        }
-        
-        .paint-spots {
-          position: absolute;
-          top: 10px;
-          left: 50%;
-          transform: translateX(-50%);
-          display: flex;
-          flex-wrap: wrap;
-          gap: 4px;
-          width: 50px;
-        }
-        
-        .spot {
-          width: 8px;
-          height: 8px;
-        }
-        
-        .brush {
-          position: absolute;
-          right: -10px;
-          top: 20px;
-          width: 4px;
-          height: 40px;
-        }
-        
-        .laptop {
-          width: 120px;
-          height: 80px;
-          position: relative;
-          animation: float 4.5s ease-in-out infinite;
-        }
-        
-        .laptop-screen {
-          width: 100px;
-          height: 60px;
-          position: absolute;
-          top: 0;
-          left: 50%;
-          transform: translateX(-50%) rotateX(-20deg);
-          transform-origin: bottom;
-        }
-        
-        .screen-content {
-          height: calc(100% - 16px);
-        }
-        
-        .laptop-base {
-          width: 110px;
-          height: 20px;
-          position: absolute;
-          bottom: 0;
-          left: 50%;
-          transform: translateX(-50%);
-        }
-        
-        .keyboard {
-          height: 8px;
-          margin-top: 4px;
-        }
-        
-        @keyframes float {
-          0%, 100% { transform: translateY(0px) rotateY(0deg); }
-          50% { transform: translateY(-10px) rotateY(5deg); }
-        }
-        
-        @keyframes parallaxFloat {
-          0%, 100% { transform: translateY(0px) rotateX(0deg) rotateY(0deg); }
-          33% { transform: translateY(-15px) rotateX(5deg) rotateY(10deg); }
-          66% { transform: translateY(-5px) rotateX(-3deg) rotateY(-5deg); }
-        }
-      `}</style>
+     <style jsx>{`
+  @keyframes float {
+    0%, 100% { transform: translateY(0px) rotateY(0deg); }
+    50% { transform: translateY(-10px) rotateY(5deg); }
+  }
+  
+  @keyframes gradient-x {
+    0%, 100% {
+      background-size: 200% 200%;
+      background-position: left center;
+    }
+    50% {
+      background-size: 200% 200%;
+      background-position: right center;
+    }
+  }
+  
+  .animate-gradient-x {
+    animation: gradient-x 3s ease infinite;
+  }
+  
+  .bg-grid-pattern {
+    background-image: radial-gradient(circle, #e2e8f0 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+`}</style>
+
+     
 
 
       {/* Use Cases Section */}
@@ -466,7 +139,7 @@ export const UseCases = () => {
               [0, 360]
             );
 
-            const ModelComponent = getModelComponent(i);
+         
 
             return (
               <motion.div

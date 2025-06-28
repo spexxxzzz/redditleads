@@ -1,6 +1,13 @@
 import Link from "next/link";
 import { FaReddit } from "react-icons/fa";
 import { ArrowRight, Target, Play, Clock, Ban, DollarSign, Bell } from "lucide-react";
+import { Inter, Poppins } from 'next/font/google';
+
+const inter = Inter({ subsets: ['latin'] });
+const poppins = Poppins({ 
+  subsets: ['latin'], 
+  weight: ['400', '600', '700', '800', '900'] 
+});
 
 export const Hero = () => {
   return (
@@ -27,25 +34,28 @@ export const Hero = () => {
               {/* Target Audience Badge - "Indie Hacker" removed */}
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/90 backdrop-blur-sm border border-primary/30 shadow-sm mb-6 animate-fade-in">
                 <Target className="w-4 h-4 text-primary" />
-                <span className="text-sm font-medium text-foreground">AI Powered Lead Generation</span>
+                <span className={`text-lg font-semibold text-slate-700 ${poppins.className}`}>AI Powered Lead Generation</span>
+
               </div>
 
               {/* Main Headline - Size Reduced */}
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight mb-4 animate-slide-up leading-tight">
-                <span className="text-foreground">Turn </span>
-                <span className="inline-flex items-center gap-2 px-3 py-1 bg-primary rounded-xl text-white shadow-xl align-middle">
-                  <FaReddit className="w-7 h-7 sm:w-9 sm:h-9 lg:w-11 lg:h-11" />
-                  <span className="text-4xl sm:text-5xl lg:text-6xl font-black">Reddit</span>
-                </span>
-                <br />
-                <span className="text-foreground">Into Your </span>
-                <span className="bg-gradient-to-r from-primary to-red-500 bg-clip-text text-transparent">
-                  Lead Machine
-                </span>
-              </h1>
+              <h1 className={`text-4xl sm:text-5xl lg:text-6xl xl:text-6xl font-black tracking-tighter mb-8 leading-[0.9] ${poppins.className}`}>
+  <span className="text-foreground">Turn </span>
+  <FaReddit className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 xl:w-12 xl:h-12 inline align-middle mx-1" style={{color: '#ff4500'}} />
+  <span className="bg-gradient-to-r from-primary to-red-500 bg-clip-text text-transparent">Reddit</span>
+  <br />
+  <span className="text-foreground">Into Your </span>
+  <span className="bg-gradient-to-r from-primary to-red-500 bg-clip-text text-transparent">
+    Lead Machine
+  </span>
+</h1>
+
+
+
+
 
               {/* Subheading - Condensed */}
-              <p className="text-lg sm:text-xl text-muted-foreground max-w-xl mb-8 leading-relaxed animate-slide-up delay-150">
+              <p className={`text-lg md:text-3xl lg:text-xl text-slate-600 max-w-xl mb-8 leading-relaxed font-medium ${inter.className}`}>
                 AI-powered Reddit monitoring to find warm leads who need your product, without the manual search.
               </p>
 
@@ -53,19 +63,20 @@ export const Hero = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8 animate-slide-up delay-300">
                 <div className="flex items-center gap-3 p-3 bg-red-50/80 rounded-xl border border-red-200/50">
                   <Clock className="w-5 h-5 text-red-500 flex-shrink-0" />
-                  <span className="text-sm font-medium text-foreground">Stop manual searching</span>
+                  <span className={`text-sm font-semibold text-slate-700 ${poppins.className}`}>Stop manual searching</span>
+
                 </div>
                 <div className="flex items-center gap-3 p-3 bg-orange-50/80 rounded-xl border border-orange-200/50">
                   <Bell className="w-5 h-5 text-orange-500 flex-shrink-0" />
-                  <span className="text-sm font-medium text-foreground">Never miss a lead</span>
+                  <span className={`text-sm font-semibold text-slate-700 ${poppins.className}`}>Never miss a lead</span>
                 </div>
                 <div className="flex items-center gap-3 p-3 bg-red-50/80 rounded-xl border border-red-200/50">
                   <Ban className="w-5 h-5 text-red-500 flex-shrink-0" />
-                  <span className="text-sm font-medium text-foreground">Avoid spam bans</span>
+                  <span className={`text-sm font-semibold text-slate-700 ${poppins.className}`}>Avoid spam bans</span>
                 </div>
                 <div className="flex items-center gap-3 p-3 bg-green-50/80 rounded-xl border border-green-200/50">
                   <DollarSign className="w-5 h-5 text-green-500 flex-shrink-0" />
-                  <span className="text-sm font-medium text-foreground">Affordable for founders</span>
+                  <span className={`text-sm font-semibold text-slate-700 ${poppins.className}`}>Affordable for founders</span>
                 </div>
               </div>
               
@@ -73,12 +84,12 @@ export const Hero = () => {
               <div className="flex flex-col sm:flex-row gap-4 mb-8 animate-slide-up delay-500">
                 <Link
                   href="/signup"
-                  className="group bg-primary hover:bg-primary-hover text-white font-bold py-4 px-8 rounded-xl text-lg transition-all duration-300 hover:scale-105 hover:shadow-[0_0_30px_rgba(255,69,0,0.3)] flex items-center gap-3 justify-center sm:justify-center"
+                  className="group bg-primary hover:bg-primary-hover text-white font-bold py-4 px-8 rounded-xl  text-xl font-bold ${poppins.className} transition-all duration-300 hover:scale-105 hover:shadow-[0_0_30px_rgba(255,69,0,0.3)] flex items-center gap-3 justify-center sm:justify-center"
                 >
                   Find My First Lead
                   <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </Link>
-                <button className="group text-foreground hover:text-primary font-bold py-4 px-8 rounded-xl text-lg transition-all duration-300 border-2 border-border hover:border-primary/30 hover:bg-primary/5 flex items-center gap-3 justify-center sm:justify-center">
+                <button className="group text-foreground hover:text-primary font-bold py-4 px-8 rounded-xl  text-xl font-bold ${poppins.className}  transition-all duration-300 border-2 border-border hover:border-primary/30 hover:bg-primary/5 flex items-center gap-3 justify-center sm:justify-center">
                   <Play className="w-5 h-5 group-hover:scale-110 transition-transform" />
                   Watch Demo
                 </button>
