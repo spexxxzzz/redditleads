@@ -1,99 +1,51 @@
+/* globals.css - Safe Magic UI Integration */
 @import "tailwindcss";
 
 @theme {
-  /* Force light theme colors - your original cream theme */
-  --background: #fff7ed;  /* Your cream background */
-  --foreground: #111827;
-  --card: #ffffff;
-  --card-foreground: #111827;
-  --popover: #ffffff;
-  --popover-foreground: #111827;
-  --primary: #ff4500;  /* Your Reddit orange */
-  --primary-foreground: #ffffff;
-  --secondary: #f3f4f6;
-  --secondary-foreground: #111827;
-  --muted: #f9fafb;
-  --muted-foreground: #6b7280;
-  --accent: #f3f4f6;
-  --accent-foreground: #111827;
-  --destructive: #ef4444;
-  --destructive-foreground: #ffffff;
-  --border: #e5e7eb;
-  --input: #e5e7eb;
-  --ring: #ff4500;
-  --radius: 0.5rem;
-
-  /* Your custom color mappings for compatibility */
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-primary: var(--primary);
-  --color-primary-hover: #e03d00;
-  --color-muted-foreground: var(--muted-foreground);
-  --color-border: var(--border);
+  /* Your existing theme variables - keep these */
   --font-display: "Satoshi", "sans-serif";
   --color-brand-orange: oklch(0.84 0.18 117.33);
   --color-brand-black: oklch(0.15 0 0);
   --ease-fluid: cubic-bezier(0.3, 0, 0, 1);
-
   --font-family-sans: var(--font-inter), system-ui, sans-serif;
+  
+  /* Magic UI variables - scoped with prefix to avoid conflicts */
+  --magic-ui-background: #fff7ed;
+  --magic-ui-foreground: #111827;
+  --magic-ui-primary: #ff4500;
+  --magic-ui-border: #e5e7eb;
+  --magic-ui-radius: 0.5rem;
+  
+  /* Orbiting circles specific variables */
+  --orbit-duration: 20;
+  --orbit-radius: 160;
 }
 
-/* Force light theme - override any dark mode preferences */
-:root {
-  --background: #fff7ed !important;  /* Force cream background */
-  --foreground: #111827 !important;
-  --card: #ffffff !important;
-  --card-foreground: #111827 !important;
-  --popover: #ffffff !important;
-  --popover-foreground: #111827 !important;
-  --primary: #ff4500 !important;
-  --primary-foreground: #ffffff !important;
-  --secondary: #f3f4f6 !important;
-  --secondary-foreground: #111827 !important;
-  --muted: #f9fafb !important;
-  --muted-foreground: #6b7280 !important;
-  --accent: #f3f4f6 !important;
-  --accent-foreground: #111827 !important;
-  --destructive: #ef4444 !important;
-  --destructive-foreground: #ffffff !important;
-  --border: #e5e7eb !important;
-  --input: #e5e7eb !important;
-  --ring: #ff4500 !important;
+/* Scoped Magic UI styles - only apply to components that need them */
+.magic-ui-scope {
+  /* Magic UI variables only within this scope */
+  --background: var(--magic-ui-background);
+  --foreground: var(--magic-ui-foreground);
+  --primary: var(--magic-ui-primary);
+  --border: var(--magic-ui-border);
+  --radius: var(--magic-ui-radius);
 }
 
-/* Remove dark mode media queries completely */
-/* We don't want any dark mode behavior */
-
-/* Custom utilities to maintain your existing classes */
-@layer utilities {
-  .bg-background {
-    background-color: var(--background);
+/* Orbiting circles animation - scoped */
+@keyframes orbit {
+  0% {
+    transform: rotate(0deg) translateY(var(--radius)) rotate(0deg);
   }
-  .text-foreground {
-    color: var(--foreground);
-  }
-  .bg-card {
-    background-color: var(--card);
-  }
-  .text-primary {
-    color: var(--primary);
-  }
-  .bg-primary {
-    background-color: var(--primary);
-  }
-  .bg-primary-hover:hover {
-    background-color: var(--color-primary-hover);
-  }
-  .text-muted-foreground {
-    color: var(--muted-foreground);
-  }
-  .border-border {
-    border-color: var(--border);
+  100% {
+    transform: rotate(360deg) translateY(var(--radius)) rotate(-360deg);
   }
 }
 
-/* Your custom animations */
+.orbiting-element {
+  animation: orbit var(--duration, 20s) linear infinite;
+}
+
+/* Your existing custom animations - keep these */
 @keyframes fade-in {
   from {
     opacity: 0;
@@ -124,19 +76,8 @@
   animation: slide-up 0.8s ease-out;
 }
 
-.delay-150 {
-  animation-delay: 0.15s;
-}
-
-.delay-300 {
-  animation-delay: 0.3s;
-}
-
-.delay-500 {
-  animation-delay: 0.5s;
-}
-
-.delay-700 {
-  animation-delay: 0.7s;
-}
-
+/* Keep your existing delay classes */
+.delay-150 { animation-delay: 0.15s; }
+.delay-300 { animation-delay: 0.3s; }
+.delay-500 { animation-delay: 0.5s; }
+.delay-700 { animation-delay: 0.7s; }

@@ -4,7 +4,7 @@ import { Hero } from "@/components/landing/Hero";
 import { Hero2 } from "@/components/landing/Hero2";
 import { HowItWorks } from "@/components/landing/HowItworks";
 import { UseCases } from "@/components/landing/UseCase";
-import { WhyRedLead } from "@/components/landing/WhyRedLead";
+ import { WhyReddit } from "@/components/landing/WhyReddit";
  
 
 export default function Home() {
@@ -15,6 +15,7 @@ export default function Home() {
       <div className="space-y-0">
         <Features/>
         <HowItWorks/>
+        <WhyReddit/>
         <UseCases/>
         <Hero2/>
       
