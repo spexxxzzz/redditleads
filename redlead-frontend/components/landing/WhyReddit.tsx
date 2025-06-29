@@ -1,7 +1,7 @@
 "use client";
-import React from "react";
+import React, { JSX } from "react";
 import { motion } from "framer-motion";
-import { TrendingUp, Users, Search, } from "lucide-react";
+import { TrendingUp, Users, Search, Eye, Brain, ArrowUp, Target } from "lucide-react";
 import { Inter, Poppins } from 'next/font/google';
 import { FaReddit } from "react-icons/fa";
 
@@ -11,16 +11,47 @@ const poppins = Poppins({
   weight: ['400', '600', '700', '800', '900'] 
 });
 
+// Type definitions
+interface CompanyPosition {
+  x: number;
+  y: number;
+}
+
+interface Company {
+  icon: () => JSX.Element;
+  name: string;
+  position: CompanyPosition;
+}
+
+interface Stat {
+  icon: React.ComponentType<{ className?: string }>;
+  number: string;
+  label: string;
+  description: string;
+}
+
+interface GrowthData {
+  period: string;
+  visibility: number;
+  ranking: number;
+}
+
+interface SearchTrafficData {
+  metric: string;
+  value: number;
+  unit: string;
+}
+
 // Company Icons with proper SVG implementations
 const CompanyIcons = {
-  openai: () => (
+  openai: (): JSX.Element => (
     <div className="w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center border border-gray-200 hover:scale-110 transition-transform duration-300">
       <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
         <path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z" fill="#10A37F"/>
       </svg>
     </div>
   ),
-  google: () => (
+  google: (): JSX.Element => (
     <div className="w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center border border-gray-200 hover:scale-110 transition-transform duration-300">
       <svg width="28" height="28" viewBox="0 0 24 24">
         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -30,21 +61,21 @@ const CompanyIcons = {
       </svg>
     </div>
   ),
-  anthropic: () => (
+  anthropic: (): JSX.Element => (
     <div className="w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center border border-gray-200 hover:scale-110 transition-transform duration-300">
       <svg width="28" height="28" viewBox="0 0 16 16" fill="none">
         <path fillRule="evenodd" d="M9.218 2h2.402L16 12.987h-2.402zM4.379 2h2.512l4.38 10.987H8.82l-.895-2.308h-4.58l-.896 2.307H0L4.38 2.001zm2.755 6.64L5.635 4.777 4.137 8.64z" fill="#D4A574"/>
       </svg>
     </div>
   ),
-  meta: () => (
+  meta: (): JSX.Element => (
     <div className="w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center border border-gray-200 hover:scale-110 transition-transform duration-300">
       <svg width="28" height="28" viewBox="0 0 24 24">
         <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" fill="#1877F2"/>
       </svg>
     </div>
   ),
-  mistral: () => (
+  mistral: (): JSX.Element => (
     <div className="w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center border border-gray-200 hover:scale-110 transition-transform duration-300">
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
         <rect x="3" y="3" width="4" height="4" fill="#FF7000"/>
@@ -57,19 +88,10 @@ const CompanyIcons = {
         <rect x="17" y="17" width="4" height="4" fill="#FF7000"/>
       </svg>
     </div>
-  ),
-  cohere: () => (
-    <div className="w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center border border-gray-200 hover:scale-110 transition-transform duration-300">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="12" r="10" fill="#39A0ED"/>
-        <path d="M8 8l8 8M16 8l-8 8" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-        <circle cx="12" cy="12" r="3" fill="white"/>
-      </svg>
-    </div>
   )
 };
 
-const companies = [
+const companies: Company[] = [
   { icon: CompanyIcons.openai, name: "OpenAI", position: { x: -200, y: -150 } },
   { icon: CompanyIcons.google, name: "Google", position: { x: 200, y: -150 } },
   { icon: CompanyIcons.anthropic, name: "Anthropic", position: { x: -250, y: 50 } },
@@ -77,7 +99,7 @@ const companies = [
   { icon: CompanyIcons.mistral, name: "Mistral", position: { x: -150, y: 200 } },
 ];
 
-const stats = [
+const stats: Stat[] = [
   {
     icon: Users,
     number: "100M+",
@@ -98,7 +120,158 @@ const stats = [
   }
 ];
 
-export const WhyReddit = () => {
+// Real data from search results
+const redditGrowthData: GrowthData[] = [
+  { period: "July 2023", visibility: 95.1, ranking: 68 },
+  { period: "Oct 2023", visibility: 200, ranking: 45 },
+  { period: "Apr 2024", visibility: 800, ranking: 15 },
+  { period: "July 2024", visibility: 1370, ranking: 5 }
+];
+
+const searchTrafficData: SearchTrafficData[] = [
+  { metric: "Organic Search Traffic Growth", value: 374, unit: "%" },
+  { metric: "Daily Active Users Growth", value: 47, unit: "%" },
+  { metric: "Monthly Google Searches", value: 600, unit: "M+" },
+  { metric: "AI Training Data Usage", value: 85, unit: "%" }
+];
+
+// Component Props Interfaces
+interface BarChartProps {
+  data: GrowthData[];
+  title: string;
+}
+
+interface MetricCardProps {
+  metric: string;
+  value: number;
+  unit: string;
+  index: number;
+}
+
+// Bar Chart Component
+const BarChart: React.FC<BarChartProps> = ({ data, title }) => (
+  <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50">
+    <h4 className={`text-lg font-bold text-black mb-4 text-center ${poppins.className}`}>
+      {title}
+    </h4>
+    <div className="space-y-3">
+      {data.map((item, index) => (
+        <div key={index} className="flex items-center justify-between">
+          <span className={`text-sm font-medium text-gray-700 flex-1 ${inter.className}`}>
+            {item.period}
+          </span>
+          <div className="flex-2 mx-4">
+            <div className="w-full bg-gray-200 rounded-full h-3">
+              <motion.div
+                initial={{ width: 0 }}
+                whileInView={{ width: `${(item.visibility / 1370) * 100}%` }}
+                transition={{ duration: 1.5, delay: index * 0.2 }}
+                viewport={{ once: true }}
+                className="h-3 bg-gradient-to-r from-orange-400 to-orange-600 rounded-full"
+              />
+            </div>
+          </div>
+          <span className={`text-sm font-bold text-orange-600 min-w-[60px] text-right ${poppins.className}`}>
+            #{item.ranking}
+          </span>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+// Metric Cards Component
+const MetricCard: React.FC<MetricCardProps> = ({ metric, value, unit, index }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    whileInView={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.5, delay: index * 0.1 }}
+    viewport={{ once: true }}
+    className="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-2xl p-6 border border-blue-200/30 text-center"
+  >
+    <div className="flex items-center justify-center mb-3">
+      <ArrowUp className="w-6 h-6 text-green-600 mr-2" />
+      <span className={`text-3xl font-black text-blue-900 ${poppins.className}`}>
+        {value}{unit}
+      </span>
+    </div>
+    <p className={`text-sm text-blue-800/80 font-medium ${inter.className}`}/>
+      {metric}
+    
+  </motion.div>
+);
+
+// Line Chart Component (simplified visual representation)
+const LineChart: React.FC = () => (
+  <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50">
+    <h4 className={`text-lg font-bold text-black mb-4 text-center ${poppins.className}`}>
+      Reddit's SEO Visibility Growth
+    </h4>
+    <div className="relative h-32">
+      <svg width="100%" height="100%" viewBox="0 0 400 120" className="overflow-visible">
+        <defs>
+          <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#f97316" />
+            <stop offset="100%" stopColor="#ea580c" />
+          </linearGradient>
+        </defs>
+        
+        {/* Grid lines */}
+        <g stroke="#e5e7eb" strokeWidth="1" opacity="0.3">
+          <line x1="0" y1="20" x2="400" y2="20" />
+          <line x1="0" y1="40" x2="400" y2="40" />
+          <line x1="0" y1="60" x2="400" y2="60" />
+          <line x1="0" y1="80" x2="400" y2="80" />
+          <line x1="0" y1="100" x2="400" y2="100" />
+        </g>
+        
+        {/* Data line */}
+        <motion.path
+          d="M50,100 L150,85 L250,40 L350,20"
+          stroke="url(#lineGradient)"
+          strokeWidth="4"
+          fill="none"
+          strokeLinecap="round"
+          initial={{ pathLength: 0 }}
+          whileInView={{ pathLength: 1 }}
+          transition={{ duration: 2, ease: "easeOut" }}
+          viewport={{ once: true }}
+        />
+        
+        {/* Data points */}
+        {[50, 150, 250, 350].map((x, index) => {
+          const y = [100, 85, 40, 20][index];
+          return (
+            <motion.circle
+              key={index}
+              cx={x}
+              cy={y}
+              r="6"
+              fill="#f97316"
+              initial={{ scale: 0 }}
+              whileInView={{ scale: 1 }}
+              transition={{ duration: 0.5, delay: index * 0.3 }}
+              viewport={{ once: true }}
+            />
+          );
+        })}
+        
+        {/* Labels */}
+        <text x="50" y="115" textAnchor="middle" className="text-xs fill-gray-600">Jul '23</text>
+        <text x="150" y="115" textAnchor="middle" className="text-xs fill-gray-600">Oct '23</text>
+        <text x="250" y="115" textAnchor="middle" className="text-xs fill-gray-600">Apr '24</text>
+        <text x="350" y="115" textAnchor="middle" className="text-xs fill-gray-600">Jul '24</text>
+      </svg>
+    </div>
+    <div className="mt-4 text-center">
+      <span className={`text-sm text-gray-600 ${inter.className}`}>
+        From #68 to #5 in Google rankings
+      </span>
+    </div>
+  </div>
+);
+
+export const WhyReddit: React.FC = () => {
   return (
     <section className="relative py-20 sm:py-24 bg-gradient-to-br from-white via-orange-50/20 to-white overflow-hidden">
       {/* Background Elements */}
@@ -120,7 +293,6 @@ export const WhyReddit = () => {
           >
             Why{" "}
             <span className="bg-gradient-to-r from-orange-500 to-orange-600 bg-clip-text text-transparent">
-                
               Reddit
             </span>{" "}
             is the Future of Lead Generation
@@ -153,7 +325,7 @@ export const WhyReddit = () => {
           viewport={{ once: true }}
           className="relative flex h-[600px] w-full flex-col items-center justify-center overflow-hidden mb-16"
         >
-          {/* Reddit Text in Center */}
+          {/* Reddit Icon in Center */}
           <motion.div 
             initial={{ scale: 0.5, opacity: 0 }}
             whileInView={{ scale: 1, opacity: 1 }}
@@ -161,10 +333,7 @@ export const WhyReddit = () => {
             viewport={{ once: true }}
             className="relative z-20 w-32 h-32 bg-white rounded-full flex items-center justify-center shadow-2xl border-4 border-orange-500"
           >
-            <span className={`text-2xl font-black text-orange-500 ${poppins.className}`}>
-                <FaReddit className="inline size-16 sm:size-20 lg:size-24 xl:size-28 text-orange-500 mx-2 relative z-20" />
-            
-            </span>
+            <FaReddit className="text-6xl text-orange-500" />
           </motion.div>
 
           {/* Companies flowing toward Reddit */}
@@ -290,42 +459,40 @@ export const WhyReddit = () => {
           ))}
         </div>
 
-        {/* Key Insights */}
+        {/* Data Visualization Section */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
+          transition={{ duration: 0.6 }}
           viewport={{ once: true }}
-          className="bg-white/60 backdrop-blur-sm rounded-3xl border border-orange-200/50 shadow-xl p-8 mb-16"
+          className="mb-16"
         >
-          <div className="text-center mb-8">
-            <h3 className={`text-2xl font-bold text-black mb-3 ${poppins.className}`}>
-              The Reddit Revolution is Here
+          <div className="text-center mb-12">
+            <h3 className={`text-3xl font-bold text-black mb-4 ${poppins.className}`}>
+              Reddit's Explosive Growth in Numbers
             </h3>
-            <p className={`text-base text-black/70 max-w-2xl mx-auto ${inter.className}`}>
-              Reddit content now dominates Google's top search results and powers AI recommendations. 
-              Missing Reddit means missing where your customers are actually looking for solutions.
+            <p className={`text-lg text-black/70 max-w-2xl mx-auto ${inter.className}`}>
+              Real data showing Reddit's unprecedented rise in search visibility and AI adoption
             </p>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-2xl p-6 border border-blue-200/30">
-              <h4 className={`text-lg font-bold text-blue-900 mb-2 ${poppins.className}`}>
-                🔍 Google's New Favorite
-              </h4>
-              <p className={`text-sm text-blue-800/80 ${inter.className}`}>
-                Reddit threads now rank #1 for thousands of "best product" searches. Users even add "Reddit" to their Google queries for authentic reviews.
-              </p>
-            </div>
-            
-            <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 rounded-2xl p-6 border border-purple-200/30">
-              <h4 className={`text-lg font-bold text-purple-900 mb-2 ${poppins.className}`}>
-                🤖 AI Training Ground
-              </h4>
-              <p className={`text-sm text-purple-800/80 ${inter.className}`}>
-                ChatGPT and other AI models are trained on Reddit discussions. Your brand mentions here influence AI recommendations to millions.
-              </p>
-            </div>
+
+          {/* Growth Metrics Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+            {searchTrafficData.map((item, index) => (
+              <MetricCard
+                key={index}
+                metric={item.metric}
+                value={item.value}
+                unit={item.unit}
+                index={index}
+              />
+            ))}
+          </div>
+
+          {/* Charts Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <LineChart />
+            <BarChart data={redditGrowthData} title="Google Rankings Evolution" />
           </div>
         </motion.div>
 
