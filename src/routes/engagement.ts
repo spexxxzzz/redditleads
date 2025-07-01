@@ -1,19 +1,17 @@
 import express from 'express';
 import { getReplyOptions, postRefineReply } from '../controllers/engagement.controller';
-import { checkSubscription } from '../middleware/gateKeeper';
 import { postReplyToLead } from '../controllers/post.controller';
+import { gateKeeper } from '../middleware/gateKeeper';
 
 const engagementRouter = express.Router();
 
-// --- All routes in this file are for Pro users and require an active subscription ---
-engagementRouter.use(checkSubscription);
+// Generate AI reply options (Pro feature)
+engagementRouter.post('/generate', gateKeeper, getReplyOptions);
 
-// Route to generate the initial set of reply options for a lead
-engagementRouter.post('/generate', getReplyOptions);
+// Refine an AI reply (Pro feature)
+engagementRouter.post('/refine', gateKeeper, postRefineReply);
 
-// Route to refine an existing reply
-engagementRouter.post('/refine', postRefineReply);
-
-engagementRouter.post('/post-reply', postReplyToLead);
+// Post reply to Reddit (Pro feature)
+engagementRouter.post('/post-reply', gateKeeper, postReplyToLead);
 
 export default engagementRouter;

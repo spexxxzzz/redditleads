@@ -6,10 +6,10 @@ const prisma = new PrismaClient();
 // A list of plans that are considered "active" and paid.
 const activePlans = ['pro']; 
 
-export const checkSubscription: RequestHandler = async (req, res, next) => {
+export const gateKeeper: RequestHandler = async (req, res, next) => {
     // NOTE: In a real app, you would get userId from a JWT token or session.
     // For now, we will assume it's passed in a header for testing.
-    const userId = req.headers['x-user-id'] as string;
+    const userId = "clerk_test_user_123";
 
     if (!userId) {
          res.status(401).json({ message: 'Unauthorized: User ID not provided.' });

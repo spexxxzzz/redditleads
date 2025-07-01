@@ -7,10 +7,10 @@ const onboardingRouter =  express.Router();
 console.log("--- [ROUTER LOG] Loading onboarding.ts router file...");
 
 
-onboardingRouter.post('/onboarding/analyze', analyzeWebsite);
+onboardingRouter.post('/analyze', analyzeWebsite);
 console.log("--- [ROUTER LOG] Route POST /onboarding/analyze configured.");
 
-onboardingRouter.post('/onboarding/complete', completeOnboarding);
+onboardingRouter.post('/complete', completeOnboarding);
 console.log("--- [ROUTER LOG] Route POST /onboarding/complete configured.");
 
 
