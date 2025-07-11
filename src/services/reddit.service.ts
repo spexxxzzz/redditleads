@@ -90,14 +90,7 @@ export const findLeadsOnReddit = async (keywords: string[], subreddits: string[]
     }
 };
 
-const getUserAuthenticatedInstance = (userRefreshToken: string) => {
-    return new snoowrap({
-        userAgent: process.env.REDDIT_USER_AGENT!,
-        clientId: process.env.REDDIT_CLIENT_ID!,
-        clientSecret: process.env.REDDIT_CLIENT_SECRET!,
-        refreshToken: userRefreshToken,
-    });
-};
+
 export const postReply = async (parentId: string, text: string, userRefreshToken: string): Promise<string> => {
     try {
         const userR = getUserAuthenticatedInstance(userRefreshToken);
@@ -108,25 +101,7 @@ export const postReply = async (parentId: string, text: string, userRefreshToken
         throw new Error(`Reddit API Error: ${error.message}`);
     }
 };
-export const getUserKarma = async (userRefreshToken: string): Promise<number> => {
-    try {
-        const userR = getUserAuthenticatedInstance(userRefreshToken);
-        const me = await (userR.getMe() as Promise<any>);
-        return (me.link_karma || 0) + (me.comment_karma || 0);
-    } catch (error: any) {
-        console.error(`Failed to fetch user karma:`, error);
-        throw new Error(`Reddit API Error while fetching karma: ${error.message}`);
-    }
-};
-export const checkKarmaThreshold = async (userRefreshToken: string, minimumKarma: number = 10): Promise<boolean> => {
-    try {
-        const karma = await getUserKarma(userRefreshToken);
-        return karma >= minimumKarma;
-    } catch (error) {
-        console.error('Failed to check karma threshold:', error);
-        return false;
-    }
-};
+
 export const getOptimalPostingDelay = (subredditName: string): number => {
     const popularSubreddits = ['askreddit', 'todayilearned', 'worldnews', 'pics'];
     if (popularSubreddits.includes(subredditName.toLowerCase())) {
@@ -143,5 +118,61 @@ export const getCommentById = async (commentId: string): Promise<any> => {
     } catch (error: any) {
         console.error(`Failed to fetch comment ${commentId}:`, error.message);
         throw new Error(`Reddit API Error: Could not fetch comment ${commentId}.`);
+    }
+};
+
+
+// ... keep your existing getAppAuthenticatedInstance function ...
+
+/**
+ * Creates a user-specific Reddit instance
+ */
+const getUserAuthenticatedInstance = (userRefreshToken: string) => {
+    return new snoowrap({
+        userAgent: process.env.REDDIT_USER_AGENT!,
+        clientId: process.env.REDDIT_CLIENT_ID!,
+        clientSecret: process.env.REDDIT_CLIENT_SECRET!,
+        refreshToken: userRefreshToken,
+    });
+};
+
+/**
+ * Posts a reply using the user's own Reddit account
+ */
+export const postReplyAsUser = async (parentId: string, text: string, userRefreshToken: string): Promise<string> => {
+    try {
+        const userR = getUserAuthenticatedInstance(userRefreshToken);
+        const newComment = await (userR.getComment(parentId).reply(text) as Promise<any>);
+        return newComment.name as string;
+    } catch (error: any) {
+        console.error(`Failed to post reply to ${parentId}:`, error);
+        throw new Error(`Reddit API Error: ${error.message}`);
+    }
+};
+
+/**
+ * Gets user's current karma using their own tokens
+ */
+export const getUserKarma = async (userRefreshToken: string): Promise<number> => {
+    try {
+        const userR = getUserAuthenticatedInstance(userRefreshToken);
+        const me = await (userR.getMe() as Promise<any>);
+        return (me.link_karma || 0) + (me.comment_karma || 0);
+    } catch (error: any) {
+        console.error(`Failed to fetch user karma:`, error);
+        throw new Error(`Reddit API Error while fetching karma: ${error.message}`);
+    }
+};
+
+/**
+ * Checks if user has enough karma to post
+ */
+export const checkKarmaThreshold = async (userRefreshToken: string, minimumKarma: number = 10): Promise<boolean> => {
+    try {
+        const karma = await getUserKarma(userRefreshToken);
+        return karma >= minimumKarma;
+    } catch (error) {
+        console.error('Failed to check karma threshold:', error);
+        return false;
     }
 };

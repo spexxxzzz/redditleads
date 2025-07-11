@@ -111,9 +111,10 @@ ${rulesText}
 -   Return the response as a JSON array of strings. Example: ["Response 1", "Response 2", "Response 3"]
 `;
 
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
-
+    // const result = await model.generateContent(prompt);
+    const result = "lmao this is a test response"; // For testing purposes, replace with actual AI call in production
+    // const responseText = result.response.text();
+ const responseText = result; // For testing purposes, replace with actual AI call in production
     // Clean up the response and parse it as JSON
     try {
         // The AI might wrap the JSON in markdown backticks, so we remove them.

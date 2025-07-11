@@ -58,13 +58,19 @@ export const api = {
     return response.json();
   },
 
-  postReply: async (leadId: string, replyContent: string) => {
+  postReply: async (leadId: string, replyContent: string, userId?: string) => {
     const response = await fetch(`${API_BASE_URL}/api/engagement/post-reply`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ leadId, replyContent }),
+      headers: {
+        'Content-Type': 'application/json',
+        ...(userId ? { 'x-user-id': userId } : {})
+      },
+      body: JSON.stringify({ leadId, content: replyContent }),
     });
-    if (!response.ok) throw new Error('Failed to post reply');
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Failed to post reply');
+    }
     return response.json();
   },
   refineReply: async (originalReply: string, instruction: string) => {
@@ -113,7 +119,28 @@ export const api = {
     return response.json();
   },
 
-   
+     // User management
+  getUser: async (userId: string) => {
+    const response = await fetch(`${API_BASE_URL}/api/users/${userId}`);
+    if (!response.ok) throw new Error('Failed to fetch user');
+    return response.json();
+  },
+
+  // Reddit authentication
+  getRedditAuthUrl: async (userId: string) => {
+    const response = await fetch(`${API_BASE_URL}/api/reddit/auth/${userId}`);
+    if (!response.ok) throw new Error('Failed to get Reddit auth URL');
+    return response.json();
+  },
+
+  disconnectReddit: async (userId: string) => {
+    const response = await fetch(`${API_BASE_URL}/api/reddit/disconnect/${userId}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) throw new Error('Failed to disconnect Reddit account');
+    return response.json();
+  },
+
 };
 
  

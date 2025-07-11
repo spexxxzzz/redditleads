@@ -1,8 +1,9 @@
 "use client";
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Bot, Edit3, Send, Loader, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
+import { X, Bot, Edit3, Send, Loader, AlertCircle, CheckCircle, RefreshCw, ExternalLink } from 'lucide-react';
 import { api } from '@/lib/api';
+const TEST_USER_ID = 'clerk_test_user_123'; // Replace with actual user ID logic
 
 interface Lead {
   id: string;
@@ -16,6 +17,7 @@ interface Lead {
   upvoteRatio: number;
   intent: string;
   opportunityScore: number;
+  redditId?: string;
   status?: 'new' | 'replied' | 'saved' | 'ignored';
 }
 
@@ -42,6 +44,12 @@ export const ReplyModal = ({ lead, isOpen, onClose, onLeadUpdate }: Props) => {
   const [activeEditId, setActiveEditId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [refinementInstruction, setRefinementInstruction] = useState('');
+
+  // Generate Reddit reply URL
+  const getRedditReplyUrl = (lead: Lead, content: string) => {
+    const postId = lead.redditId?.replace('t1_', '') || lead.redditId;
+    return `https://reddit.com/r/${lead.subreddit}/comments/${postId}/?reply=${encodeURIComponent(content)}`;
+  };
 
   // Generate initial AI reply options
   const generateReplies = async () => {
@@ -96,17 +104,26 @@ export const ReplyModal = ({ lead, isOpen, onClose, onLeadUpdate }: Props) => {
     setError(null);
 
     try {
-      await api.postReply(lead.id, text);
+      await api.postReply(lead.id, text, TEST_USER_ID);
       setSuccess('Reply posted successfully to Reddit!');
       onLeadUpdate(lead.id, 'replied');
       
-      // Auto-close after success
       setTimeout(() => {
         onClose();
         setSuccess(null);
       }, 2000);
     } catch (err: any) {
-      setError(err.message);
+      console.error('Post reply error:', err);
+      
+      if (err.message.includes('REDDIT_FORBIDDEN')) {
+        setError('Reddit blocked this post. Your account may be restricted or banned from this subreddit. Try posting manually.');
+      } else if (err.message.includes('REDDIT_RATE_LIMIT')) {
+        setError('Rate limited by Reddit. Please wait before posting again.');
+      } else if (err.message.includes('requiresRedditAuth')) {
+        setError('Please connect your Reddit account in Settings before posting.');
+      } else {
+        setError(`Failed to post reply: ${err.message}`);
+      }
     } finally {
       setIsPosting(false);
     }
@@ -242,6 +259,7 @@ export const ReplyModal = ({ lead, isOpen, onClose, onLeadUpdate }: Props) => {
                     <ReplyOptionCard
                       key={reply.id}
                       reply={reply}
+                      lead={lead}
                       index={index}
                       activeEditId={activeEditId}
                       editText={editText}
@@ -254,6 +272,7 @@ export const ReplyModal = ({ lead, isOpen, onClose, onLeadUpdate }: Props) => {
                       onRefinementChange={setRefinementInstruction}
                       onRefine={refineReply}
                       onPost={postReply}
+                      getRedditReplyUrl={getRedditReplyUrl}
                     />
                   ))}
                 </AnimatePresence>
@@ -269,6 +288,7 @@ export const ReplyModal = ({ lead, isOpen, onClose, onLeadUpdate }: Props) => {
 // Individual Reply Option Component
 interface ReplyOptionCardProps {
   reply: ReplyOption;
+  lead: Lead;
   index: number;
   activeEditId: string | null;
   editText: string;
@@ -281,10 +301,12 @@ interface ReplyOptionCardProps {
   onRefinementChange: (instruction: string) => void;
   onRefine: (id: string, instruction: string) => void;
   onPost: (text: string) => void;
+  getRedditReplyUrl: (lead: Lead, content: string) => string;
 }
 
 const ReplyOptionCard = ({
   reply,
+  lead,
   index,
   activeEditId,
   editText,
@@ -296,7 +318,8 @@ const ReplyOptionCard = ({
   onEditTextChange,
   onRefinementChange,
   onRefine,
-  onPost
+  onPost,
+  getRedditReplyUrl
 }: ReplyOptionCardProps) => {
   const [showRefinement, setShowRefinement] = useState(false);
   const isEditing = activeEditId === reply.id;
@@ -377,6 +400,42 @@ const ReplyOptionCard = ({
           </div>
         )}
 
+        {/* Post Buttons */}
+        <div className="flex items-center gap-2 mb-3">
+          <button
+            onClick={() => onPost(reply.text)}
+            disabled={isPosting}
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-[#ff4500] text-white rounded-lg hover:bg-[#ff5722] transition-colors text-sm disabled:opacity-50"
+          >
+            {isPosting ? (
+              <Loader className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+            Auto Post
+          </button>
+
+          {/* Manual Reply Button */}
+          <a
+            href={getRedditReplyUrl(lead, reply.text)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm"
+            onClick={() => {
+              // Copy content to clipboard for easy pasting
+              navigator.clipboard.writeText(reply.text);
+            }}
+          >
+            <ExternalLink className="w-4 h-4" />
+            Reply Manually
+          </a>
+        </div>
+
+        {/* Add a note about manual replies */}
+        <div className="text-xs text-gray-500 mb-3">
+          Manual reply will copy the text and open Reddit in a new tab
+        </div>
+
         {/* Action Buttons */}
         {!isEditing && (
           <div className="flex items-center gap-2 pt-3 border-t border-[#343536]">
@@ -395,21 +454,6 @@ const ReplyOptionCard = ({
             >
               <RefreshCw className="w-4 h-4" />
               Refine
-            </button>
-
-            <div className="flex-1" />
-
-            <button
-              onClick={() => onPost(reply.text)}
-              disabled={isPosting}
-              className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-[#ff4500] text-white rounded-lg hover:bg-[#ff5722] transition-colors text-sm disabled:opacity-50"
-            >
-              {isPosting ? (
-                <Loader className="w-4 h-4 animate-spin" />
-              ) : (
-                <Send className="w-4 h-4" />
-              )}
-              Post to Reddit
             </button>
           </div>
         )}

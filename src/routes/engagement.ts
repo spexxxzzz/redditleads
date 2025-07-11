@@ -12,6 +12,6 @@ engagementRouter.post('/generate', gateKeeper, getReplyOptions);
 engagementRouter.post('/refine', gateKeeper, postRefineReply);
 
 // Post reply to Reddit (Pro feature)
-engagementRouter.post('/post-reply', gateKeeper, postReplyToLead);
+engagementRouter.post('/post-reply',  postReplyToLead);
 
 export default engagementRouter;

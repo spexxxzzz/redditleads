@@ -10,6 +10,7 @@ import performanceRouter from './routes/performance';
 
 // --- NEW: Import campaigns router ---
 import campaignRouter from './routes/campaign';
+import redditRouter from './routes/reddit';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -30,11 +31,8 @@ app.use('/api/performance', performanceRouter);
 app.use('/api/insights', insightRouter);
 // --- NEW: Add campaigns router ---
 app.use('/api/campaigns', campaignRouter);
+app.use('/api/reddit', redditRouter);
 
-app.get("/api/auth/reddit/callback", async (req, res) => {
-  const code = req.query.code;
-  res.redirect("/dashboard");
-});
 
 app.use((err: any, req: any, res: any, next: any) => {
   console.error(err.stack);
@@ -46,5 +44,5 @@ app.use((err: any, req: any, res: any, next: any) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
-  initializeScheduler();
+  // initializeScheduler();
 });
