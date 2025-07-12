@@ -77,6 +77,9 @@ model Lead {
   sentiment        String?
   opportunityScore Int
   status           String   @default("new")
+  summary        String?  @db.Text
+  isGoogleRanked   Boolean? @default(false) // Add this new field
+
 
   // Timestamps
   postedAt     DateTime // When the original post was made on Reddit

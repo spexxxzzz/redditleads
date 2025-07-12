@@ -45,51 +45,61 @@ const getAppAuthenticatedInstance = async (): Promise<snoowrap> => {
 };
 
 
-export const findLeadsOnReddit = async (keywords: string[], subreddits: string[]) => {
+import { RawLead } from '../types/reddit.types';
+
+// ... (existing code for getAppAuthenticatedInstance) ...
+
+/**
+ * Finds leads on Reddit based on a set of keywords and subreddits.
+ * @param keywords A list of keywords to search for.
+ * @param subreddits A list of subreddits to search within.
+ * @returns A promise that resolves to an array of RawLead objects.
+ */
+export const findLeadsOnReddit = async (keywords: string[], subreddits: string[]): Promise<RawLead[]> => {
     try {
-        // --- FIX: Always get a verified instance before searching ---
-        const reddit = await getAppAuthenticatedInstance();
-        const searchQuery = keywords.map(k => `"${k}"`).join(' OR ');
-        const allPosts: any[] = [];
-
+        const r = await getAppAuthenticatedInstance();
         console.log(`Starting Reddit search for ${subreddits.length} subreddits.`);
-        console.log(`  -> Using search query: ${searchQuery}`);
 
-        for (const subreddit of subreddits) {
+        const searchQuery = keywords.join(' OR ');
+        console.log(`  -> Using search query: "${searchQuery}"`);
+
+        const searchPromises = subreddits.map(async (subreddit) => {
             try {
-                const searchResults = await reddit.getSubreddit(subreddit).search({ 
-                    query: searchQuery, 
-                    sort: 'new', 
-                    time: 'month' 
+                const searchResults = await r.getSubreddit(subreddit).search({
+                    query: searchQuery,
+                    sort: 'new',
+                    time: 'month',
                 });
-                const resultsArray = await searchResults.fetchAll();
-                allPosts.push(...resultsArray);
-            } catch (error: any) {
+                return searchResults.map((post): RawLead => ({ // FIX: Explicitly map to RawLead type
+                    id: post.id,
+                    title: post.title,
+                    author: post.author.name,
+                    subreddit: post.subreddit.display_name,
+                    url: post.url,
+                    body: post.selftext,
+                    createdAt: post.created_utc,
+                    numComments: post.num_comments,
+                    upvoteRatio: post.upvote_ratio,
+                    type: 'DIRECT_LEAD' // FIX: Add the required 'type' property
+                }));
+            } catch (error) {
                 console.warn(`⚠️  Could not search subreddit 'r/${subreddit}'. It might be private, banned, or non-existent. Skipping.`);
+                return [];
             }
-        }
+        });
 
-        console.log(`Reddit search complete. Found ${allPosts.length} total posts before filtering.`);
-
-        return allPosts.map((post: any) => ({
-            id: post.id,
-            title: post.title,
-            author: post.author?.name ?? '[deleted]',
-            subreddit: post.subreddit?.display_name ?? '[unknown]',
-            url: post.permalink ? `https://reddit.com${post.permalink}` : `https://www.reddit.com/r/${post.subreddit?.display_name ?? 'unknown'}/comments/${post.id}`,
-            body: post.selftext,
-            createdAt: post.created_utc,
-            numComments: post.num_comments ?? 0,
-            upvoteRatio: post.upvote_ratio ?? 0.5,
-        }));
+        const results = await Promise.all(searchPromises);
+        const flattenedResults = results.flat();
+        console.log(`Reddit search complete. Found ${flattenedResults.length} total posts before filtering.`);
+        return flattenedResults;
 
     } catch (error) {
-        // If authentication failed, this will catch it and prevent the worker from crashing.
-        console.error("Could not perform Reddit search due to an error.", error);
-        return []; // Return an empty array to allow the worker to continue gracefully.
+        console.error('Could not perform Reddit search due to an error.', error);
+        return [];
     }
 };
 
+// ... (rest of the file) ...
 
 export const postReply = async (parentId: string, text: string, userRefreshToken: string): Promise<string> => {
     try {

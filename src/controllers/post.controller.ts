@@ -6,6 +6,7 @@ const MINIMUM_KARMA_TO_POST = 1;
 
 import { checkKarmaThreshold, getUserKarma, postReplyAsUser } from '../services/reddit.service';
 import { RequestHandler } from 'express';
+import { summarizeTextContent } from '../services/summarisation.service';
 
 export const postReplyToLead: RequestHandler = async (req, res, next) => {
     const userId = req.headers['x-user-id'] as string;
@@ -99,5 +100,38 @@ export const postReplyToLead: RequestHandler = async (req, res, next) => {
                 error: error.message
             });
         }
+    }
+};
+export const summarizeLead: RequestHandler = async (req, res, next) => {
+    const { id } = req.params;
+
+    try {
+        const lead = await prisma.lead.findUnique({
+            where: { id },
+        });
+
+        if (!lead) {
+              res.status(404).json({ message: 'Lead not found.' });
+              return;
+        }
+
+        if (!lead.url) {
+             res.status(400).json({ message: 'Lead has no associated URL to summarize.' });
+             return;
+        }
+
+        console.log(`[SUMMARIZE] Request for lead ${id}, URL: ${lead.url}`);
+        const summary = await summarizeTextContent(lead.url);
+
+        // Update the lead in the database with the new summary
+        const updatedLead = await prisma.lead.update({
+            where: { id },
+            data: { summary },
+        });
+
+        res.status(200).json({ summary: updatedLead.summary });
+
+    } catch (error) {
+        next(error);
     }
 };

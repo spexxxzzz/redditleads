@@ -5,6 +5,7 @@ import { findLeadsOnReddit } from '../services/reddit.service';
 // --- DRY PRINCIPLE: Import the new centralized enrichment service ---
 // We no longer need to import calculateLeadScore or analyzeLeadIntent here.
 import { enrichLeadsForUser } from '../services/enrichment.service';
+import { summarizeTextContent } from '../services/summarisation.service';
 
 const prisma = new PrismaClient();
 
@@ -251,6 +252,40 @@ export const updateLeadStatus: RequestHandler = async (req, res, next) => {
         res.status(200).json(transformedLead);
     } catch (error) {
         console.error('❌ [Update Lead] Error updating lead status:', error);
+        next(error);
+    }
+};
+
+export const summarizeLead: RequestHandler = async (req, res, next) => {
+    const { id } = req.params;
+
+    try {
+        const lead = await prisma.lead.findUnique({
+            where: { id },
+        });
+
+        if (!lead) {
+             res.status(404).json({ message: 'Lead not found.' });
+             return
+        }
+
+        // --- Use the lead's body text instead of the URL ---
+        if (!lead.body || lead.body.trim().length === 0) {
+             res.status(400).json({ message: 'Lead has no content to summarize.' });
+             return
+        }
+
+        console.log(`[SUMMARIZE] Request for lead ${id}, using internal text.`);
+        const summary = await summarizeTextContent(lead.body);
+
+        const updatedLead = await prisma.lead.update({
+            where: { id },
+            data: { summary },
+        });
+
+        res.status(200).json({ summary: updatedLead.summary });
+
+    } catch (error) {
         next(error);
     }
 };

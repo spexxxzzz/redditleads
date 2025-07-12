@@ -1,0 +1,271 @@
+"use client";
+import Link from "next/link";
+import { FaReddit, FaSlack, FaDiscord, FaWhatsapp } from "react-icons/fa";
+import { SiGmail, SiNotion, SiZapier } from "react-icons/si";
+import { ArrowRight } from "lucide-react";
+import { motion, useScroll, useTransform } from "framer-motion";
+import { Inter, Poppins } from 'next/font/google';
+import { useRef } from "react";
+import { DotPattern } from "@/components/magicui/dot-pattern";
+import { cn } from "@/lib/utils";
+// Remove this import since we'll use DashboardPreview in the parent component
+// import { DashboardPreview } from "./ProductShowcase";
+
+const inter = Inter({ subsets: ['latin'] });
+const poppins = Poppins({ 
+  subsets: ['latin'], 
+  weight: ['400', '600', '700', '800', '900'] 
+});
+
+// Integration logos using React Icons
+const integrationLogos = [
+  { alt: "Gmail", icon: SiGmail, color: "text-red-500" },
+  { alt: "Slack", icon: FaSlack, color: "text-purple-500" },
+  { alt: "Discord", icon: FaDiscord, color: "text-indigo-500" },
+  { alt: "Notion", icon: SiNotion, color: "text-gray-400" },
+  { alt: "WhatsApp", icon: FaWhatsapp, color: "text-green-500" }
+];
+
+export const Hero = () => {
+  const containerRef = useRef<HTMLElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ["start start", "end start"]
+  });
+
+  const y = useTransform(scrollYProgress, [0, 1], ["0%", "50%"]);
+  const opacity = useTransform(scrollYProgress, [0, 1], [1, 0]);
+
+  return (
+    <section ref={containerRef} className="relative min-h-screen flex items-center justify-center overflow-hidden">
+   
+      {/* Clean Background with Minimal Orange */}
+      <motion.div 
+        style={{ y, opacity }}
+        className="absolute inset-0 z-10"
+      >
+        {/* Primary Dark Gradient Base */}
+        <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900/95"></div>
+       
+        
+        {/* Subtle Dark Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-r from-gray-900/20 via-gray-800/40 to-gray-900/20 opacity-70"></div>
+       
+        {/* Minimal Radial Gradients */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.03),transparent_70%)] opacity-50"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(255,255,255,0.02),transparent_70%)] opacity-40"></div>
+    
+
+        {/* Subtle Floating Orbs */}
+        <motion.div
+          animate={{ 
+            x: [0, 30, 0],
+            y: [0, -20, 0],
+            scale: [1, 1.1, 1]
+          }}
+          transition={{ 
+            duration: 20, 
+            repeat: Infinity, 
+            ease: "easeInOut" 
+          }}
+          className="absolute top-1/4 left-1/3 w-48 h-48 sm:w-96 sm:h-96 bg-gradient-to-br from-white/5 to-white/2 rounded-full blur-3xl opacity-30"
+        />
+        
+        <motion.div
+          animate={{ 
+            x: [0, -40, 0],
+            y: [0, 25, 0],
+            scale: [1, 0.9, 1]
+          }}
+          transition={{ 
+            duration: 25, 
+            repeat: Infinity, 
+            ease: "easeInOut",
+            delay: 5
+          }}
+          className="absolute bottom-1/3 right-1/4 w-40 h-40 sm:w-80 sm:h-80 bg-gradient-to-tl from-white/3 to-white/1 rounded-full blur-3xl opacity-20"
+        />
+      </motion.div>
+      
+      <div className="relative z-20 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center space-y-12">
+          
+          {/* Enhanced Typography */}
+          <div className="space-y-2 overflow-visible">
+            <motion.h1 
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 1, ease: "easeOut", delay: 0.2 }}
+              className={`text-6xl sm:text-7xl lg:text-8xl xl:text-9xl font-black tracking-tighter leading-[0.9] text-white mb-0 overflow-visible ${poppins.className}`}
+              style={{ overflow: 'visible' }}
+            >
+              Turn{" "}
+              <motion.span
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.8, delay: 0.5, ease: "backOut" }}
+                className="inline-block relative z-20 overflow-visible"
+                style={{ overflow: 'visible', display: 'inline-block' }}
+              >
+                <FaReddit className="inline size-16 sm:size-20 lg:size-24 xl:size-28 text-orange-500 mx-2 relative z-20" />
+              </motion.span>
+              <motion.span
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.8, delay: 0.7 }}
+                className="bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 bg-clip-text text-transparent inline-block overflow-visible"
+                style={{ 
+                  overflow: 'visible',
+                  lineHeight: '0.9',
+                  display: 'inline-block'
+                }}
+              >
+                Reddit
+              </motion.span>
+            </motion.h1>
+            
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.9 }}
+              className={`text-6xl sm:text-7xl lg:text-8xl xl:text-9xl font-black tracking-tighter leading-[0.9] text-white mt-0 overflow-visible ${poppins.className}`}
+              style={{ overflow: 'visible' }}
+            >
+              Into Leads
+            </motion.div>
+          </div>
+
+          {/* Text Content */}
+          <motion.p 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 1.1 }}
+            className={`text-xl lg:text-2xl text-white/70 max-w-2xl mx-auto leading-relaxed ${inter.className}`}
+          >
+            AI finds warm prospects on Reddit who need your product.
+            <br />
+            <motion.span
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.8, delay: 1.5 }}
+              className="text-white/50"
+            >
+              No manual searching required.
+            </motion.span>
+          </motion.p>
+
+          {/* Clean CTA Button */}
+          <motion.div 
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 1.3 }}
+            className="pt-8"
+          >
+            <div className="group relative inline-block">
+              <div className="absolute -inset-1 bg-gradient-to-r from-orange-500/30 via-orange-400/40 to-orange-500/30 rounded-xl blur opacity-30 group-hover:opacity-60 transition duration-500"></div>
+              
+              <Link
+                href="/signup"
+                className="relative inline-flex items-center gap-3 bg-white/10 backdrop-blur-xl hover:bg-white/20 text-white font-semibold py-4 px-8 rounded-xl text-lg transition-all duration-500 hover:scale-105 border border-white/20"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-orange-500/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                
+                <span className={`relative z-10 ${poppins.className}`}>Find My First Lead</span>
+                <ArrowRight className="size-5 relative z-10 group-hover:translate-x-1 transition-transform duration-300" />
+              </Link>
+            </div>
+          </motion.div>
+
+          {/* Integration Logos */}
+          <motion.div 
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 1.5 }}
+            className="pt-8"
+          >
+            <motion.p 
+              className={`text-sm text-white/50 mb-6 ${inter.className}`}
+            >
+              Integrates with your favorite tools
+            </motion.p>
+            
+            <div className="flex justify-center items-center gap-8 sm:gap-12">
+              {integrationLogos.map((logo, index) => {
+                const IconComponent = logo.icon;
+                return (
+                  <motion.div
+                    key={logo.alt}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ 
+                      duration: 0.5, 
+                      delay: 1.7 + (index * 0.1),
+                      ease: "easeOut"
+                    }}
+                  >
+                    <IconComponent 
+                      className={`h-8 w-8 opacity-60 ${logo.color}`}
+                      title={logo.alt}
+                    />
+                  </motion.div>
+                );
+              })}
+            </div>
+          </motion.div>
+
+          {/* Trust Line */}
+          <motion.p 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 1, delay: 2.5 }}
+            className={`text-sm text-white/40 ${inter.className}`}
+          >
+            <motion.span
+              animate={{ opacity: [0.4, 0.7, 0.4] }}
+              transition={{ duration: 3, repeat: Infinity }}
+            >
+              Join 500+ founders
+            </motion.span>
+            {" • "}
+            <motion.span
+              animate={{ opacity: [0.7, 0.4, 0.7] }}
+              transition={{ duration: 3, repeat: Infinity, delay: 1.5 }}
+            >
+              No credit card required
+            </motion.span>
+          </motion.p>
+
+        </div>
+      </div>
+
+      {/* Minimal Floating Elements */}
+      <motion.div
+        animate={{ 
+          y: [0, -15, 0],
+          opacity: [0.1, 0.3, 0.1]
+        }}
+        transition={{ 
+          duration: 12, 
+          repeat: Infinity, 
+          ease: "easeInOut" 
+        }}
+        className="absolute top-20 right-20 size-1 bg-white/20 rounded-full z-20"
+      />
+      
+      <motion.div
+        animate={{ 
+          y: [0, 20, 0],
+          x: [0, 10, 0],
+          opacity: [0.1, 0.2, 0.1]
+        }}
+        transition={{ 
+          duration: 16, 
+          repeat: Infinity, 
+          ease: "easeInOut",
+          delay: 3
+        }}
+        className="absolute bottom-32 left-16 size-1 bg-white/15 rounded-full z-20"
+      />
+    </section>
+  );
+};

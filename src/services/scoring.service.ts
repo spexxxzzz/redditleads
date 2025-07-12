@@ -7,6 +7,7 @@ interface LeadData {
     intent?: string;        
     sentiment?: string;
     type?: string;
+    isGoogleRanked?: boolean
 }
 
 // --- NEW: Multiplier for Opportunity Hijacking ---
@@ -65,6 +66,9 @@ export const calculateLeadScore = (lead: LeadData): number => {
         // And the same error was here for lead.intent.
         const multiplier = intentWeights[lead.intent] || intentWeights.default;
         finalScore *= multiplier;
+    }
+    if (lead.isGoogleRanked) {
+        finalScore *= 1.5; // 50% score boost!
     }
 
     // Ensure the final score is a whole number between 0 and 100.
