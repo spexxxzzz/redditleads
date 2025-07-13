@@ -152,29 +152,51 @@ export const Hero = () => {
             </motion.span>
           </motion.p>
 
-         
-                    {/* Clean CTA Button */}
-                    <motion.div 
-            initial={{ opacity: 1, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 1.3 }}
+          {/* Enhanced CTA Button with Proper Animation */}
+          <motion.div 
+            initial={{ opacity: 0, y: 30, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ 
+              duration: 0.8, 
+              delay: 1.3,
+              ease: [0.42, 0, 0.58, 1]
+            }}
             className="pt-8"
           >
-            <div className="group relative inline-block">
+            <motion.div 
+              className="group relative inline-block"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              transition={{ duration: 0.2 }}
+            >
               {/* Glowing orange border effect */}
-              <div className="absolute -inset-1 bg-gradient-to-r from-orange-500/50 via-orange-400/60 to-orange-500/50 rounded-xl blur-sm opacity-0 group-hover:opacity-100 transition duration-500"></div>
+              <motion.div 
+                className="absolute -inset-1 bg-gradient-to-r from-orange-500/50 via-orange-400/60 to-orange-500/50 rounded-xl blur-sm opacity-0 group-hover:opacity-100 transition duration-500"
+                initial={{ opacity: 0 }}
+                whileHover={{ opacity: 1 }}
+              />
               
               <Link
                 href="/signup"
-                className="relative inline-flex items-center gap-3 bg-gray-900/50 backdrop-blur-xl hover:bg-gray-800/60 text-white font-semibold py-4 px-8 rounded-xl text-lg transition-all duration-500 hover:scale-105 border-2 border-orange-500/40 hover:border-orange-400/80 shadow-[0_0_20px_rgba(249,115,22,0.3)] hover:shadow-[0_0_30px_rgba(249,115,22,0.5)]"
+                className="relative inline-flex items-center gap-3 bg-gray-900/50 backdrop-blur-xl hover:bg-gray-800/60 text-white font-semibold py-4 px-8 rounded-xl text-lg transition-all duration-500 border-2 border-orange-500/40 hover:border-orange-400/80 shadow-[0_0_20px_rgba(249,115,22,0.3)] hover:shadow-[0_0_30px_rgba(249,115,22,0.5)]"
               >
                 {/* Subtle shimmer effect on hover */}
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-orange-500/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 rounded-xl"></div>
+                <motion.div 
+                  className="absolute inset-0 bg-gradient-to-r from-transparent via-orange-500/5 to-transparent rounded-xl"
+                  initial={{ x: "-100%" }}
+                  whileHover={{ x: "100%" }}
+                  transition={{ duration: 1, ease: "easeInOut" }}
+                />
                 
                 <span className={`relative z-10 ${poppins.className}`}>Find My First Lead</span>
-                <ArrowRight className="size-5 relative z-10 group-hover:translate-x-1 transition-transform duration-300" />
+                <motion.div
+                  whileHover={{ x: 4 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <ArrowRight className="size-5 relative z-10" />
+                </motion.div>
               </Link>
-            </div>
+            </motion.div>
           </motion.div>
 
           {/* Fixed Integration Logos with Seamless Marquee */}
