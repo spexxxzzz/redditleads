@@ -1,30 +1,18 @@
 "use client";
 import Link from "next/link";
-import { FaReddit, FaSlack, FaDiscord, FaWhatsapp } from "react-icons/fa";
-import { SiGmail, SiNotion, SiZapier } from "react-icons/si";
 import { ArrowRight } from "lucide-react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { Inter, Poppins } from 'next/font/google';
 import { useRef } from "react";
-import { DotPattern } from "@/components/magicui/dot-pattern";
-import { cn } from "@/lib/utils";
-// Remove this import since we'll use DashboardPreview in the parent component
-// import { DashboardPreview } from "./ProductShowcase";
+import { FaReddit } from "react-icons/fa";
+import { InteractiveHoverButton } from "@/components/magicui/interactive-hover-button";
+import { Spotlight } from "../ui/spotlight-new";
 
 const inter = Inter({ subsets: ['latin'] });
 const poppins = Poppins({ 
   subsets: ['latin'], 
   weight: ['400', '600', '700', '800', '900'] 
 });
-
-// Integration logos using React Icons
-const integrationLogos = [
-  { alt: "Gmail", icon: SiGmail, color: "text-red-500" },
-  { alt: "Slack", icon: FaSlack, color: "text-purple-500" },
-  { alt: "Discord", icon: FaDiscord, color: "text-indigo-500" },
-  { alt: "Notion", icon: SiNotion, color: "text-gray-400" },
-  { alt: "WhatsApp", icon: FaWhatsapp, color: "text-green-500" }
-];
 
 export const Hero = () => {
   const containerRef = useRef<HTMLElement>(null);
@@ -38,7 +26,7 @@ export const Hero = () => {
 
   return (
     <section ref={containerRef} className="relative min-h-screen flex items-center justify-center overflow-hidden">
-   
+   <Spotlight/>
       {/* Clean Background with Minimal Orange */}
       <motion.div 
         style={{ y, opacity }}
@@ -47,7 +35,6 @@ export const Hero = () => {
         {/* Primary Dark Gradient Base */}
         <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900/95"></div>
        
-        
         {/* Subtle Dark Overlay */}
         <div className="absolute inset-0 bg-gradient-to-r from-gray-900/20 via-gray-800/40 to-gray-900/20 opacity-70"></div>
        
@@ -55,7 +42,6 @@ export const Hero = () => {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.03),transparent_70%)] opacity-50"></div>
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(255,255,255,0.02),transparent_70%)] opacity-40"></div>
     
-
         {/* Subtle Floating Orbs */}
         <motion.div
           animate={{ 
@@ -86,6 +72,18 @@ export const Hero = () => {
           className="absolute bottom-1/3 right-1/4 w-40 h-40 sm:w-80 sm:h-80 bg-gradient-to-tl from-white/3 to-white/1 rounded-full blur-3xl opacity-20"
         />
       </motion.div>
+      
+      {/* Enhanced Spotlight Beam */}
+      <div className="absolute inset-0 pointer-events-none z-5">
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+          {/* Main spotlight */}
+          <div className="w-[800px] h-[800px] bg-gradient-radial from-orange-400/20 via-orange-300/10 to-transparent rounded-full blur-2xl"></div>
+          {/* Inner glow */}
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-gradient-radial from-orange-300/30 via-orange-200/15 to-transparent rounded-full blur-xl"></div>
+          {/* Core light */}
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[200px] h-[200px] bg-gradient-radial from-orange-200/40 to-transparent rounded-full blur-lg"></div>
+        </div>
+      </div>
       
       <div className="relative z-20 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center space-y-12">
@@ -154,21 +152,24 @@ export const Hero = () => {
             </motion.span>
           </motion.p>
 
-          {/* Clean CTA Button */}
-          <motion.div 
-            initial={{ opacity: 0, y: 30 }}
+         
+                    {/* Clean CTA Button */}
+                    <motion.div 
+            initial={{ opacity: 1, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 1.3 }}
             className="pt-8"
           >
             <div className="group relative inline-block">
-              <div className="absolute -inset-1 bg-gradient-to-r from-orange-500/30 via-orange-400/40 to-orange-500/30 rounded-xl blur opacity-30 group-hover:opacity-60 transition duration-500"></div>
+              {/* Glowing orange border effect */}
+              <div className="absolute -inset-1 bg-gradient-to-r from-orange-500/50 via-orange-400/60 to-orange-500/50 rounded-xl blur-sm opacity-0 group-hover:opacity-100 transition duration-500"></div>
               
               <Link
                 href="/signup"
-                className="relative inline-flex items-center gap-3 bg-white/10 backdrop-blur-xl hover:bg-white/20 text-white font-semibold py-4 px-8 rounded-xl text-lg transition-all duration-500 hover:scale-105 border border-white/20"
+                className="relative inline-flex items-center gap-3 bg-gray-900/50 backdrop-blur-xl hover:bg-gray-800/60 text-white font-semibold py-4 px-8 rounded-xl text-lg transition-all duration-500 hover:scale-105 border-2 border-orange-500/40 hover:border-orange-400/80 shadow-[0_0_20px_rgba(249,115,22,0.3)] hover:shadow-[0_0_30px_rgba(249,115,22,0.5)]"
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-orange-500/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                {/* Subtle shimmer effect on hover */}
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-orange-500/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 rounded-xl"></div>
                 
                 <span className={`relative z-10 ${poppins.className}`}>Find My First Lead</span>
                 <ArrowRight className="size-5 relative z-10 group-hover:translate-x-1 transition-transform duration-300" />
@@ -176,7 +177,7 @@ export const Hero = () => {
             </div>
           </motion.div>
 
-          {/* Integration Logos */}
+          {/* Fixed Integration Logos with Seamless Marquee */}
           <motion.div 
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -184,32 +185,45 @@ export const Hero = () => {
             className="pt-8"
           >
             <motion.p 
-              className={`text-sm text-white/50 mb-6 ${inter.className}`}
+              className={`text-lg font-bold text-white/50 mb-6 ${inter.className}`}
             >
               Integrates with your favorite tools
             </motion.p>
             
-            <div className="flex justify-center items-center gap-8 sm:gap-12">
-              {integrationLogos.map((logo, index) => {
-                const IconComponent = logo.icon;
-                return (
-                  <motion.div
-                    key={logo.alt}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ 
-                      duration: 0.5, 
-                      delay: 1.7 + (index * 0.1),
-                      ease: "easeOut"
-                    }}
-                  >
-                    <IconComponent 
-                      className={`h-8 w-8 opacity-60 ${logo.color}`}
-                      title={logo.alt}
-                    />
-                  </motion.div>
-                );
-              })}
+            <div className="overflow-hidden whitespace-nowrap relative w-full">
+              <div 
+                className="flex w-max"
+                style={{
+                  animation: 'marquee 20s linear infinite'
+                }}
+              >
+                {/* First set */}
+                <img className="object-contain shrink-0 h-[32px] md:h-[40px] max-md:h-[24px] transition-transform hover:scale-110 mx-6" alt="Integration Logo 1" src="https://cdn.builder.io/api/v1/image/assets/TEMP/628f567b2e485aad67d93fb60e74b1cdabd543e8?placeholderIfAbsent=true" />
+                <img className="object-contain shrink-0 h-[32px] md:h-[40px] max-md:h-[24px] transition-transform hover:scale-110 mx-6" alt="Integration Logo 2" src="https://cdn.builder.io/api/v1/image/assets/TEMP/2a800b31805310aa7e66a69e5418fa00690c8447?placeholderIfAbsent=true" />
+                <img className="object-contain shrink-0 h-[32px] md:h-[40px] max-md:h-[24px] transition-transform hover:scale-110 mx-6" alt="Integration Logo 3" src="https://cdn.builder.io/api/v1/image/assets/TEMP/d63f85ba4135dced28843a0b237ce4cbe013537b?placeholderIfAbsent=true" />
+                <img className="object-contain shrink-0 h-[32px] md:h-[40px] max-md:h-[24px] transition-transform hover:scale-110 mx-6" alt="Integration Logo 4" src="https://cdn.builder.io/api/v1/image/assets/TEMP/10815a12b7490498be53c31b79b84eaf776fcc3f?placeholderIfAbsent=true" />
+                <img className="object-contain shrink-0 h-[32px] md:h-[40px] max-md:h-[24px] transition-transform hover:scale-110 mx-6" alt="Integration Logo 5" src="https://cdn.builder.io/api/v1/image/assets/TEMP/b8e021d4bf486876d3ccb34b072e74f69a875dc8?placeholderIfAbsent=true" />
+                <img className="object-contain shrink-0 h-[32px] md:h-[40px] max-md:h-[24px] transition-transform hover:scale-110 mx-6" alt="Integration Logo 6" src="https://cdn.builder.io/api/v1/image/assets/TEMP/90d0c7fccfd7adb0c28de1420add02e558a3bab6?placeholderIfAbsent=true" />
+                <img className="object-contain shrink-0 h-[32px] md:h-[40px] max-md:h-[24px] transition-transform hover:scale-110 mx-6" alt="Integration Logo 7" src="https://cdn.builder.io/api/v1/image/assets/TEMP/c7138e0e05e4a40992417363eabf2705578e66ca?placeholderIfAbsent=true" />
+                
+                {/* Second set - exact duplicate for seamless loop */}
+                <img className="object-contain shrink-0 h-[32px] md:h-[40px] max-md:h-[24px] transition-transform hover:scale-110 mx-6" alt="Integration Logo 1" src="https://cdn.builder.io/api/v1/image/assets/TEMP/628f567b2e485aad67d93fb60e74b1cdabd543e8?placeholderIfAbsent=true" />
+                <img className="object-contain shrink-0 h-[32px] md:h-[40px] max-md:h-[24px] transition-transform hover:scale-110 mx-6" alt="Integration Logo 2" src="https://cdn.builder.io/api/v1/image/assets/TEMP/2a800b31805310aa7e66a69e5418fa00690c8447?placeholderIfAbsent=true" />
+                <img className="object-contain shrink-0 h-[32px] md:h-[40px] max-md:h-[24px] transition-transform hover:scale-110 mx-6" alt="Integration Logo 3" src="https://cdn.builder.io/api/v1/image/assets/TEMP/d63f85ba4135dced28843a0b237ce4cbe013537b?placeholderIfAbsent=true" />
+                <img className="object-contain shrink-0 h-[32px] md:h-[40px] max-md:h-[24px] transition-transform hover:scale-110 mx-6" alt="Integration Logo 4" src="https://cdn.builder.io/api/v1/image/assets/TEMP/10815a12b7490498be53c31b79b84eaf776fcc3f?placeholderIfAbsent=true" />
+                <img className="object-contain shrink-0 h-[32px] md:h-[40px] max-md:h-[24px] transition-transform hover:scale-110 mx-6" alt="Integration Logo 5" src="https://cdn.builder.io/api/v1/image/assets/TEMP/b8e021d4bf486876d3ccb34b072e74f69a875dc8?placeholderIfAbsent=true" />
+                <img className="object-contain shrink-0 h-[32px] md:h-[40px] max-md:h-[24px] transition-transform hover:scale-110 mx-6" alt="Integration Logo 6" src="https://cdn.builder.io/api/v1/image/assets/TEMP/90d0c7fccfd7adb0c28de1420add02e558a3bab6?placeholderIfAbsent=true" />
+                <img className="object-contain shrink-0 h-[32px] md:h-[40px] max-md:h-[24px] transition-transform hover:scale-110 mx-6" alt="Integration Logo 7" src="https://cdn.builder.io/api/v1/image/assets/TEMP/c7138e0e05e4a40992417363eabf2705578e66ca?placeholderIfAbsent=true" />
+                
+                {/* Third set - for extra coverage */}
+                <img className="object-contain shrink-0 h-[32px] md:h-[40px] max-md:h-[24px] transition-transform hover:scale-110 mx-6" alt="Integration Logo 1" src="https://cdn.builder.io/api/v1/image/assets/TEMP/628f567b2e485aad67d93fb60e74b1cdabd543e8?placeholderIfAbsent=true" />
+                <img className="object-contain shrink-0 h-[32px] md:h-[40px] max-md:h-[24px] transition-transform hover:scale-110 mx-6" alt="Integration Logo 2" src="https://cdn.builder.io/api/v1/image/assets/TEMP/2a800b31805310aa7e66a69e5418fa00690c8447?placeholderIfAbsent=true" />
+                <img className="object-contain shrink-0 h-[32px] md:h-[40px] max-md:h-[24px] transition-transform hover:scale-110 mx-6" alt="Integration Logo 3" src="https://cdn.builder.io/api/v1/image/assets/TEMP/d63f85ba4135dced28843a0b237ce4cbe013537b?placeholderIfAbsent=true" />
+                <img className="object-contain shrink-0 h-[32px] md:h-[40px] max-md:h-[24px] transition-transform hover:scale-110 mx-6" alt="Integration Logo 4" src="https://cdn.builder.io/api/v1/image/assets/TEMP/10815a12b7490498be53c31b79b84eaf776fcc3f?placeholderIfAbsent=true" />
+                <img className="object-contain shrink-0 h-[32px] md:h-[40px] max-md:h-[24px] transition-transform hover:scale-110 mx-6" alt="Integration Logo 5" src="https://cdn.builder.io/api/v1/image/assets/TEMP/b8e021d4bf486876d3ccb34b072e74f69a875dc8?placeholderIfAbsent=true" />
+                <img className="object-contain shrink-0 h-[32px] md:h-[40px] max-md:h-[24px] transition-transform hover:scale-110 mx-6" alt="Integration Logo 6" src="https://cdn.builder.io/api/v1/image/assets/TEMP/90d0c7fccfd7adb0c28de1420add02e558a3bab6?placeholderIfAbsent=true" />
+                <img className="object-contain shrink-0 h-[32px] md:h-[40px] max-md:h-[24px] transition-transform hover:scale-110 mx-6" alt="Integration Logo 7" src="https://cdn.builder.io/api/v1/image/assets/TEMP/c7138e0e05e4a40992417363eabf2705578e66ca?placeholderIfAbsent=true" />
+              </div>
             </div>
           </motion.div>
 
@@ -266,6 +280,13 @@ export const Hero = () => {
         }}
         className="absolute bottom-32 left-16 size-1 bg-white/15 rounded-full z-20"
       />
+      
+      <style jsx>{`
+        @keyframes marquee {
+          0% { transform: translateX(0%); }
+          100% { transform: translateX(-33.333%); }
+        }
+      `}</style>
     </section>
   );
-};
+}
