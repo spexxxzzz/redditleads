@@ -5,6 +5,7 @@ import { Hero } from "@/components/landing/Hero";
 import { DashboardPreview } from "@/components/landing/ProductShowcase";
 import { HowToDo } from "@/components/landing/HowToDo";
 import { WhyReddit } from "@/components/landing/WhyReddit";
+import { WhyUs } from "@/components/landing/WhyUs";
 
 export default function Home() {
   return (
@@ -17,7 +18,9 @@ export default function Home() {
          </div>
           <Features/>
           <WhyReddit />
+          <WhyUs />
           <HowToDo/>
+        
          
        </div>
      </>

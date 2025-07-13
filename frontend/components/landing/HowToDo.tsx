@@ -13,8 +13,10 @@ const poppins = Poppins({
   weight: ["400", "600", "700", "800", "900"],
 });
 
+// Updated to a pure orange palette for the neon gradient
 const REDDIT_ORANGE = "#FF4500";
-const REDDIT_YELLOW = "#FFD635";
+const REDDIT_DEEP_ORANGE = "#FF6B00"; // A deeper, richer orange
+const REDDIT_LIGHT_ORANGE = "#FF7A00"; // A lighter, more vibrant orange
 
 const steps = [
   {
@@ -22,21 +24,21 @@ const steps = [
     description:
       "Paste your website URL. Our AI instantly analyzes your business and identifies your ideal customers.",
     icon: LinkIcon,
-    neon: { firstColor: REDDIT_ORANGE, secondColor: REDDIT_YELLOW },
+    neon: { firstColor: REDDIT_ORANGE, secondColor: REDDIT_DEEP_ORANGE },
   },
   {
     title: "AI Finds Your Leads",
     description:
       "Our intelligent system scans Reddit 24/7, identifying warm prospects who are actively seeking solutions like yours.",
     icon: MagnifyingGlassIcon,
-    neon: { firstColor: REDDIT_YELLOW, secondColor: REDDIT_ORANGE },
+    neon: { firstColor: REDDIT_DEEP_ORANGE, secondColor: REDDIT_LIGHT_ORANGE },
   },
   {
     title: "Start Converting",
     description:
       "Get qualified leads delivered to your inbox with AI-generated responses ready to send. No manual work required.",
     icon: ChatBubbleLeftRightIcon,
-    neon: { firstColor: REDDIT_ORANGE, secondColor: REDDIT_YELLOW },
+    neon: { firstColor: REDDIT_LIGHT_ORANGE, secondColor: REDDIT_ORANGE },
   },
 ];
 
@@ -50,7 +52,7 @@ export function HowToDo() {
             className={`text-4xl sm:text-5xl font-bold text-white tracking-tight ${poppins.className}`}
           >
             Onboard in{" "}
-            <span className="bg-gradient-to-r from-[#FF4500] via-[#FFD635] to-[#FF4500] bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-[#FF4500] via-[#FF6B00] to-[#FF7A00] bg-clip-text text-transparent">
               3 Simple Steps
             </span>
           </h2>
@@ -75,7 +77,7 @@ export function HowToDo() {
                   right: idx === 2 ? "0%" : undefined,
                 }}
               >
-                <div className="w-10 h-10 flex items-center justify-center rounded-full bg-[#FF4500] shadow-lg border-4 border-white/10">
+                <div className="w-10 h-10 flex items-center justify-center rounded-full bg-gradient-to-br from-[#FF4500] to-[#FF6B00] shadow-lg border-4 border-white/10">
                   <span className={`text-white font-bold text-lg ${poppins.className}`}>
                     {idx + 1}
                   </span>
@@ -113,7 +115,7 @@ export function HowToDo() {
         {/* CTA */}
         <div className="text-center mt-20">
           <button
-            className={`inline-flex items-center px-8 py-4 bg-gradient-to-r from-[#FF4500] to-[#FFD635] text-white font-semibold rounded-2xl text-lg shadow-xl hover:scale-105 transition-transform duration-300 ${poppins.className}`}
+            className={`inline-flex items-center px-8 py-4 bg-gradient-to-r from-[#FF4500] via-[#FF6B00] to-[#FF7A00] text-white font-semibold rounded-2xl text-lg shadow-xl hover:scale-105 transition-transform duration-300 ${poppins.className}`}
           >
             Start Your Free Trial
           </button>
