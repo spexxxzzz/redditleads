@@ -42,8 +42,11 @@ export const Header = () => {
       </div>
       
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
         <nav className="flex justify-between items-center h-20">
-          <Link href="/" className={`text-3xl font-black text-white ${poppins.className}`}>
+          {/* Logo */}
+          <Link href="/" className={`flex items-center text-3xl font-black text-white ${poppins.className}`}>
+            <img src="/logo.png" alt="Logo" className="h-8 w-auto mr-2" />
             red<span className="bg-gradient-to-r from-orange-400 to-orange-500 bg-clip-text text-transparent">lead</span>
           </Link>
 
@@ -106,7 +109,8 @@ export const Header = () => {
           
           <div className="relative p-4">
             <div className="flex justify-between items-center mb-8 h-20">
-              <Link href="/" className={`text-3xl font-black text-white ${poppins.className}`}>
+              <Link href="/" className={`flex items-center text-3xl font-black text-white ${poppins.className}`}>
+                <img src="/logo.png" alt="Logo" className="h-8 w-auto mr-2" />
                 red<span className="bg-gradient-to-r from-orange-400 to-orange-500 bg-clip-text text-transparent">lead</span>
               </Link>
               <button
@@ -148,7 +152,7 @@ export const Header = () => {
                   className={`relative bg-white/10 backdrop-blur-xl hover:bg-white/20 text-white font-bold py-3 px-8 rounded-xl text-lg transition-all duration-300 hover:scale-105 border border-orange-500/20 ${poppins.className}`}
                   onClick={() => setIsMenuOpen(false)}
                 >
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-orange-500/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                  <div className="absolute inset-0 bg-S-to-r from-transparent via-orange-500/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
                   <span className="relative z-10">Get Started</span>
                 </Link>
               </div>

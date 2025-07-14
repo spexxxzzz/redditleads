@@ -52,8 +52,9 @@ const SimpleFooter: React.FC = () => {
               transition={{ duration: 0.6 }}
             >
               <div className="flex items-center gap-3 mb-4">
-                 
+              <img src="/logo.png" alt="Logo" className="h-10 " />
                 <span className={` text-2xl font-black text-white ${poppins.className}`}>
+
                   red
                   <span className={` text-2xl bg-gradient-to-r from-orange-400 to-orange-500 bg-clip-text text-transparent  ${poppins.className}`}>lead</span>
                 </span>
