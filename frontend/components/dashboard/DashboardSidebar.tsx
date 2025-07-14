@@ -122,7 +122,7 @@ export const DashboardSidebar = ({
   );
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="h-screen flex flex-col bg-black/30 backdrop-blur-sm">
       {/* User Profile Section with Collapse Button */}
       <div className="border-b border-gray-800 p-4">
         {isCollapsed ? (

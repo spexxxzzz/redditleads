@@ -30,19 +30,61 @@ export function WhyReddit() {
         {/* Particles Background */}
         <Particles quantity={80} staticity={40} ease={60} size={0.8} vx={0} vy={0} />
 
-        {/* Hero Background Layers */}
+        {/* Black Background - Matching Hero Component */}
         <motion.div
           style={{ y, opacity }}
-          className="absolute inset-0 z-0"
+          className="absolute inset-0 z-10"
         >
-          <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900/95"></div>
-          <div className="absolute inset-0 bg-gradient-to-r from-gray-900/20 via-gray-800/40 to-gray-900/20 opacity-70"></div>
+          {/* Primary Black Base */}
+          <div className="absolute inset-0 bg-black"></div>
+          
+          {/* Subtle Dark Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-black/40 to-black/20 opacity-70"></div>
+         
+          {/* Minimal Radial Gradients */}
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.03),transparent_70%)] opacity-50"></div>
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(255,255,255,0.02),transparent_70%)] opacity-40"></div>
+      
+          {/* Subtle Floating Orbs */}
+          <motion.div
+            animate={{ 
+              x: [0, 30, 0],
+              y: [0, -20, 0],
+              scale: [1, 1.1, 1]
+            }}
+            transition={{ 
+              duration: 20, 
+              repeat: Infinity, 
+              ease: "easeInOut" 
+            }}
+            className="absolute top-1/4 left-1/3 w-48 h-48 sm:w-96 sm:h-96 bg-gradient-to-br from-white/5 to-white/2 rounded-full blur-3xl opacity-30"
+          />
+          
+          <motion.div
+            animate={{ 
+              x: [0, -40, 0],
+              y: [0, 25, 0],
+              scale: [1, 0.9, 1]
+            }}
+            transition={{ 
+              duration: 25, 
+              repeat: Infinity, 
+              ease: "easeInOut",
+              delay: 5
+            }}
+            className="absolute bottom-1/3 right-1/4 w-40 h-40 sm:w-80 sm:h-80 bg-gradient-to-tl from-white/3 to-white/1 rounded-full blur-3xl opacity-20"
+          />
         </motion.div>
 
-        {/* Spotlight */}
-        <div className="absolute inset-0 pointer-events-none z-0">
+        {/* Enhanced Spotlight Beam */}
+        <div className="absolute inset-0 pointer-events-none z-5">
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+            {/* Main spotlight */}
             <div className="w-[800px] h-[800px] bg-gradient-radial from-orange-400/20 via-orange-300/10 to-transparent rounded-full blur-2xl"></div>
+            {/* Inner glow */}
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-gradient-radial from-orange-300/30 via-orange-200/15 to-transparent rounded-full blur-xl"></div>
+            {/* Core light */}
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[200px] h-[200px] bg-gradient-radial from-orange-200/40 to-transparent rounded-full blur-lg"></div>
           </div>
         </div>
 
@@ -123,6 +165,35 @@ export function WhyReddit() {
             </motion.div>
           </div>
         </div>
+
+        {/* Minimal Floating Elements - From Hero */}
+        <motion.div
+          animate={{ 
+            y: [0, -15, 0],
+            opacity: [0.1, 0.3, 0.1]
+          }}
+          transition={{ 
+            duration: 12, 
+            repeat: Infinity, 
+            ease: "easeInOut" 
+          }}
+          className="absolute top-20 right-20 size-1 bg-white/20 rounded-full z-20"
+        />
+        
+        <motion.div
+          animate={{ 
+            y: [0, 20, 0],
+            x: [0, 10, 0],
+            opacity: [0.1, 0.2, 0.1]
+          }}
+          transition={{ 
+            duration: 16, 
+            repeat: Infinity, 
+            ease: "easeInOut",
+            delay: 3
+          }}
+          className="absolute bottom-32 left-16 size-1 bg-white/15 rounded-full z-20"
+        />
       </section>
 
       {/* Lightbox Modal */}

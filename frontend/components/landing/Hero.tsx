@@ -26,17 +26,18 @@ export const Hero = () => {
 
   return (
     <section ref={containerRef} className="relative min-h-screen flex items-center justify-center overflow-hidden">
-   <Spotlight/>
-      {/* Clean Background with Minimal Orange */}
+      <Spotlight/>
+      
+      {/* Black Background with Minimal Orange */}
       <motion.div 
         style={{ y, opacity }}
         className="absolute inset-0 z-10"
       >
-        {/* Primary Dark Gradient Base */}
-        <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900/95"></div>
+        {/* Primary Black Base */}
+        <div className="absolute inset-0 bg-black"></div>
        
         {/* Subtle Dark Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-r from-gray-900/20 via-gray-800/40 to-gray-900/20 opacity-70"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-black/40 to-black/20 opacity-70"></div>
        
         {/* Minimal Radial Gradients */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.03),transparent_70%)] opacity-50"></div>

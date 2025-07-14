@@ -25,7 +25,7 @@ export function Vort() {
         "#FF7A00", // Mid orange
       ]}
       waveWidth={40}
-      backgroundFill="rgb(17, 24, 39)" // gray-900
+      backgroundFill="rgb(0, 0, 0)" // Changed from gray-900 to black
       blur={10}
       speed="slow"
       waveOpacity={0.4}

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import { Inter, Poppins } from 'next/font/google';
+import { motion } from "framer-motion";
 
 const inter = Inter({ subsets: ['latin'] });
 const poppins = Poppins({ 
@@ -24,19 +25,19 @@ export const Header = () => {
 
   return (
     <header className="w-full sticky top-0 z-50 backdrop-blur-xl border-b border-orange-500/20 shadow-lg shadow-orange-500/10">
-      {/* Dark Mode Background - Same as Hero */}
+      {/* Black Background - Matching Hero Component */}
       <div className="absolute inset-0">
-        {/* Primary Dark Gradient Base */}
-        <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900/90"></div>
+        {/* Primary Black Base */}
+        <div className="absolute inset-0 bg-black"></div>
         
-        {/* Dark Glowing Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-r from-orange-900/10 via-gray-800/30 to-orange-900/10 opacity-60"></div>
+        {/* Subtle Dark Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-black/40 to-black/20 opacity-70"></div>
         
-        {/* Subtle Radial Dark Gradients */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(249,115,22,0.15),transparent_60%)] opacity-70"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(249,115,22,0.12),transparent_60%)] opacity-50"></div>
+        {/* Minimal Radial Gradients */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.03),transparent_70%)] opacity-50"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(255,255,255,0.02),transparent_70%)] opacity-40"></div>
         
-        {/* Dark Gradient Lines */}
+        {/* Subtle Orange Accent Lines */}
         <div className="absolute inset-y-0 left-1/4 w-px bg-gradient-to-b from-transparent via-orange-500/20 to-transparent opacity-40"></div>
         <div className="absolute inset-y-0 right-1/3 w-px bg-gradient-to-b from-transparent via-orange-500/15 to-transparent opacity-30"></div>
       </div>
@@ -101,11 +102,33 @@ export const Header = () => {
       {/* Mobile Menu Overlay */}
       {isMenuOpen && (
         <div className="md:hidden fixed inset-0 z-50 flex flex-col">
-          {/* Same Dark Background as Hero for Mobile Menu */}
-          <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900/90"></div>
-          <div className="absolute inset-0 bg-gradient-to-r from-orange-900/10 via-gray-800/30 to-orange-900/10 opacity-60"></div>
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(249,115,22,0.15),transparent_60%)] opacity-70"></div>
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(249,115,22,0.12),transparent_60%)] opacity-50"></div>
+          {/* Black Background for Mobile Menu - Matching Hero */}
+          <div className="absolute inset-0">
+            {/* Primary Black Base */}
+            <div className="absolute inset-0 bg-black"></div>
+            
+            {/* Subtle Dark Overlay */}
+            <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-black/40 to-black/20 opacity-70"></div>
+            
+            {/* Minimal Radial Gradients */}
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.03),transparent_70%)] opacity-50"></div>
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(255,255,255,0.02),transparent_70%)] opacity-40"></div>
+            
+            {/* Subtle Floating Orbs for Mobile */}
+            <motion.div
+              animate={{ 
+                x: [0, 30, 0],
+                y: [0, -20, 0],
+                scale: [1, 1.1, 1]
+              }}
+              transition={{ 
+                duration: 20, 
+                repeat: Infinity, 
+                ease: "easeInOut" 
+              }}
+              className="absolute top-1/4 left-1/3 w-48 h-48 bg-gradient-to-br from-white/5 to-white/2 rounded-full blur-3xl opacity-30"
+            />
+          </div>
           
           <div className="relative p-4">
             <div className="flex justify-between items-center mb-8 h-20">
@@ -152,7 +175,7 @@ export const Header = () => {
                   className={`relative bg-white/10 backdrop-blur-xl hover:bg-white/20 text-white font-bold py-3 px-8 rounded-xl text-lg transition-all duration-300 hover:scale-105 border border-orange-500/20 ${poppins.className}`}
                   onClick={() => setIsMenuOpen(false)}
                 >
-                  <div className="absolute inset-0 bg-S-to-r from-transparent via-orange-500/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-orange-500/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
                   <span className="relative z-10">Get Started</span>
                 </Link>
               </div>

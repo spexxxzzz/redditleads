@@ -159,13 +159,13 @@ export function HowToDo() {
 
   return (
     <section className="relative py-24 sm:py-32 overflow-hidden">
-      {/* Clean Background with Minimal Orange - Matching Hero Component */}
+      {/* Black Background - Matching Hero Component */}
       <div className="absolute inset-0 z-10">
-        {/* Primary Dark Gradient Base */}
-        <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900/95"></div>
-       
+        {/* Primary Black Base */}
+        <div className="absolute inset-0 bg-black"></div>
+        
         {/* Subtle Dark Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-r from-gray-900/20 via-gray-800/40 to-gray-900/20 opacity-70"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-black/40 to-black/20 opacity-70"></div>
        
         {/* Minimal Radial Gradients */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.03),transparent_70%)] opacity-50"></div>
@@ -255,6 +255,35 @@ export function HowToDo() {
           />
         )}
       </AnimatePresence>
+
+      {/* Minimal Floating Elements - From Hero */}
+      <motion.div
+        animate={{ 
+          y: [0, -15, 0],
+          opacity: [0.1, 0.3, 0.1]
+        }}
+        transition={{ 
+          duration: 12, 
+          repeat: Infinity, 
+          ease: "easeInOut" 
+        }}
+        className="absolute top-20 right-20 size-1 bg-white/20 rounded-full z-20"
+      />
+      
+      <motion.div
+        animate={{ 
+          y: [0, 20, 0],
+          x: [0, 10, 0],
+          opacity: [0.1, 0.2, 0.1]
+        }}
+        transition={{ 
+          duration: 16, 
+          repeat: Infinity, 
+          ease: "easeInOut",
+          delay: 3
+        }}
+        className="absolute bottom-32 left-16 size-1 bg-white/15 rounded-full z-20"
+      />
     </section>
   );
 }

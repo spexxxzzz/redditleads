@@ -157,7 +157,7 @@ export const DashboardLayout = () => {
 
   if (error && campaigns.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-lg p-6 max-w-md w-full">
           <div className="text-center">
             <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
@@ -181,69 +181,109 @@ export const DashboardLayout = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900">
-      <RedLeadHeader/>
+    <div className="min-h-screen bg-black relative overflow-hidden">
+      {/* Black Background Elements */}
+      <div className="absolute inset-0 z-0">
+        {/* Subtle Dark Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-black/40 to-black/20 opacity-70"></div>
+       
+        {/* Minimal Radial Gradients */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.03),transparent_70%)] opacity-50"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(255,255,255,0.02),transparent_70%)] opacity-40"></div>
     
-      {/* FIXED: Removed pt-16 to eliminate the gap */}
-      <div className="flex pt--2 pb--1">
-        
-        {/* Collapsible Left Sidebar */}
-        <motion.aside 
-          initial={{ opacity: 0, x: -20 }}
+        {/* Subtle Floating Orbs */}
+        <motion.div
           animate={{ 
-            opacity: 1, 
-            x: 0,
-            width: isSidebarCollapsed ? 80 : 280
+            x: [0, 30, 0],
+            y: [0, -20, 0],
+            scale: [1, 1.1, 1]
           }}
-          transition={{ duration: 0.3 }}
-          className="flex-shrink-0 border-r border-gray-800 bg-gray-900/50"
-        >
-          <DashboardSidebar 
-            campaigns={campaigns}
-            activeCampaign={activeCampaign}
-            setActiveCampaign={setActiveCampaign}
-            activeFilter={activeFilter}
-            setActiveFilter={setActiveFilter}
-            stats={leadStats}
-            isCollapsed={isSidebarCollapsed}
-            setIsCollapsed={setIsSidebarCollapsed}
-            user={mockUser}
-          />
-        </motion.aside>
+          transition={{ 
+            duration: 20, 
+            repeat: Infinity, 
+            ease: "easeInOut" 
+          }}
+          className="absolute top-1/4 left-1/3 w-48 h-48 sm:w-96 sm:h-96 bg-gradient-to-br from-white/5 to-white/2 rounded-full blur-3xl opacity-30"
+        />
+        
+        <motion.div
+          animate={{ 
+            x: [0, -40, 0],
+            y: [0, 25, 0],
+            scale: [1, 0.9, 1]
+          }}
+          transition={{ 
+            duration: 25, 
+            repeat: Infinity, 
+            ease: "easeInOut",
+            delay: 5
+          }}
+          className="absolute bottom-1/3 right-1/4 w-40 h-40 sm:w-80 sm:h-80 bg-gradient-to-tl from-white/3 to-white/1 rounded-full blur-3xl opacity-20"
+        />
+      </div>
 
-        {/* Main Content - Takes Remaining Space */}
-        {/* FIXED: Reduced padding from p-6 to p-4 for tighter spacing */}
-        <main className="flex-1 p-4">
-          <AnimatePresence mode="wait">
-            {isLoading ? (
-              <motion.div
-                key="loader"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="flex items-center justify-center h-96"
-              >
-                <div className="text-center">
-                  <Loader className="w-8 h-8 text-blue-500 animate-spin mx-auto mb-4" />
-                  <p className={`text-gray-400 text-sm ${inter.className}`}>Loading leads...</p>
-                </div>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="feed"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
-                <LeadFeed 
-                  leads={filteredLeads} 
-                  onLeadUpdate={handleLeadUpdate}
-                  onManualDiscovery={handleManualDiscovery}
-                  isRunningDiscovery={isRunningDiscovery}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </main>
+      <div className="relative z-10">
+        <RedLeadHeader/>
+      
+        <div className="flex pt--2 pb--1">
+          
+          {/* Collapsible Left Sidebar */}
+          <motion.aside 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ 
+              opacity: 1, 
+              x: 0,
+              width: isSidebarCollapsed ? 80 : 280
+            }}
+            transition={{ duration: 0.3 }}
+            className="flex-shrink-0 border-r border-gray-800 bg-black/50"
+          >
+            <DashboardSidebar 
+              campaigns={campaigns}
+              activeCampaign={activeCampaign}
+              setActiveCampaign={setActiveCampaign}
+              activeFilter={activeFilter}
+              setActiveFilter={setActiveFilter}
+              stats={leadStats}
+              isCollapsed={isSidebarCollapsed}
+              setIsCollapsed={setIsSidebarCollapsed}
+              user={mockUser}
+            />
+          </motion.aside>
+
+          {/* Main Content - Takes Remaining Space */}
+          <main className="flex-1 p-4">
+            <AnimatePresence mode="wait">
+              {isLoading ? (
+                <motion.div
+                  key="loader"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="flex items-center justify-center h-96"
+                >
+                  <div className="text-center">
+                    <Loader className="w-8 h-8 text-blue-500 animate-spin mx-auto mb-4" />
+                    <p className={`text-gray-400 text-sm ${inter.className}`}>Loading leads...</p>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="feed"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
+                  <LeadFeed 
+                    leads={filteredLeads} 
+                    onLeadUpdate={handleLeadUpdate}
+                    onManualDiscovery={handleManualDiscovery}
+                    isRunningDiscovery={isRunningDiscovery}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </main>
+        </div>
       </div>
     </div>
   );
