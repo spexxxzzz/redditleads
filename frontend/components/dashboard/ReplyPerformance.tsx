@@ -194,7 +194,7 @@ export default function PerformancePage() {
 interface MetricCardProps {
   title: string;
   value: number;
-  icon: React.ElementType;
+  icon: React.ComponentType<{ className?: string }>;
   color: 'blue' | 'green' | 'yellow' | 'purple' | 'orange';
   suffix?: string;
   isDecimal?: boolean;
@@ -215,6 +215,7 @@ const MetricCard = ({ title, value, icon: Icon, color, suffix = '', isDecimal = 
     <div className="bg-[#1a1a1b] rounded-lg p-6 border border-[#343536]">
       <div className="flex items-center justify-between mb-4">
         <div className={`p-2 rounded-lg ${colors[color]}`}>
+          
           <Icon className="w-5 h-5" />
         </div>
       </div>

@@ -239,7 +239,7 @@ export default function MarketInsightsPage() {
 interface MetricCardProps {
   title: string;
   value: number;
-  icon: React.ElementType;
+  icon: React.ComponentType<{ className?: string }>;
   color: 'blue' | 'orange' | 'green' | 'gray';
 }
 
