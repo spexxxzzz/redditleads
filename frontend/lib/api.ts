@@ -13,18 +13,31 @@ export const api = {
     if (!response.ok) throw new Error('Failed to fetch campaign');
     return response.json();
   },
-
+  generateSummary: async (leadId: string) => {
+    const response = await fetch(`${API_BASE_URL}/api/leads/${leadId}/summarize`, {
+      method: 'POST'
+    });
+    if (!response.ok) throw new Error('Failed to generate summary');
+    return response.json();
+  },
+  updateLeadStatus: async (leadId: string, status: string) => {
+    const response = await fetch(`${API_BASE_URL}/api/leads/${leadId}/status`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ status }),
+    });
+    if (!response.ok) throw new Error('Failed to update lead status');
+    return response.json();
+  },
   // Lead endpoints - CORRECTED to match your actual backend
-  getLeads: async (campaignId: string) => {
-    const response = await fetch(`${API_BASE_URL}/api/leads/campaign/${campaignId}`);
-    if (!response.ok) {
-      console.error(`Failed to fetch leads for campaign ${campaignId}:`, response.status, response.statusText);
-      throw new Error('Failed to fetch leads');
-    }
+  getLeads: async (campaignId: string, params: Record<string, any>) => {
+    const query = new URLSearchParams(params).toString();
+    const response = await fetch(`${API_BASE_URL}/api/leads/campaign/${campaignId}?${query}`);
+    if (!response.ok) throw new Error('Failed to fetch leads');
     const result = await response.json();
-    
-    // Handle both direct array and paginated response
-    return Array.isArray(result) ? result : result.data || [];
+    return result; // The backend now returns the full paginated object
   },
 
   // Manual discovery
@@ -33,17 +46,6 @@ export const api = {
       method: 'POST',
     });
     if (!response.ok) throw new Error('Failed to run manual discovery');
-    return response.json();
-  },
-
-  // Update lead status (we'll need this)
-  updateLeadStatus: async (leadId: string, status: string) => {
-    const response = await fetch(`${API_BASE_URL}/api/leads/${leadId}/status`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
-    });
-    if (!response.ok) throw new Error('Failed to update lead status');
     return response.json();
   },
 
@@ -119,7 +121,7 @@ export const api = {
     return response.json();
   },
 
-     // User management
+  // User management
   getUser: async (userId: string) => {
     const response = await fetch(`${API_BASE_URL}/api/users/${userId}`);
     if (!response.ok) throw new Error('Failed to fetch user');
@@ -141,6 +143,68 @@ export const api = {
     return response.json();
   },
 
-};
+  // Google/Gmail authentication
+  getGoogleAuthUrl: async (userId: string) => {
+    const response = await fetch(`${API_BASE_URL}/api/google/auth/${userId}`);
+    if (!response.ok) throw new Error('Failed to get Google auth URL');
+    return response.json();
+  },
 
- 
+  disconnectGoogle: async (userId: string) => {
+    const response = await fetch(`${API_BASE_URL}/api/google/disconnect/${userId}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) throw new Error('Failed to disconnect Google account');
+    return response.json();
+  },
+  
+    // Enhanced webhook endpoints
+    createWebhook: async (userId: string, webhookData: any) => {
+      const response = await fetch(`${API_BASE_URL}/api/webhooks/user/${userId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(webhookData),
+      });
+      if (!response.ok) throw new Error('Failed to create webhook');
+      return response.json();
+    },
+  
+    getWebhooks: async (userId: string) => {
+      const response = await fetch(`${API_BASE_URL}/api/webhooks/user/${userId}`);
+      if (!response.ok) throw new Error('Failed to fetch webhooks');
+      return response.json();
+    },
+  
+    getWebhookStats: async (userId: string) => {
+      const response = await fetch(`${API_BASE_URL}/api/webhooks/user/${userId}/stats`);
+      if (!response.ok) throw new Error('Failed to fetch webhook stats');
+      return response.json();
+    },
+  
+    updateWebhook: async (webhookId: string, updates: any) => {
+      const response = await fetch(`${API_BASE_URL}/api/webhooks/${webhookId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      if (!response.ok) throw new Error('Failed to update webhook');
+      return response.json();
+    },
+  
+    deleteWebhook: async (webhookId: string) => {
+      const response = await fetch(`${API_BASE_URL}/api/webhooks/${webhookId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) throw new Error('Failed to delete webhook');
+      return response.json();
+    },
+  
+    testWebhook: async (webhookId: string) => {
+      const response = await fetch(`${API_BASE_URL}/api/webhooks/${webhookId}/test`, {
+        method: 'POST',
+      });
+      if (!response.ok) throw new Error('Failed to test webhook');
+      return response.json();
+    },
+
+};

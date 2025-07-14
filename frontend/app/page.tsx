@@ -25,9 +25,9 @@ export default function Home() {
       
           <WhyUs />
         
-          <AdvantageComponent/>
+     
           <HowToDo/>
-          <Vort />
+         
           <PricingComponent/>
          
           <div>

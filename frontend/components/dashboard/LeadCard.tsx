@@ -4,7 +4,6 @@ import {
   MessageSquare,
   Bookmark,
   MoreHorizontal,
-  Send,
   ExternalLink,
   Clock,
   Target,
@@ -16,10 +15,12 @@ import {
   Star,
   TrendingUp,
   User,
+  XCircle,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { ReplyModal } from "./ReplyModal";
 import { Inter, Poppins } from "next/font/google";
+import { api } from "@/lib/api";
 
 const inter = Inter({ subsets: ["latin"] });
 const poppins = Poppins({
@@ -34,325 +35,267 @@ interface Lead {
   subreddit: string;
   url: string;
   body: string;
-  summary?: string | null;
   createdAt: number;
   numComments: number;
   upvoteRatio: number;
   intent: string;
+  summary?: string | null;
   opportunityScore: number;
   status?: "new" | "replied" | "saved" | "ignored";
-  isGoogleRanked?: boolean;
 }
 
 interface Props {
   lead: Lead;
-  onUpdate: (leadId: string, status: Lead["status"]) => void;
+  onUpdate: (leadId: string, status: Lead['status']) => void;
+  currentFilter: string;
 }
 
 const MIN_WORDS_FOR_SUMMARY = 40;
 
-export const LeadCard = ({ lead, onUpdate }: Props) => {
+export const LeadCard = ({ lead, onUpdate, currentFilter }: Props) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showReplyModal, setShowReplyModal] = useState(false);
+  const [summary, setSummary] = useState<string | null>(lead.summary || null);
   const [isSummarizing, setIsSummarizing] = useState(false);
-  const [summary, setSummary] = useState(lead.summary);
   const [summaryError, setSummaryError] = useState<string | null>(null);
 
-  const wordCount = lead.body?.split(/\s+/).length || 0;
-  const canSummarize = wordCount > MIN_WORDS_FOR_SUMMARY && !summary;
+  const timeAgo = (timestamp: number) => {
+    const seconds = Math.floor((new Date().getTime() - timestamp * 1000) / 1000);
+    let interval = seconds / 31536000;
+    if (interval > 1) return Math.floor(interval) + " years ago";
+    interval = seconds / 2592000;
+    if (interval > 1) return Math.floor(interval) + " months ago";
+    interval = seconds / 86400;
+    if (interval > 1) return Math.floor(interval) + " days ago";
+    interval = seconds / 3600;
+    if (interval > 1) return Math.floor(interval) + " hours ago";
+    interval = seconds / 60;
+    if (interval > 1) return Math.floor(interval) + " minutes ago";
+    return Math.floor(seconds) + " seconds ago";
+  };
 
-  const handleSummarize = async () => {
+  const getOpportunityColor = (score: number) => {
+    if (score >= 80) return "text-green-400";
+    if (score >= 60) return "text-yellow-400";
+    if (score >= 40) return "text-orange-400";
+    return "text-red-400";
+  };
+
+  const getIntentColor = (intent: string) => {
+    switch (intent) {
+      case "solution_seeking":
+        return "bg-green-500/10 text-green-400";
+      case "pain_point":
+        return "bg-red-500/10 text-red-400";
+      case "brand_comparison":
+        return "bg-blue-500/10 text-blue-400";
+      case "information_seeking":
+        return "bg-purple-500/10 text-purple-400";
+      default:
+        return "bg-gray-500/10 text-gray-400";
+    }
+  };
+
+  const generateSummary = async () => {
     if (isSummarizing) return;
+    
     setIsSummarizing(true);
     setSummaryError(null);
+    
     try {
-      const response = await fetch(`http://localhost:5000/api/leads/${lead.id}/summarize`, {
-        method: 'POST',
-      });
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.message || 'Failed to get summary.');
-      }
-      const data = await response.json();
-      setSummary(data.summary);
-    } catch (err: any) {
-      setSummaryError(err.message);
+      const response = await api.generateSummary(lead.id);
+      setSummary(response.summary);
+    } catch (error: any) {
+      setSummaryError(error.message || "Failed to generate summary. Please try again.");
     } finally {
       setIsSummarizing(false);
     }
   };
 
-  const getStatusConfig = (status?: string) => {
-    switch (status) {
-      case "replied":
-        return {
-          borderColor: "border-l-emerald-500",
-          bgColor: "bg-emerald-500/5",
-          shadowColor: "shadow-emerald-500/10",
-        };
-      case "saved":
-        return {
-          borderColor: "border-l-blue-500",
-          bgColor: "bg-blue-500/5",
-          shadowColor: "shadow-blue-500/10",
-        };
-      case "ignored":
-        return {
-          borderColor: "border-l-gray-500",
-          bgColor: "bg-gray-500/5",
-          shadowColor: "shadow-gray-500/10",
-        };
-      default:
-        return {
-          borderColor: "border-l-orange-500",
-          bgColor: "bg-orange-500/5",
-          shadowColor: "shadow-orange-500/10",
-        };
-    }
-  };
+  const wordCount = lead.body.split(' ').length;
+  const shouldShowSummary = wordCount >= MIN_WORDS_FOR_SUMMARY;
 
-  const getTimeAgo = (timestamp: number) => {
-    const diff = Date.now() - timestamp * 1000;
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const days = Math.floor(hours / 24);
-    if (days > 0) return `${days}d ago`;
-    if (hours > 0) return `${hours}h ago`;
-    return "Just now";
-  };
+  // Determine which buttons to show based on current filter
+  const showSaveButton = currentFilter !== "saved";
+  const showIgnoreButton = currentFilter !== "ignored";
+  const showReplyButton = currentFilter !== "replied";
 
-  const getOpportunityConfig = (score: number) => {
-    if (score >= 70) return {
-      color: "text-emerald-400",
-      bg: "bg-emerald-500/10",
-      border: "border-emerald-500/20",
-    };
-    if (score >= 40) return {
-      color: "text-amber-400",
-      bg: "bg-amber-500/10",
-      border: "border-amber-500/20",
-    };
-    return {
-      color: "text-rose-400",
-      bg: "bg-rose-500/10",
-      border: "border-rose-500/20",
-    };
-  };
-
-  const getIntentConfig = (intent: string) => {
-    switch (intent) {
-      case "solution_seeking":
-        return {
-          color: "text-emerald-400",
-          bg: "bg-emerald-500/10",
-          border: "border-emerald-500/20",
-          label: "Solution Seeking"
-        };
-      case "pain_point":
-        return {
-          color: "text-orange-400",
-          bg: "bg-orange-500/10",
-          border: "border-orange-500/20",
-          label: "Pain Point"
-        };
-      case "information_seeking":
-        return {
-          color: "text-blue-400",
-          bg: "bg-blue-500/10",
-          border: "border-blue-500/20",
-          label: "Information Seeking"
-        };
-      default:
-        return {
-          color: "text-gray-400",
-          bg: "bg-gray-500/10",
-          border: "border-gray-500/20",
-          label: intent.replace("_", " ")
-        };
-    }
-  };
-
-  const statusConfig = getStatusConfig(lead.status);
-  const opportunityConfig = getOpportunityConfig(lead.opportunityScore);
-  const intentConfig = getIntentConfig(lead.intent);
+  // Add debug logging
+  console.log(`Lead ${lead.id} - currentFilter: ${currentFilter}, showIgnoreButton: ${showIgnoreButton}`);
 
   return (
     <>
       <motion.div
+        layout
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        whileHover={{ y: -1 }}
-        className={`group relative overflow-hidden rounded-xl border ${statusConfig.borderColor} ${statusConfig.bgColor} ${statusConfig.shadowColor} shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-xl`}
+        exit={{ opacity: 0, y: -20 }}
+        className="bg-[#1a1a1b] rounded-lg border border-[#343536] hover:border-[#ff4500] transition-all duration-200 overflow-hidden"
       >
-        {/* Status Indicator */}
-        <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-current to-transparent opacity-60"></div>
-        
-        {/* Google Ranked Badge */}
-        {lead.isGoogleRanked && (
-          <div className="absolute top-3 right-3 z-10">
-            <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-blue-500/10 text-blue-400 font-medium text-xs border border-blue-500/20 backdrop-blur-sm">
-              <Globe2 className="w-3 h-3" />
-              <span>Ranked</span>
-            </div>
-          </div>
-        )}
-
-        {/* Main Content */}
-        <div className="p-4">
-          {/* Header with Metadata */}
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 text-sm">
-                <div className="w-5 h-5 bg-gradient-to-br from-orange-500 to-red-500 rounded-full flex items-center justify-center text-white font-bold text-xs">
-                  r
-                </div>
-                <span className={`font-medium text-white hover:text-orange-400 cursor-pointer transition-colors text-sm ${poppins.className}`}>
-                  {lead.subreddit}
+        <div className="p-6">
+          {/* Header */}
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-center gap-3 flex-1">
+              <div className="flex items-center gap-2">
+                <Globe2 className="w-4 h-4 text-[#ff4500]" />
+                <span className="text-sm font-medium text-[#ff4500]">
+                  r/{lead.subreddit}
                 </span>
               </div>
-              <div className="text-gray-500 text-xs">•</div>
-              <div className="flex items-center gap-1 text-gray-400 text-xs">
+              <div className="flex items-center gap-2 text-sm text-gray-400">
                 <User className="w-3 h-3" />
-                <span>{lead.author}</span>
+                <span>u/{lead.author}</span>
               </div>
             </div>
-            <div className="flex items-center gap-1 text-gray-400 text-xs">
+            <div className="flex items-center gap-2 text-sm text-gray-400">
               <Clock className="w-3 h-3" />
-              <span>{getTimeAgo(lead.createdAt)}</span>
+              <span>{timeAgo(lead.createdAt)}</span>
             </div>
           </div>
 
-          {/* Title */}
-          <h3 className={`text-base font-bold text-white mb-2 leading-tight hover:text-orange-400 cursor-pointer transition-colors ${poppins.className}`}>
-            {lead.title}
-          </h3>
+          {/* Title - Clickable */}
+          <a
+            href={lead.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block mb-3 group"
+          >
+            <h3 className={`text-lg font-bold text-white group-hover:text-[#ff4500] transition-colors duration-200 leading-tight ${poppins.className}`}>
+              {lead.title}
+            </h3>
+          </a>
 
-          {/* Metrics Row */}
-          <div className="flex items-center gap-1.5 mb-2">
-            <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full ${opportunityConfig.bg} ${opportunityConfig.color} border ${opportunityConfig.border} text-xs font-medium`}>
-              <Target className="w-2.5 h-2.5" />
-              <span>{lead.opportunityScore}</span>
+          {/* Metrics */}
+          <div className="flex items-center gap-4 mb-4">
+            <div className="flex items-center gap-2">
+              <Target className="w-4 h-4 text-orange-400" />
+              <span className={`text-sm font-medium ${getOpportunityColor(lead.opportunityScore)}`}>
+                {lead.opportunityScore}% opportunity
+              </span>
             </div>
-            <div className={`px-2 py-0.5 rounded-full ${intentConfig.bg} ${intentConfig.color} border ${intentConfig.border} text-xs font-medium`}>
-              {intentConfig.label}
-            </div>
-            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-500/10 text-gray-300 border border-gray-500/20 text-xs">
-              <TrendingUp className="w-2.5 h-2.5" />
-              <span>{Math.round((lead.upvoteRatio || 0) * 100)}%</span>
+            <div className={`px-2 py-1 rounded-full text-xs font-medium ${getIntentColor(lead.intent)}`}>
+              {lead.intent.replace('_', ' ')}
             </div>
           </div>
 
-          {/* Content Preview */}
-          <div className="mb-2">
-            {lead.body ? (
-              <div className="text-gray-300 leading-relaxed text-sm">
-                <p className={isExpanded ? "" : "line-clamp-2"}>
-                  {isExpanded ? lead.body : 
-                    (lead.body.length > 180 ? `${lead.body.substring(0, 180)}...` : lead.body)
-                  }
-                </p>
-                {lead.body.length > 180 && (
-                  <button
-                    onClick={() => setIsExpanded(!isExpanded)}
-                    className="inline-flex items-center gap-1 mt-1 text-orange-400 hover:text-orange-300 text-xs font-medium transition-colors"
-                  >
-                    {isExpanded ? (
-                      <>
-                        <ChevronUp className="w-3 h-3" />
-                        Less
-                      </>
-                    ) : (
-                      <>
-                        <ChevronDown className="w-3 h-3" />
-                        More
-                      </>
-                    )}
-                  </button>
+          {/* Body Content */}
+          <div className="mb-4">
+            <div className={`text-gray-300 leading-relaxed ${isExpanded ? '' : 'line-clamp-3'}`}>
+              {lead.body}
+            </div>
+            {lead.body.length > 200 && (
+              <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="text-[#ff4500] hover:text-[#ff6b35] text-sm mt-2 flex items-center gap-1"
+              >
+                {isExpanded ? (
+                  <>
+                    <ChevronUp className="w-4 h-4" />
+                    Show less
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-4 h-4" />
+                    Show more
+                  </>
                 )}
-              </div>
-            ) : (
-              <p className="text-gray-500 italic text-sm">No content available</p>
+              </button>
             )}
           </div>
 
           {/* AI Summary Section */}
-          {summary && (
-            <div className="mb-2 p-3 rounded-lg bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/20">
-              <div className="flex items-center gap-1.5 mb-1">
-                <div className="w-4 h-4 bg-gradient-to-br from-orange-500 to-amber-500 rounded-full flex items-center justify-center">
-                  <Star className="w-2 h-2 text-white" />
+          {shouldShowSummary && (
+            <div className="mb-4">
+              {!summary && !isSummarizing && (
+                <button
+                  onClick={generateSummary}
+                  className="flex items-center gap-2 text-sm text-[#ff4500] hover:text-[#ff6b35] transition-colors"
+                >
+                  <Star className="w-4 h-4" />
+                  Generate AI Summary
+                </button>
+              )}
+              
+              {isSummarizing && (
+                <div className="flex items-center gap-2 text-sm text-gray-400">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Generating summary...
                 </div>
-                <h4 className={`text-orange-400 font-medium text-xs ${poppins.className}`}>
-                  AI Summary
-                </h4>
-              </div>
-              <p className="text-gray-300 text-xs leading-relaxed">{summary}</p>
-            </div>
-          )}
+              )}
+              
+              {summary && (
+                <div className="p-3 bg-[#2a2a2b] rounded-lg border border-[#404041]">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-4 h-4 bg-gradient-to-br from-orange-500 to-amber-500 rounded-full flex items-center justify-center">
+                      <Star className="w-2 h-2 text-white" />
+                    </div>
+                    <h4 className={`text-orange-400 font-medium text-xs ${poppins.className}`}>
+                      AI Summary
+                    </h4>
+                  </div>
+                  <p className="text-gray-300 text-xs leading-relaxed">{summary}</p>
+                </div>
+              )}
 
-          {summaryError && (
-            <div className="mb-2 p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
-              {summaryError}
+              {summaryError && (
+                <div className="mb-2 p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
+                  {summaryError}
+                </div>
+              )}
             </div>
           )}
 
           {/* Action Buttons */}
           <div className="flex items-center gap-1.5 pt-2 border-t border-gray-800">
-            <button
-              onClick={() => setShowReplyModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg font-medium hover:from-orange-600 hover:to-orange-700 transition-all duration-200 shadow-md shadow-orange-500/25 hover:shadow-orange-500/40 text-xs"
-            >
-              <Send className="w-3.5 h-3.5" />
-              <span>Reply</span>
-            </button>
-
-            {canSummarize && (
+            {showReplyButton && (
               <button
-                onClick={handleSummarize}
-                disabled={isSummarizing}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700/50 text-gray-300 rounded-lg font-medium hover:bg-gray-700 hover:text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-600 text-xs"
+                onClick={() => setShowReplyModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#ff4500] hover:bg-[#ff5722] text-white rounded-lg text-sm font-medium transition-colors"
               >
-                {isSummarizing ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <FileText className="w-3.5 h-3.5" />
-                )}
-                <span>{isSummarizing ? 'Working...' : 'Summary'}</span>
+                <MessageSquare className="w-3.5 h-3.5" />
+                Reply
+              </button>
+            )}
+            
+            {showSaveButton && (
+              <button
+                onClick={() => {
+                  console.log(`Save button clicked for lead ${lead.id}`);
+                  onUpdate(lead.id, 'saved');
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#343536] hover:bg-[#404041] text-gray-300 rounded-lg text-sm font-medium transition-colors"
+              >
+                <Bookmark className="w-3.5 h-3.5" />
+                Save
+              </button>
+            )}
+            
+            {showIgnoreButton && (
+              <button
+                onClick={() => {
+                  console.log(`Ignore button clicked for lead ${lead.id}`);
+                  onUpdate(lead.id, 'ignored');
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#343536] hover:bg-[#404041] text-gray-300 rounded-lg text-sm font-medium transition-colors"
+              >
+                <XCircle className="w-3.5 h-3.5" />
+                Ignore
               </button>
             )}
 
-            <button
-              onClick={() => onUpdate(lead.id, lead.status === "saved" ? "new" : "saved")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all duration-200 border text-xs ${
-                lead.status === "saved"
-                  ? "bg-blue-500/10 text-blue-400 border-blue-500/20"
-                  : "bg-gray-700/50 text-gray-300 border-gray-600 hover:bg-blue-500/10 hover:text-blue-400 hover:border-blue-500/20"
-              }`}
-            >
-              <Bookmark
-                className="w-3.5 h-3.5"
-                fill={lead.status === "saved" ? "currentColor" : "none"}
-              />
-              <span>{lead.status === "saved" ? "Saved" : "Save"}</span>
-            </button>
-
-            <div className="flex items-center gap-1 ml-auto">
+            <div className="flex-1" />
+            
+            <div className="flex items-center gap-2">
               <a
                 href={lead.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1 px-2 py-1 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700/50 transition-all duration-200 text-xs"
+                className="flex items-center gap-1 text-gray-400 hover:text-[#ff4500] text-sm transition-colors"
               >
-                <ExternalLink className="w-3.5 h-3.5" />
-                <span>View</span>
+                <ExternalLink className="w-3 h-3" />
+                View
               </a>
-              <button className="flex items-center gap-1 px-2 py-1 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700/50 transition-all duration-200 text-xs">
-                <MessageSquare className="w-3.5 h-3.5" />
-                <span>{lead.numComments}</span>
-              </button>
-              <button
-                onClick={() => onUpdate(lead.id, "ignored")}
-                className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700/50 transition-all duration-200"
-              >
+              <button className="p-1 text-gray-400 hover:text-white transition-colors">
                 <MoreHorizontal className="w-3.5 h-3.5" />
               </button>
             </div>

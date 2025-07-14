@@ -1,13 +1,14 @@
 "use client";
-import React from "react";
-import { LeadCard } from "./LeadCard";
-import { RefreshCw, Search, Sparkles } from "lucide-react";
-import { Inter, Poppins } from "next/font/google";
+import React from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { LeadCard } from './LeadCard';
+import { RefreshCw, Inbox } from 'lucide-react';
+import { Inter, Poppins } from 'next/font/google';
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ['latin'] });
 const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+  subsets: ['latin'],
+  weight: ['600']
 });
 
 interface Lead {
@@ -26,67 +27,66 @@ interface Lead {
   status?: "new" | "replied" | "saved" | "ignored";
 }
 
-interface Props {
+interface LeadFeedProps {
   leads: Lead[];
-  onLeadUpdate: (leadId: string, status: Lead["status"]) => void;
+  onLeadUpdate: (leadId: string, status: Lead['status']) => void;
   onManualDiscovery: () => void;
   isRunningDiscovery: boolean;
+  currentFilter: string;
 }
 
-export const LeadFeed = ({
-  leads,
-  onLeadUpdate,
-  onManualDiscovery,
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.05
+    }
+  }
+};
+
+export const LeadFeed: React.FC<LeadFeedProps> = ({ 
+  leads, 
+  onLeadUpdate, 
+  onManualDiscovery, 
   isRunningDiscovery,
-}: Props) => {
+  currentFilter 
+}) => {
   if (leads.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 px-6">
-        <div className="relative mb-6">
-          <div className="w-20 h-20 bg-gradient-to-br from-orange-500/20 to-blue-500/20 rounded-2xl flex items-center justify-center backdrop-blur-xl border border-white/10">
-            <Search className="w-8 h-8 text-gray-400" />
-          </div>
-          <div className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center">
-            <Sparkles className="w-3 h-3 text-white" />
-          </div>
-        </div>
-        
-        <div className="text-center max-w-md">
-          <h3 className={`text-xl font-bold text-white mb-3 ${poppins.className}`}>
-            No leads discovered yet
-          </h3>
-          <p className={`text-gray-400 mb-6 leading-relaxed ${inter.className}`}>
-            Start your lead discovery journey to find new opportunities and connect with potential customers.
-          </p>
-          
-          <button
-            onClick={onManualDiscovery}
-            disabled={isRunningDiscovery}
-            className="group relative inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl font-semibold hover:from-orange-600 hover:to-orange-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:shadow-xl"
-          >
-            <RefreshCw className={`w-4 h-4 ${isRunningDiscovery ? "animate-spin" : "group-hover:rotate-180"} transition-transform duration-300`} />
-            <span>
-              {isRunningDiscovery ? "Discovering Leads..." : "Start Discovery"}
-            </span>
-          </button>
-        </div>
+      <div className="text-center py-20">
+        <Inbox className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+        <h3 className={`text-xl font-semibold text-white ${poppins.className}`}>No leads found</h3>
+        <p className={`text-gray-400 mt-2 ${inter.className}`}>Try adjusting your filters or run a new discovery.</p>
+        <button
+          onClick={onManualDiscovery}
+          disabled={isRunningDiscovery}
+          className="mt-6 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+        >
+          <RefreshCw className={`w-4 h-4 ${isRunningDiscovery ? 'animate-spin' : ''}`} />
+          {isRunningDiscovery ? 'Discovering...' : 'Run Discovery'}
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 pb-4">
-      {leads.map((lead, index) => (
-        <div
-          key={lead.id}
-          style={{
-            animationDelay: `${index * 100}ms`,
-          }}
-          className="animate-in fade-in slide-in-from-bottom-4"
-        >
-          <LeadCard lead={lead} onUpdate={onLeadUpdate} />
-        </div>
-      ))}
-    </div>
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="flex flex-col gap-4"
+    >
+      <AnimatePresence>
+        {leads.map(lead => (
+          <LeadCard 
+            key={lead.id} 
+            lead={lead} 
+            onUpdate={onLeadUpdate}
+            currentFilter={currentFilter}
+          />
+        ))}
+      </AnimatePresence>
+    </motion.div>
   );
 };

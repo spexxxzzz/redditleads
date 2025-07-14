@@ -11,6 +11,7 @@ import performanceRouter from './routes/performance';
 // --- NEW: Import campaigns router ---
 import campaignRouter from './routes/campaign';
 import redditRouter from './routes/reddit';
+import webhookRouter from './routes/webhook';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -32,7 +33,7 @@ app.use('/api/insights', insightRouter);
 // --- NEW: Add campaigns router ---
 app.use('/api/campaigns', campaignRouter);
 app.use('/api/reddit', redditRouter);
-
+app.use('/api/webhooks', webhookRouter); // NEW
 
 app.use((err: any, req: any, res: any, next: any) => {
   console.error(err.stack);

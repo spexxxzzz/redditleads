@@ -141,11 +141,21 @@ export const runManualDiscovery: RequestHandler = async (req, res, next) => {
  * Fetches saved leads from the database for a specific campaign's "Lead Inbox".
  * Results are paginated and sorted by the highest opportunity score.
  */
+
 export const getLeadsForCampaign: RequestHandler = async (req, res, next) => {
     const { campaignId } = req.params;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
-    const skip = (page - 1) * limit;
+    const {
+        page = '1',
+        limit = '20',
+        sortBy = 'opportunityScore', // Default sort key
+        sortOrder = 'desc',       // Default sort order
+        status,                   // Filter by status (e.g., 'new', 'saved')
+        intent,                   // Filter by intent (e.g., 'solution_seeking')
+    } = req.query;
+
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const skip = (pageNum - 1) * limitNum;
 
     if (!campaignId) {
         res.status(400).json({ message: 'Campaign ID is required.' });
@@ -155,48 +165,52 @@ export const getLeadsForCampaign: RequestHandler = async (req, res, next) => {
     try {
         console.log(`📋 [Get Leads] Fetching leads for campaign: ${campaignId}`);
 
+        // Build dynamic query conditions
+        const where: any = { campaignId };
+        if (status && status !== 'all') {
+            where.status = status as string;
+        }
+        if (intent && intent !== 'all') {
+            where.intent = intent as string;
+        }
+
+        const orderBy: any = { [sortBy as string]: sortOrder as string };
+
         const leads = await prisma.lead.findMany({
-            where: { 
-                campaignId: campaignId
-                // Removed the status filter so frontend can handle all statuses
-            },
-            orderBy: {
-                opportunityScore: 'desc' // Show the best leads first
-            },
-            take: limit,
-            skip: skip,
+            where,
+            orderBy,
+            take: limitNum,
+            skip,
         });
 
-        const totalLeads = await prisma.lead.count({
-            where: { campaignId: campaignId }
-        });
+        const totalLeads = await prisma.lead.count({ where });
 
-        console.log(`📋 [Get Leads] Found ${leads.length} leads (${totalLeads} total)`);
+        console.log(`📋 [Get Leads] Found ${leads.length} leads (${totalLeads} total) matching criteria`);
 
         // Transform the data to match what your frontend expects
-        // Using the ACTUAL field names from your schema
         const transformedLeads = leads.map(lead => ({
             id: lead.id,
-            title: lead.title, // Schema field name (not postTitle)
+            title: lead.title,
             author: lead.author,
             subreddit: lead.subreddit,
-            url: lead.url, // Schema field name (not postUrl)
-            body: lead.body, // Schema field name (not postContent)
-            createdAt: Math.floor(lead.postedAt.getTime() / 1000), // Convert postedAt to Unix timestamp
-            numComments: 0, // You might want to store this separately
-            upvoteRatio: 0.67, // You might want to store this separately
+            url: lead.url,
+            body: lead.body,
+            createdAt: Math.floor(lead.postedAt.getTime() / 1000),
+            numComments: 0, // You might want to store this
+            upvoteRatio: 0.67, // You might want to store this
             intent: lead.intent || 'information_seeking',
             opportunityScore: lead.opportunityScore,
-            status: lead.status
+            status: lead.status,
+            isGoogleRanked: false, // You might want to store this
         }));
 
         res.status(200).json({
             data: transformedLeads,
             pagination: {
                 total: totalLeads,
-                page,
-                limit,
-                totalPages: Math.ceil(totalLeads / limit)
+                page: pageNum,
+                limit: limitNum,
+                totalPages: Math.ceil(totalLeads / limitNum)
             }
         });
     } catch (error) {
@@ -204,6 +218,7 @@ export const getLeadsForCampaign: RequestHandler = async (req, res, next) => {
         next(error);
     }
 };
+
 
 /**
  * Updates the status of a lead (new, replied, saved, ignored)

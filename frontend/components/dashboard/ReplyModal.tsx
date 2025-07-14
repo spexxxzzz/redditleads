@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Bot, Edit3, Send, Loader, AlertCircle, CheckCircle, RefreshCw, ExternalLink } from 'lucide-react';
+import { X, Bot, Edit3, Loader, AlertCircle, CheckCircle, RefreshCw, ExternalLink, Copy, Check } from 'lucide-react';
 import { api } from '@/lib/api';
 const TEST_USER_ID = 'clerk_test_user_123'; // Replace with actual user ID logic
 
@@ -16,15 +16,14 @@ interface Lead {
   numComments: number;
   upvoteRatio: number;
   intent: string;
+  summary?: string | null;
   opportunityScore: number;
-  redditId?: string;
-  status?: 'new' | 'replied' | 'saved' | 'ignored';
+  status?: "new" | "replied" | "saved" | "ignored";
 }
 
 interface ReplyOption {
   id: string;
   text: string;
-  isEditing: boolean;
   isRefining: boolean;
 }
 
@@ -38,94 +37,55 @@ interface Props {
 export const ReplyModal = ({ lead, isOpen, onClose, onLeadUpdate }: Props) => {
   const [replyOptions, setReplyOptions] = useState<ReplyOption[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isPosting, setIsPosting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [activeEditId, setActiveEditId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [refinementInstruction, setRefinementInstruction] = useState('');
+  const [copiedReplyId, setCopiedReplyId] = useState<string | null>(null);
 
-  // Generate Reddit reply URL
-  const getRedditReplyUrl = (lead: Lead, content: string) => {
-    const postId = lead.redditId?.replace('t1_', '') || lead.redditId;
-    return `https://reddit.com/r/${lead.subreddit}/comments/${postId}/?reply=${encodeURIComponent(content)}`;
-  };
-
-  // Generate initial AI reply options
+  // Generate AI replies
   const generateReplies = async () => {
     setIsGenerating(true);
     setError(null);
-    
     try {
-      const response = await api.generateReply(lead.id, lead.body);
-      const replies = response.replies || [];
-      
-      setReplyOptions(replies.map((text: string, index: number) => ({
-        id: `reply_${index}`,
-        text,
-        isEditing: false,
-        isRefining: false
-      })));
+      const data = await api.generateReply(lead.id, TEST_USER_ID);
+      // Ensure data is an array before mapping
+      if (Array.isArray(data)) {
+        setReplyOptions(data.map((reply: any) => ({ ...reply, isRefining: false })));
+      } else if (data && typeof data === 'object') {
+        // If it's a single object, wrap it in an array
+        setReplyOptions([{ ...data, isRefining: false }]);
+      } else {
+        throw new Error("Invalid response format from API.");
+      }
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'Failed to generate replies.');
     } finally {
       setIsGenerating(false);
     }
   };
 
-  // Refine a specific reply option
+  // Refine a specific reply
   const refineReply = async (replyId: string, instruction: string) => {
-    const reply = replyOptions.find(r => r.id === replyId);
-    if (!reply) return;
-
-    setReplyOptions(prev => prev.map(r => 
-      r.id === replyId ? { ...r, isRefining: true } : r
-    ));
-
+    setReplyOptions(prev => prev.map(r => r.id === replyId ? { ...r, isRefining: true } : r));
     try {
-      const response = await api.refineReply(reply.text, instruction);
-      setReplyOptions(prev => prev.map(r => 
-        r.id === replyId 
-          ? { ...r, text: response.refinedReply, isRefining: false }
-          : r
-      ));
-      setRefinementInstruction('');
+      const data = await api.refineReply(replyId, instruction);
+      setReplyOptions(prev => prev.map(r => r.id === replyId ? { ...data, isRefining: false } : r));
     } catch (err: any) {
-      setError(err.message);
-      setReplyOptions(prev => prev.map(r => 
-        r.id === replyId ? { ...r, isRefining: false } : r
-      ));
+      setError(err.message || 'Failed to refine reply.');
+      setReplyOptions(prev => prev.map(r => r.id === replyId ? { ...r, isRefining: false } : r));
     }
   };
 
-  // Post reply to Reddit
-  const postReply = async (text: string) => {
-    setIsPosting(true);
-    setError(null);
-
+  // Copy reply to clipboard
+  const copyReply = async (replyId: string, text: string) => {
     try {
-      await api.postReply(lead.id, text, TEST_USER_ID);
-      setSuccess('Reply posted successfully to Reddit!');
-      onLeadUpdate(lead.id, 'replied');
-      
-      setTimeout(() => {
-        onClose();
-        setSuccess(null);
-      }, 2000);
-    } catch (err: any) {
-      console.error('Post reply error:', err);
-      
-      if (err.message.includes('REDDIT_FORBIDDEN')) {
-        setError('Reddit blocked this post. Your account may be restricted or banned from this subreddit. Try posting manually.');
-      } else if (err.message.includes('REDDIT_RATE_LIMIT')) {
-        setError('Rate limited by Reddit. Please wait before posting again.');
-      } else if (err.message.includes('requiresRedditAuth')) {
-        setError('Please connect your Reddit account in Settings before posting.');
-      } else {
-        setError(`Failed to post reply: ${err.message}`);
-      }
-    } finally {
-      setIsPosting(false);
+      await navigator.clipboard.writeText(text);
+      setCopiedReplyId(replyId);
+      setTimeout(() => setCopiedReplyId(null), 2000);
+    } catch (err) {
+      setError('Failed to copy to clipboard');
     }
   };
 
@@ -144,6 +104,21 @@ export const ReplyModal = ({ lead, isOpen, onClose, onLeadUpdate }: Props) => {
     ));
     setActiveEditId(null);
     setEditText('');
+  };
+
+  // Handle reply and mark as replied
+  const handleReply = (text: string) => {
+    // Copy to clipboard
+    navigator.clipboard.writeText(text);
+    
+    // Mark lead as replied
+    onLeadUpdate(lead.id, 'replied');
+    
+    // Open Reddit comments in new tab
+    window.open(lead.url, '_blank');
+    
+    // Close modal
+    onClose();
   };
 
   // Generate replies on modal open
@@ -180,6 +155,7 @@ export const ReplyModal = ({ lead, isOpen, onClose, onLeadUpdate }: Props) => {
           </button>
         </div>
 
+        {/* Main Content */}
         <div className="flex h-[calc(90vh-80px)]">
           {/* Left Panel - Original Post */}
           <div className="w-1/3 p-6 border-r border-[#343536] overflow-y-auto">
@@ -264,15 +240,15 @@ export const ReplyModal = ({ lead, isOpen, onClose, onLeadUpdate }: Props) => {
                       activeEditId={activeEditId}
                       editText={editText}
                       refinementInstruction={refinementInstruction}
-                      isPosting={isPosting}
+                      copiedReplyId={copiedReplyId}
                       onStartEdit={startEditing}
                       onSaveEdit={saveEdit}
                       onCancelEdit={() => setActiveEditId(null)}
                       onEditTextChange={setEditText}
                       onRefinementChange={setRefinementInstruction}
                       onRefine={refineReply}
-                      onPost={postReply}
-                      getRedditReplyUrl={getRedditReplyUrl}
+                      onCopy={copyReply}
+                      onReply={handleReply}
                     />
                   ))}
                 </AnimatePresence>
@@ -293,15 +269,15 @@ interface ReplyOptionCardProps {
   activeEditId: string | null;
   editText: string;
   refinementInstruction: string;
-  isPosting: boolean;
+  copiedReplyId: string | null;
   onStartEdit: (id: string, text: string) => void;
   onSaveEdit: () => void;
   onCancelEdit: () => void;
   onEditTextChange: (text: string) => void;
-  onRefinementChange: (instruction: string) => void;
+  onRefinementChange: (text: string) => void;
   onRefine: (id: string, instruction: string) => void;
-  onPost: (text: string) => void;
-  getRedditReplyUrl: (lead: Lead, content: string) => string;
+  onCopy: (id: string, text: string) => void;
+  onReply: (text: string) => void;
 }
 
 const ReplyOptionCard = ({
@@ -311,153 +287,138 @@ const ReplyOptionCard = ({
   activeEditId,
   editText,
   refinementInstruction,
-  isPosting,
+  copiedReplyId,
   onStartEdit,
   onSaveEdit,
   onCancelEdit,
   onEditTextChange,
   onRefinementChange,
   onRefine,
-  onPost,
-  getRedditReplyUrl
+  onCopy,
+  onReply
 }: ReplyOptionCardProps) => {
   const [showRefinement, setShowRefinement] = useState(false);
   const isEditing = activeEditId === reply.id;
+  const isCopied = copiedReplyId === reply.id;
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.1 }}
-      className="bg-[#272729] rounded-lg border border-[#343536] overflow-hidden"
+      className="bg-[#272729] p-4 rounded-lg border border-[#343536]"
     >
-      <div className="p-4">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-medium text-gray-400">Option {index + 1}</span>
-          <div className="flex items-center gap-2">
-            {reply.isRefining && (
-              <Loader className="w-4 h-4 text-[#ff4500] animate-spin" />
-            )}
-          </div>
-        </div>
-
-        {/* Reply Text */}
-        {isEditing ? (
-          <div className="space-y-3">
-            <textarea
-              value={editText}
-              onChange={(e) => onEditTextChange(e.target.value)}
-              className="w-full h-32 p-3 bg-[#1a1a1b] text-white rounded-lg border border-[#343536] focus:ring-2 focus:ring-[#ff4500] focus:outline-none resize-none"
-              placeholder="Edit your reply..."
-            />
-            <div className="flex items-center gap-2">
-              <button
-                onClick={onSaveEdit}
-                className="px-3 py-1.5 bg-[#ff4500] text-white text-sm rounded-lg hover:bg-[#ff5722] transition-colors"
-              >
-                Save Changes
-              </button>
-              <button
-                onClick={onCancelEdit}
-                className="px-3 py-1.5 bg-[#343536] text-white text-sm rounded-lg hover:bg-[#404041] transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        ) : (
-          <p className="text-white leading-relaxed mb-4">{reply.text}</p>
-        )}
-
-        {/* Refinement Section */}
-        {showRefinement && !isEditing && (
-          <div className="mt-4 p-3 bg-[#1a1a1b] rounded-lg border border-[#343536]">
-            <input
-              type="text"
-              value={refinementInstruction}
-              onChange={(e) => onRefinementChange(e.target.value)}
-              placeholder="How would you like to refine this reply? (e.g., 'make it shorter', 'be more technical')"
-              className="w-full p-2 bg-transparent text-white border-b border-[#343536] focus:border-[#ff4500] focus:outline-none"
-            />
-            <div className="flex items-center gap-2 mt-3">
-              <button
-                onClick={() => {
-                  onRefine(reply.id, refinementInstruction);
-                  setShowRefinement(false);
-                }}
-                disabled={!refinementInstruction.trim() || reply.isRefining}
-                className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-              >
-                Apply Refinement
-              </button>
-              <button
-                onClick={() => setShowRefinement(false)}
-                className="px-3 py-1.5 text-gray-400 text-sm hover:text-white transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Post Buttons */}
-        <div className="flex items-center gap-2 mb-3">
-          <button
-            onClick={() => onPost(reply.text)}
-            disabled={isPosting}
-            className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-[#ff4500] text-white rounded-lg hover:bg-[#ff5722] transition-colors text-sm disabled:opacity-50"
-          >
-            {isPosting ? (
-              <Loader className="w-4 h-4 animate-spin" />
-            ) : (
-              <Send className="w-4 h-4" />
-            )}
-            Auto Post
-          </button>
-
-          {/* Manual Reply Button */}
-          <a
-            href={getRedditReplyUrl(lead, reply.text)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm"
-            onClick={() => {
-              // Copy content to clipboard for easy pasting
-              navigator.clipboard.writeText(reply.text);
-            }}
-          >
-            <ExternalLink className="w-4 h-4" />
-            Reply Manually
-          </a>
-        </div>
-
-        {/* Add a note about manual replies */}
-        <div className="text-xs text-gray-500 mb-3">
-          Manual reply will copy the text and open Reddit in a new tab
-        </div>
-
-        {/* Action Buttons */}
-        {!isEditing && (
-          <div className="flex items-center gap-2 pt-3 border-t border-[#343536]">
-            <button
-              onClick={() => onStartEdit(reply.id, reply.text)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-gray-400 hover:text-white hover:bg-[#343536] rounded-lg transition-colors text-sm"
-            >
-              <Edit3 className="w-4 h-4" />
-              Edit
-            </button>
-            
-            <button
-              onClick={() => setShowRefinement(!showRefinement)}
-              disabled={reply.isRefining}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-gray-400 hover:text-white hover:bg-[#343536] rounded-lg transition-colors text-sm disabled:opacity-50"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Refine
-            </button>
-          </div>
+      <div className="flex justify-between items-start mb-3">
+        <span className="text-sm font-medium text-gray-400">Option {index + 1}</span>
+        {reply.isRefining && (
+          <Loader className="w-4 h-4 text-[#ff4500] animate-spin" />
         )}
       </div>
+
+      {/* Reply Text */}
+      {isEditing ? (
+        <div className="space-y-3">
+          <textarea
+            value={editText}
+            onChange={(e) => onEditTextChange(e.target.value)}
+            className="w-full p-2 bg-[#1a1a1b] text-white rounded-md border border-[#343536] focus:border-[#ff4500] focus:outline-none"
+            rows={4}
+          />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onSaveEdit}
+              className="px-3 py-1.5 bg-[#ff4500] text-white text-sm rounded-lg hover:bg-[#ff5722] transition-colors"
+            >
+              Save Changes
+            </button>
+            <button
+              onClick={onCancelEdit}
+              className="px-3 py-1.5 bg-[#343536] text-white text-sm rounded-lg hover:bg-[#404041] transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <p className="text-white leading-relaxed mb-4">{reply.text}</p>
+      )}
+
+      {/* Refinement Section */}
+      {showRefinement && !isEditing && (
+        <div className="mt-4 p-3 bg-[#1a1a1b] rounded-lg border border-[#343536]">
+          <input
+            type="text"
+            value={refinementInstruction}
+            onChange={(e) => onRefinementChange(e.target.value)}
+            placeholder="How would you like to refine this reply? (e.g., 'make it shorter', 'be more technical')"
+            className="w-full p-2 bg-transparent text-white border-b border-[#343536] focus:border-[#ff4500] focus:outline-none"
+          />
+          <div className="flex items-center gap-2 mt-3">
+            <button
+              onClick={() => {
+                onRefine(reply.id, refinementInstruction);
+                setShowRefinement(false);
+              }}
+              disabled={!refinementInstruction.trim() || reply.isRefining}
+              className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+            >
+              Apply Refinement
+            </button>
+            <button
+              onClick={() => setShowRefinement(false)}
+              className="px-3 py-1.5 text-gray-400 text-sm hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      {!isEditing && (
+        <div className="flex items-center gap-2 pt-3 border-t border-[#343536]">
+          {/* Copy Button */}
+          <button
+            onClick={() => onCopy(reply.id, reply.text)}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors text-sm ${
+              isCopied 
+                ? 'bg-green-600 text-white' 
+                : 'bg-gray-600 text-white hover:bg-gray-700'
+            }`}
+          >
+            {isCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+            {isCopied ? 'Copied!' : 'Copy'}
+          </button>
+
+          {/* Reply Button */}
+          <button
+            onClick={() => onReply(reply.text)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#ff4500] text-white rounded-lg hover:bg-[#ff5722] transition-colors text-sm"
+          >
+            <ExternalLink className="w-4 h-4" />
+            Reply on Reddit
+          </button>
+
+          {/* Edit Button */}
+          <button
+            onClick={() => onStartEdit(reply.id, reply.text)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-gray-400 hover:text-white hover:bg-[#343536] rounded-lg transition-colors text-sm"
+          >
+            <Edit3 className="w-4 h-4" />
+            Edit
+          </button>
+
+          {/* Refine Button */}
+          <button
+            onClick={() => setShowRefinement(!showRefinement)}
+            disabled={reply.isRefining}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-gray-400 hover:text-white hover:bg-[#343536] rounded-lg transition-colors text-sm disabled:opacity-50"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Refine
+          </button>
+        </div>
+      )}
     </motion.div>
   );
 };

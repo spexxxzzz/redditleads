@@ -34,10 +34,29 @@ model User {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  webhooks            Webhook[]
 
   MarketInsight MarketInsight[]
 }
-
+model Webhook {
+  id               String   @id @default(cuid())
+  name             String
+  url              String
+  type             String   // 'discord', 'slack', 'generic', 'email', 'sms'
+  isActive         Boolean  @default(true)
+  events           String[] // Array of event names
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt        DateTime @default(now())
+  lastTriggered    DateTime?
+  lastSentAt       DateTime?
+  
+  // Business features
+  filters          Json?    // { minOpportunityScore, subreddits, keywords, priority }
+  rateLimitMinutes Int?     // Rate limiting in minutes
+  
+  @@map("webhooks")
+}
 model Campaign {
   id   String @id @default(cuid())
   // --- FIX: Added a default value for the new required field ---

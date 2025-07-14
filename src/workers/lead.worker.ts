@@ -4,8 +4,24 @@ import { enrichLeadsForUser } from '../services/enrichment.service';
 import { analyzeSentiment } from '../services/ai.service';
 import { calculateLeadScore } from '../services/scoring.service';
 import pLimit from 'p-limit';
+import { webhookService } from '../services/webhook.service';
 
 const prisma = new PrismaClient();
+interface EnrichedLead {
+    id: string;
+    title: string;
+    author: string;
+    subreddit: string;
+    url: string;
+    body: string;
+    createdAt: number;
+    opportunityScore: number;
+    intent: string;
+    sentiment: string;
+    authorKarma?: number;
+    numComments?: number;
+    upvoteRatio?: number;
+}
 
 /**
  * A centralized helper function to save leads to the database.
@@ -18,6 +34,8 @@ const prisma = new PrismaClient();
  */
 const saveLeadsToDatabase = async (leads: any[], campaignId: string, userId: string, leadType: LeadType): Promise<number> => {
     let savedCount = 0;
+    const highQualityLeads = []; // Collect high-quality leads for webhook broadcasting
+    
     for (const lead of leads) {
         try {
             await prisma.lead.create({
@@ -38,6 +56,11 @@ const saveLeadsToDatabase = async (leads: any[], campaignId: string, userId: str
                 }
             });
             savedCount++;
+            
+            // Collect high-quality leads for webhook broadcasting
+            if (lead.opportunityScore >= 70) {
+                highQualityLeads.push(lead);
+            }
         } catch (error: any) {
             // Safely ignore errors for leads that already exist in the database.
             if (error.code !== 'P2002') {
@@ -45,9 +68,40 @@ const saveLeadsToDatabase = async (leads: any[], campaignId: string, userId: str
             }
         }
     }
-    return savedCount;
+    
+    // Broadcast webhooks for high-quality leads AFTER all saves are complete
+    for (const lead of highQualityLeads) {
+        try {
+            await webhookService.broadcastEvent('lead.discovered', {
+                title: lead.title,
+                subreddit: lead.subreddit,
+                author: lead.author,
+                authorKarma: lead.authorKarma,
+                opportunityScore: lead.opportunityScore,
+                intent: lead.intent,
+                url: lead.url,
+                numComments: lead.numComments,
+                upvoteRatio: lead.upvoteRatio,
+                createdAt: lead.createdAt,
+                body: lead.body,
+                id: lead.id,
+                campaignId: campaignId
+            }, userId, campaignId, getPriorityFromScore(lead.opportunityScore));
+        } catch (webhookError) {
+            console.error(`Failed to broadcast webhook for lead ${lead.id}:`, webhookError);
+        }
+    }
+    
+    return savedCount; // Return actual count of saved leads
 };
 
+
+const getPriorityFromScore = (score: number): 'low' | 'medium' | 'high' | 'urgent' => {
+    if (score >= 90) return 'urgent';
+    if (score >= 80) return 'high';
+    if (score >= 70) return 'medium';
+    return 'low';
+  };
 
 export const runLeadDiscoveryWorker = async () => {
     console.log('Starting lead discovery worker run...');
