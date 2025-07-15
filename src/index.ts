@@ -12,6 +12,8 @@ import performanceRouter from './routes/performance';
 import campaignRouter from './routes/campaign';
 import redditRouter from './routes/reddit';
 import webhookRouter from './routes/webhook';
+import { getUserUsage } from './controllers/aiusage.controller';
+import { RequestHandler } from 'express';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -33,7 +35,9 @@ app.use('/api/insights', insightRouter);
 // --- NEW: Add campaigns router ---
 app.use('/api/campaigns', campaignRouter);
 app.use('/api/reddit', redditRouter);
-app.use('/api/webhooks', webhookRouter); // NEW
+app.get('/api/users/:userId/usage', getUserUsage as RequestHandler);
+app.use('/api/webhook', webhookRouter);
+
 
 app.use((err: any, req: any, res: any, next: any) => {
   console.error(err.stack);

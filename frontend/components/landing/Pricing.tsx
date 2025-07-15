@@ -62,7 +62,7 @@ const PricingComponent: React.FC = () => {
       color: "gray",
       features: [
         "1 Project",
-        "5 Keywords",
+        "5 Keywords", 
         "25 Leads per month",
         "Basic support"
       ],
@@ -147,47 +147,14 @@ const PricingComponent: React.FC = () => {
     return { amount: savings, percentage };
   };
 
-  const getColorClasses = (color: string, variant: 'bg' | 'text' | 'border') => {
-    const colorMap = {
-      gray: {
-        bg: 'bg-gray-900/20',
-        text: 'text-gray-400',
-        border: 'border-gray-700/30'
-      },
-      blue: {
-        bg: 'bg-blue-900/20',
-        text: 'text-blue-400',
-        border: 'border-blue-700/30'
-      },
-      orange: {
-        bg: 'bg-orange-900/20',
-        text: 'text-orange-400',
-        border: 'border-orange-700/30'
-      },
-      purple: {
-        bg: 'bg-purple-900/20',
-        text: 'text-purple-400',
-        border: 'border-purple-700/30'
-      }
-    };
-    return colorMap[color as keyof typeof colorMap][variant];
-  };
-
   return (
-    <section className="relative py-20 sm:py-32 overflow-hidden">
-      {/* Black Background - Matching Hero Component */}
-      <div className="absolute inset-0 z-10">
-        {/* Primary Black Base */}
-        <div className="absolute inset-0 bg-black"></div>
+    <section className="relative py-20 sm:py-32 overflow-hidden bg-black">
+      {/* Background Elements */}
+      <div className="absolute inset-0">
+        {/* Dark gradient background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-black"></div>
         
-        {/* Subtle Dark Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-black/40 to-black/20 opacity-70"></div>
-       
-        {/* Minimal Radial Gradients */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.03),transparent_70%)] opacity-50"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(255,255,255,0.02),transparent_70%)] opacity-40"></div>
-    
-        {/* Subtle Floating Orbs */}
+        {/* Animated background orbs */}
         <motion.div
           animate={{ 
             x: [0, 30, 0],
@@ -199,7 +166,7 @@ const PricingComponent: React.FC = () => {
             repeat: Infinity, 
             ease: "easeInOut" 
           }}
-          className="absolute top-1/4 left-1/3 w-48 h-48 sm:w-96 sm:h-96 bg-gradient-to-br from-white/5 to-white/2 rounded-full blur-3xl opacity-30"
+          className="absolute top-1/4 left-1/3 w-48 h-48 sm:w-96 sm:h-96 bg-gradient-to-br from-orange-500/10 to-orange-400/5 rounded-full blur-3xl opacity-50"
         />
         
         <motion.div
@@ -214,76 +181,59 @@ const PricingComponent: React.FC = () => {
             ease: "easeInOut",
             delay: 5
           }}
-          className="absolute bottom-1/3 right-1/4 w-40 h-40 sm:w-80 sm:h-80 bg-gradient-to-tl from-white/3 to-white/1 rounded-full blur-3xl opacity-20"
+          className="absolute bottom-1/3 right-1/4 w-40 h-40 sm:w-80 sm:h-80 bg-gradient-to-tl from-blue-500/8 to-blue-400/4 rounded-full blur-3xl opacity-30"
         />
       </div>
 
-      {/* Enhanced Spotlight Beam */}
-      <div className="absolute inset-0 pointer-events-none z-5">
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-          {/* Main spotlight */}
-          <div className="w-[800px] h-[800px] bg-gradient-radial from-orange-400/20 via-orange-300/10 to-transparent rounded-full blur-2xl"></div>
-          {/* Inner glow */}
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-gradient-radial from-orange-300/30 via-orange-200/15 to-transparent rounded-full blur-xl"></div>
-          {/* Core light */}
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[200px] h-[200px] bg-gradient-radial from-orange-200/40 to-transparent rounded-full blur-lg"></div>
-        </div>
-      </div>
-
-      <div className="relative z-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div
           variants={containerVariants}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: "-100px" }}
-          className="space-y-16"
+          className="space-y-12"
         >
           {/* Header */}
           <motion.div variants={itemVariants} className="text-center">
             <h2 className={`text-4xl sm:text-5xl lg:text-6xl font-black text-white mb-6 leading-tight ${poppins.className}`}>
               Simple, Transparent{" "}
-              <span className="bg-gradient-to-r from-[#FF4500] to-[#FF6B00] bg-clip-text text-transparent">
+              <span className="text-orange-500">
                 Pricing
               </span>
             </h2>
-            <p className={`text-xl text-white/70 max-w-3xl mx-auto leading-relaxed ${inter.className}`}>
+            <p className={`text-lg text-gray-300 max-w-2xl mx-auto leading-relaxed ${inter.className}`}>
               Choose the perfect plan to supercharge your Reddit lead generation
             </p>
           </motion.div>
 
           {/* Billing Toggle */}
-          <motion.div variants={itemVariants} className="flex items-center justify-center">
-            <div className="bg-gray-800/50 backdrop-blur-xl border border-white/10 rounded-2xl p-2 shadow-xl">
-              <div className="flex items-center space-x-1">
-                <button
-                  onClick={() => setIsYearly(false)}
-                  className={`px-8 py-4 rounded-xl font-semibold transition-all duration-300 ${
-                    !isYearly
-                      ? 'bg-gradient-to-r from-[#FF4500] to-[#FF6B00] text-white shadow-lg'
-                      : 'text-white/70 hover:text-white'
-                  } ${poppins.className}`}
-                >
-                  Monthly
-                </button>
-                <button
-                  onClick={() => setIsYearly(true)}
-                  className={`px-8 py-4 rounded-xl font-semibold transition-all duration-300 relative ${
-                    isYearly
-                      ? 'bg-gradient-to-r from-[#FF4500] to-[#FF6B00] text-white shadow-lg'
-                      : 'text-white/70 hover:text-white'
-                  } ${poppins.className}`}
-                >
-                  Yearly
-                  <span className="absolute -top-2 -right-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full font-bold">
-                    Save 20%
-                  </span>
-                </button>
-              </div>
+          <motion.div variants={itemVariants} className="flex justify-center">
+            <div className="flex w-fit overflow-hidden rounded-md border border-gray-700 bg-gray-800">
+              <button
+                onClick={() => setIsYearly(false)}
+                className={`relative px-6 py-3 text-sm font-medium transition-all duration-300 ${
+                  !isYearly
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-300 hover:text-white'
+                } ${inter.className}`}
+              >
+                Monthly
+              </button>
+              <button
+                onClick={() => setIsYearly(true)}
+                className={`relative px-6 py-3 text-sm font-medium transition-all duration-300 ${
+                  isYearly
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-300 hover:text-white'
+                } ${inter.className}`}
+              >
+                Yearly (save 20%)
+              </button>
             </div>
           </motion.div>
 
           {/* Pricing Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {plans.map((plan, index) => {
               const savings = getSavings(plan);
               const IconComponent = plan.icon;
@@ -293,132 +243,98 @@ const PricingComponent: React.FC = () => {
                 <motion.div
                   key={index}
                   variants={itemVariants}
-                  whileHover={{ scale: 1.02, y: -5 }}
-                  className={`relative bg-gray-900/50 backdrop-blur-xl rounded-3xl border-2 transition-all duration-300 ${
+                  className={`relative h-full rounded-2xl border transition-all duration-300 hover:shadow-xl ${
                     plan.popular
-                      ? 'border-orange-500/50 shadow-2xl shadow-orange-500/20'
-                      : 'border-white/10 hover:border-white/20'
-                  } overflow-hidden`}
+                      ? 'border-orange-400/50 bg-gradient-to-br from-orange-600/20 via-orange-500/15 via-orange-400/10 to-orange-300/5 shadow-orange-500/30 backdrop-blur-sm'
+                      : 'border-gray-700 bg-gray-900/30 hover:border-gray-600 backdrop-blur-sm'
+                  }`}
                 >
-                  {/* Popular Badge */}
-                  {plan.popular && (
-                    <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 z-10">
-                      <div className="bg-gradient-to-r from-[#FF4500] to-[#FF6B00] text-white px-6 py-2 rounded-full text-sm font-bold shadow-lg flex items-center gap-2">
-                        Most Popular
-                      </div>
-                    </div>
-                  )}
+                  {/* Removed Popular Badge - No more "Most Popular" text */}
 
-                  <div className="relative p-6">
+                  <div className="relative flex h-full flex-col justify-between p-6">
                     {/* Plan Header */}
-                    <div className="text-center mb-6">
-                      <div className={`w-12 h-12 mx-auto mb-3 rounded-2xl ${getColorClasses(plan.color, 'bg')} border ${getColorClasses(plan.color, 'border')} flex items-center justify-center`}>
-                        <IconComponent className={`w-6 h-6 ${getColorClasses(plan.color, 'text')}`} />
-                      </div>
-                      
-                      <h3 className={`text-xl font-bold text-white mb-1 ${poppins.className}`}>
-                        {plan.name}
-                      </h3>
-                      
-                      <p className={`text-xs text-white/60 mb-4 ${inter.className}`}>
-                        {plan.description}
-                      </p>
-
-                      {/* Price */}
-                      <div className="mb-4">
-                        <div className="flex items-baseline justify-center">
-                          <span className={`text-3xl font-black text-white ${poppins.className}`}>
-                            {price === "Custom" ? "Custom" : `$${price}`}
+                    <div className="flex flex-col gap-4">
+                      <div className="flex flex-col gap-3">
+                        <h3 className={`text-lg font-semibold text-white ${poppins.className}`}>
+                          {plan.name}
+                        </h3>
+                        
+                        {/* Price */}
+                        <div className="flex items-baseline gap-1">
+                          <span className={`text-3xl font-semibold text-white ${poppins.className}`}>
+                            {price === "Custom" ? "Custom" : (price === 0 ? "Free" : `$${price}`)}
                           </span>
-                          {price !== "Custom" && (
-                            <span className={`text-white/50 ml-1 text-sm ${inter.className}`}>
-                              /month
+                          {price !== "Custom" && price !== 0 && (
+                            <span className={`text-sm text-gray-400 ${inter.className}`}>
+                              /mo
                             </span>
                           )}
                         </div>
+                      </div>
+
+                      <hr className="border-gray-700" />
+
+                      {/* Features Section */}
+                      <div className="flex flex-col gap-4">
+                        <p className={`text-sm font-semibold text-gray-400 ${inter.className}`}>
+                          {plan.name === "Free" ? "Includes" : `Everything in ${index === 1 ? "Free" : plans[index-1]?.name}, plus`}
+                        </p>
                         
-                        {isYearly && savings && (
-                          <div className="mt-2">
-                            <span className="bg-green-500/20 text-green-400 px-2 py-1 rounded-full text-xs font-semibold border border-green-500/30">
-                              Save ${savings.amount}/year
-                            </span>
-                          </div>
-                        )}
+                        <div className="flex flex-col gap-2">
+                          {plan.features.map((feature, featureIndex) => (
+                            <div key={featureIndex} className="flex items-center gap-2">
+                              <Check className="w-3 h-3 text-green-400 flex-shrink-0" />
+                              <span className={`text-sm text-gray-200 ${inter.className}`}>
+                                {feature}
+                              </span>
+                            </div>
+                          ))}
+                          
+                          {plan.limitations.map((limitation, limitIndex) => (
+                            <div key={limitIndex} className="flex items-center gap-2">
+                              <X className="w-3 h-3 text-red-400 flex-shrink-0" />
+                              <span className={`text-sm text-gray-500 ${inter.className}`}>
+                                {limitation}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
 
-                    {/* Features */}
-                    <div className="space-y-2 mb-6">
-                      {plan.features.map((feature, featureIndex) => (
-                        <div key={featureIndex} className="flex items-start space-x-2">
-                          <Check className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
-                          <span className={`text-xs text-white/80 ${inter.className}`}>
-                            {feature}
-                          </span>
-                        </div>
-                      ))}
-                      
-                      {plan.limitations.map((limitation, limitIndex) => (
-                        <div key={limitIndex} className="flex items-start space-x-2">
-                          <X className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                          <span className={`text-xs text-white/50 ${inter.className}`}>
-                            {limitation}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-
                     {/* CTA Button */}
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className={`w-full py-3 px-4 rounded-2xl font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
-                        plan.popular
-                          ? 'bg-gradient-to-r from-[#FF4500] to-[#FF6B00] text-white shadow-lg hover:shadow-xl'
-                          : plan.name === 'Free'
-                          ? 'bg-gray-800 text-white hover:bg-gray-700 border border-gray-700'
-                          : 'bg-white/10 text-white hover:bg-white/20 border border-white/20'
-                      } ${poppins.className}`}
-                    >
-                      {plan.cta}
-                      <ArrowRight className="w-4 h-4" />
-                    </motion.button>
+                    <div className="mt-6">
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        className={`w-full rounded-lg py-3 px-4 text-sm font-medium transition-all duration-300 flex items-center justify-center gap-2 ${
+                          plan.popular
+                            ? 'bg-gradient-to-r from-orange-600 via-orange-500 to-orange-400 text-white hover:from-orange-700 hover:via-orange-600 hover:to-orange-500 shadow-lg shadow-orange-500/25'
+                            : plan.name === 'Free'
+                            ? 'bg-white text-gray-900 hover:bg-gray-100 shadow-sm'
+                            : 'bg-gray-800 text-white border border-gray-600 hover:border-gray-500 hover:bg-gray-700'
+                        } ${poppins.className}`}
+                      >
+                        {plan.cta}
+                        <ArrowRight className="w-4 h-4" />
+                      </motion.button>
+                    </div>
                   </div>
                 </motion.div>
               );
             })}
           </div>
+
+          {/* Additional Info */}
+          <motion.div variants={itemVariants} className="text-center">
+            <p className={`text-sm text-gray-400 ${inter.className}`}>
+              All plans include 7-day free trial. No credit card required.
+            </p>
+            
+            
+          </motion.div>
         </motion.div>
       </div>
-
-      {/* Minimal Floating Elements - From Hero */}
-      <motion.div
-        animate={{ 
-          y: [0, -15, 0],
-          opacity: [0.1, 0.3, 0.1]
-        }}
-        transition={{ 
-          duration: 12, 
-          repeat: Infinity, 
-          ease: "easeInOut" 
-        }}
-        className="absolute top-20 right-20 size-1 bg-white/20 rounded-full z-20"
-      />
-      
-      <motion.div
-        animate={{ 
-          y: [0, 20, 0],
-          x: [0, 10, 0],
-          opacity: [0.1, 0.2, 0.1]
-        }}
-        transition={{ 
-          duration: 16, 
-          repeat: Infinity, 
-          ease: "easeInOut",
-          delay: 3
-        }}
-        className="absolute bottom-32 left-16 size-1 bg-white/15 rounded-full z-20"
-      />
     </section>
   );
 };

@@ -80,6 +80,7 @@ export const findLeadsOnReddit = async (keywords: string[], subreddits: string[]
                     createdAt: post.created_utc,
                     numComments: post.num_comments,
                     upvoteRatio: post.upvote_ratio,
+                    authorKarma: post.author.link_karma > 0, // FIX: Convert karma to boolean
                     type: 'DIRECT_LEAD' // FIX: Add the required 'type' property
                 }));
             } catch (error) {
@@ -186,3 +187,5 @@ export const checkKarmaThreshold = async (userRefreshToken: string, minimumKarma
         return false;
     }
 };
+export { RawLead };
+

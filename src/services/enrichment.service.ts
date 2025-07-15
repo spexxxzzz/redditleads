@@ -5,10 +5,11 @@ import { checkGoogleRanking } from "../services/serp.sevice"
 import { RawLead } from "../types/reddit.types";
 
 
-interface EnrichedLead  extends RawLead{
+export interface EnrichedLead  extends RawLead{
     intent?: string;
     opportunityScore: number;
     isGoogleRanked?: boolean;
+    sentiment?: string; // Optional sentiment analysis result
 }
 
 // --- NEW: Helper function to process leads in chunks ---
@@ -27,24 +28,126 @@ async function processInChunks<T, R>(items: T[], processor: (item: T) => Promise
     return results;
 }
 
+// Update the enrichLeadsForUser function (around line 25):
+
 export const enrichLeadsForUser = async (rawLeads: RawLead[], user: User): Promise<EnrichedLead[]> => {
     const processLead = async (lead: RawLead): Promise<EnrichedLead> => {
-        if (user.plan === 'pro' && user.subscriptionStatus === 'active') {
-            console.log(`  -> [Pro] Analyzing intent for lead: "${lead.title.substring(0, 30)}..."`);
+        if (user.plan === 'free') {
+            console.log(`  -> [Free] Basic scoring for lead: "${lead.title.substring(0, 30)}..."`);
+            const opportunityScore = calculateBasicLeadScore(lead);
+            return { 
+                ...lead, 
+                intent: 'general_discussion',
+                opportunityScore,
+                isGoogleRanked: false 
+            };
+        }
+        
+        if (user.plan === 'starter') {
+            console.log(`  -> [Starter] AI intent analysis for lead: "${lead.title.substring(0, 30)}..."`);
+            const intent = await analyzeLeadIntent(lead.title, lead.body, user.id); // Pass user.id
+            const opportunityScore = calculateLeadScore({ ...lead, intent });
+            return { 
+                ...lead, 
+                intent, 
+                opportunityScore,
+                isGoogleRanked: false 
+            };
+        }
+        
+        if (user.plan === 'pro') {
+            console.log(`  -> [Pro] Full AI analysis for lead: "${lead.title.substring(0, 30)}..."`);
             const [intent, isGoogleRanked] = await Promise.all([
-                analyzeLeadIntent(lead.title, lead.body),
+                analyzeLeadIntent(lead.title, lead.body, user.id), // Pass user.id
                 checkGoogleRanking(lead.title, lead.url)
             ]);
             const opportunityScore = calculateLeadScore({ ...lead, intent, isGoogleRanked });
             return { ...lead, intent, opportunityScore, isGoogleRanked };
-        } else {
-            console.log(`  -> [Basic] Scoring lead: "${lead.title.substring(0, 30)}..."`);
-            const opportunityScore = calculateLeadScore(lead);
-            return { ...lead, opportunityScore };
         }
+        
+        return { ...lead, opportunityScore: calculateBasicLeadScore(lead) };
     };
 
-    // --- Process leads in chunks of 10, with a 60-second delay between chunks ---
-    // This ensures we stay under the 15 requests/minute Gemini free tier limit.
-    return processInChunks(rawLeads, processLead, 10, 60000);
+    const leadLimit = getUserLeadLimit(user.plan);
+    const leadsToProcess = rawLeads.slice(0, leadLimit);
+    
+    return processInChunks(leadsToProcess, processLead, getChunkSize(user.plan), getDelay(user.plan));
 };
+
+// Helper functions for plan limits
+const getUserLeadLimit = (plan: string): number => {
+    switch (plan) {
+        case 'free': return 25;
+        case 'starter': return 200;
+        case 'pro': return 1000;
+        default: return 25;
+    }
+};
+
+const getChunkSize = (plan: string): number => {
+    switch (plan) {
+        case 'free': return 5;
+        case 'starter': return 8;
+        case 'pro': return 15;
+        default: return 5;
+    }
+};
+
+const getDelay = (plan: string): number => {
+    switch (plan) {
+        case 'free': return 120000; // 2 minutes
+        case 'starter': return 90000; // 1.5 minutes
+        case 'pro': return 45000; // 45 seconds
+        default: return 120000;
+    }
+};
+
+// Add this function at the bottom of the file:
+
+function calculateBasicLeadScore(lead: RawLead): number {
+    let score = 50; // Base score
+    
+    // Title analysis (basic keyword matching)
+    const titleLower = lead.title.toLowerCase();
+    if (titleLower.includes('help') || titleLower.includes('recommend') || titleLower.includes('suggest')) {
+        score += 15;
+    }
+    if (titleLower.includes('best') || titleLower.includes('better') || titleLower.includes('alternative')) {
+        score += 10;
+    }
+    if (titleLower.includes('problem') || titleLower.includes('issue') || titleLower.includes('struggling')) {
+        score += 20;
+    }
+    
+    // Body analysis (if available)
+    if (lead.body) {
+        const bodyLower = lead.body.toLowerCase();
+        if (bodyLower.includes('looking for') || bodyLower.includes('need') || bodyLower.includes('want')) {
+            score += 15;
+        }
+        if (bodyLower.includes('budget') || bodyLower.includes('price') || bodyLower.includes('cost')) {
+            score += 10;
+        }
+        if (bodyLower.includes('urgent') || bodyLower.includes('asap') || bodyLower.includes('immediately')) {
+            score += 20;
+        }
+    }
+    
+    // Comment and engagement analysis
+    if (lead.numComments && lead.numComments > 10) {
+        score += 5;
+    }
+    if (lead.upvoteRatio && lead.upvoteRatio > 0.8) {
+        score += 5;
+    }
+    
+
+    // Author karma bonus
+    //@ts-ignore
+    if (lead.authorKarma && lead.authorKarma > 1000) {
+        score += 5;
+    }
+    
+    // Ensure score stays within bounds
+    return Math.min(Math.max(score, 0), 100);
+}

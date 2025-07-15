@@ -37,6 +37,8 @@ model User {
   webhooks            Webhook[]
 
   MarketInsight MarketInsight[]
+
+  AIUsage AIUsage[]
 }
 model Webhook {
   id               String   @id @default(cuid())
@@ -68,6 +70,7 @@ model Campaign {
   generatedDescription String   @db.Text
   targetSubreddits     String[] @default([])
   competitors          String[] @default([])
+  isActive            Boolean  @default(true) // FIX: Change from 'status' to 'isActive'
 
   // --- Relations ---
   userId String
@@ -196,7 +199,18 @@ model MarketInsight {
   @@unique([campaignId, discoveredCompetitorName])
   @@index([userId])
 }
-
+model AIUsage {
+    id      String @id @default(cuid())
+    userId  String
+    month   String // YYYY-MM format
+    type    String // 'reply', 'intent', 'competitor'
+    count   Int    @default(0)
+    
+    user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+    
+    @@unique([userId, month, type], name: "userId_month_type")
+}
+ 
 enum InsightStatus {
   NEW
   VIEWED
