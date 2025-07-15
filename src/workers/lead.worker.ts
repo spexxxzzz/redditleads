@@ -7,6 +7,10 @@ import { webhookService } from '../services/webhook.service';
 import { AIUsageService } from '../services/aitracking.service';
 
 const prisma = new PrismaClient();
+const BATCH_SIZE = 50; // Process 50 campaigns at a time
+const MAX_RETRIES = 3;
+
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 const saveLeadsToDatabase = async (
     leads: EnrichedLead[],
@@ -19,8 +23,10 @@ const saveLeadsToDatabase = async (
 
     for (const lead of leads) {
         try {
-            await prisma.lead.create({
-                data: {
+            const savedLead = await prisma.lead.upsert({
+                where: { url: lead.url },
+                update: {},
+                create: {
                     redditId: lead.id,
                     title: lead.title,
                     author: lead.author,
@@ -33,17 +39,16 @@ const saveLeadsToDatabase = async (
                     userId: userId,
                     type: leadType,
                     intent: lead.intent,
-                    //@ts-ignore
-                    sentiment: lead.sentiment || null,
+                    sentiment: (lead as any).sentiment || null,
                 }
             });
             savedCount++;
 
             if (lead.opportunityScore >= 70) {
-                highQualityLeads.push(lead);
+                highQualityLeads.push({ ...lead, id: savedLead.id });
             }
         } catch (error: any) {
-            if (error.code !== 'P2002') {
+            if (error.code !== 'P2002') { // P2002 is the unique constraint violation code
                 console.error(`Failed to save lead ${lead.id}:`, error.message);
             }
         }
@@ -80,94 +85,91 @@ const getPriorityFromScore = (score: number): 'low' | 'medium' | 'high' | 'urgen
     return 'low';
 };
 
+
 export const runLeadDiscoveryWorker = async (): Promise<void> => {
     console.log('Starting lead discovery worker run...');
+    let cursor: string | null = null;
 
-    const campaigns = await prisma.campaign.findMany({
-        where: {
-            isActive: true,
-            user: {
-                subscriptionStatus: { in: ['active', 'trialing'] }
-            }
-        },
-        include: { user: true }
-    });
+    while (true) {
+        const campaigns: (import('@prisma/client').Campaign & { user: User })[] = await prisma.campaign.findMany({
+            take: BATCH_SIZE,
+            ...(cursor && { skip: 1, cursor: { id: cursor } }),
+            where: {
+                isActive: true,
+                user: {
+                    subscriptionStatus: { in: ['active', 'trialing'] }
+                }
+            },
+            include: { user: true },
+            orderBy: { id: 'asc' }
+        });
 
-    if (campaigns.length === 0) {
-        console.log('No active campaigns to process. Worker run finished.');
-        return;
-    }
-
-    console.log(`Found ${campaigns.length} campaigns to process.`);
-
-    for (const campaign of campaigns) {
-        const user = campaign.user;
-        if (!user) continue;
-
-        const currentLeadCount = await getCurrentMonthLeadCount(user.id);
-        const leadLimit = getUserLeadLimit(user);
-
-        if (currentLeadCount >= leadLimit) {
-            console.log(`⚠️  User ${user.id} has reached lead limit (${currentLeadCount}/${leadLimit})`);
-            continue;
+        if (campaigns.length === 0) {
+            console.log('No more active campaigns to process. Worker run finished.');
+            break;
         }
 
-        const remainingQuota = leadLimit - currentLeadCount;
-        console.log(`Processing campaign ${campaign.id} for user ${user.id} (${remainingQuota} leads remaining)`);
+        for (const campaign of campaigns) {
+            let retries = 0;
+            while (retries < MAX_RETRIES) {
+                try {
+                    const user = campaign.user;
+                    if (!user) {
+                        console.log(`Skipping campaign ${campaign.id} as it has no associated user.`);
+                        break; 
+                    }
 
-        try {
-            if (campaign.generatedKeywords && campaign.generatedKeywords.length > 0) {
-                const rawLeads: RawLead[] = await findLeadsOnReddit(
-                    campaign.generatedKeywords,
-                    campaign.targetSubreddits
-                );
+                    const currentLeadCount = await getCurrentMonthLeadCount(user.id);
+                    const leadLimit = getUserLeadLimit(user);
 
-                const enrichedLeads = await enrichLeadsForUser(rawLeads, user);
-                const saved = await saveLeadsToDatabase(enrichedLeads, campaign.id, user.id, 'DIRECT_LEAD');
+                    if (currentLeadCount >= leadLimit) {
+                        console.log(`⚠️  User ${user.id} has reached lead limit (${currentLeadCount}/${leadLimit})`);
+                        break;
+                    }
 
-                console.log(`  -> Saved ${saved} direct leads for user ${user.id}`);
-            }
-            if (user.plan === 'pro' && campaign.competitors && campaign.competitors.length > 0) {
-                const aiUsage = AIUsageService.getInstance();
-                const canUseCompetitorAI = await aiUsage.trackAIUsage(user.id, 'competitor');
+                    console.log(`Processing campaign ${campaign.id} for user ${user.id}`);
 
-                if (canUseCompetitorAI) {
-                    const competitorLeads: RawLead[] = await findLeadsOnReddit(
-                        campaign.competitors,
-                        campaign.targetSubreddits
-                    );
+                    if (campaign.generatedKeywords && campaign.generatedKeywords.length > 0) {
+                        const rawLeads: RawLead[] = await findLeadsOnReddit(
+                            campaign.generatedKeywords,
+                            campaign.targetSubreddits
+                        );
+                        const enrichedLeads = await enrichLeadsForUser(rawLeads, user);
+                        const saved = await saveLeadsToDatabase(enrichedLeads, campaign.id, user.id, 'DIRECT_LEAD');
+                        console.log(`  -> Saved ${saved} direct leads for user ${user.id}`);
+                    }
 
-                    const enrichedCompetitorLeads: EnrichedLead[] = await Promise.all(
-                        competitorLeads.map(async (lead: RawLead): Promise<EnrichedLead> => {
-                            const sentiment = await analyzeSentiment(lead.title, lead.body || '', user.id);
-                            const leadWithSentiment = { ...lead, sentiment, type: 'COMPETITOR_MENTION' };
-                            const opportunityScore = calculateLeadScore(leadWithSentiment);
-                            return {
-                                ...lead,
-                                sentiment,
-                                opportunityScore,
-                                intent: 'competitor_mention'
-                            };
-                        })
-                    );
-
-                    const savedCompetitor = await saveLeadsToDatabase(
-                        enrichedCompetitorLeads,
-                        campaign.id,
-                        user.id,
-                        'COMPETITOR_MENTION'
-                    );
-
-                    console.log(`  -> Saved ${savedCompetitor} competitor leads for user ${user.id}`);
+                    if (user.plan === 'pro' && campaign.competitors && campaign.competitors.length > 0) {
+                        const aiUsage = AIUsageService.getInstance();
+                        const canUseCompetitorAI = await aiUsage.trackAIUsage(user.id, 'competitor');
+                        if (canUseCompetitorAI) {
+                            const competitorLeads = await findLeadsOnReddit(campaign.competitors, campaign.targetSubreddits);
+                            const enrichedCompetitorLeads = await Promise.all(
+                                competitorLeads.map(async (lead): Promise<EnrichedLead> => {
+                                    const sentiment = await analyzeSentiment(lead.title, lead.body, user.id);
+                                    const opportunityScore = calculateLeadScore({ ...lead, sentiment, type: 'COMPETITOR_MENTION' });
+                                    return { ...lead, sentiment, opportunityScore, intent: 'competitor_mention' };
+                                })
+                            );
+                            const saved = await saveLeadsToDatabase(enrichedCompetitorLeads, campaign.id, user.id, 'COMPETITOR_MENTION');
+                            console.log(`  -> Saved ${saved} competitor leads for user ${user.id}`);
+                        }
+                    }
+                    
+                    break; // Success, exit retry loop
+                } catch (error) {
+                    retries++;
+                    console.error(`Error processing campaign ${campaign.id} (attempt ${retries}/${MAX_RETRIES}):`, error);
+                    if (retries >= MAX_RETRIES) {
+                        console.error(`Failed to process campaign ${campaign.id} after ${MAX_RETRIES} attempts.`);
+                    } else {
+                        await delay(1000 * Math.pow(2, retries));
+                    }
                 }
             }
-
-        } catch (error) {
-            console.error(`Error processing campaign ${campaign.id}:`, error);
         }
+        cursor = campaigns[campaigns.length - 1].id;
     }
-
-    console.log(`Worker run finished.`);
 };
 
 async function getCurrentMonthLeadCount(userId: string): Promise<number> {
