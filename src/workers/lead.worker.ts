@@ -9,14 +9,14 @@ import { AIUsageService } from '../services/aitracking.service';
 const prisma = new PrismaClient();
 
 const saveLeadsToDatabase = async (
-    leads: EnrichedLead[], 
-    campaignId: string, 
-    userId: string, 
+    leads: EnrichedLead[],
+    campaignId: string,
+    userId: string,
     leadType: LeadType
 ): Promise<number> => {
     let savedCount = 0;
     const highQualityLeads: EnrichedLead[] = [];
-    
+
     for (const lead of leads) {
         try {
             await prisma.lead.create({
@@ -38,7 +38,7 @@ const saveLeadsToDatabase = async (
                 }
             });
             savedCount++;
-            
+
             if (lead.opportunityScore >= 70) {
                 highQualityLeads.push(lead);
             }
@@ -48,14 +48,13 @@ const saveLeadsToDatabase = async (
             }
         }
     }
-    
+
     for (const lead of highQualityLeads) {
         try {
             await webhookService.broadcastEvent('lead.discovered', {
                 title: lead.title,
                 subreddit: lead.subreddit,
                 author: lead.author,
-                authorKarma: lead.authorKarma,
                 opportunityScore: lead.opportunityScore,
                 intent: lead.intent,
                 url: lead.url,
@@ -70,7 +69,7 @@ const saveLeadsToDatabase = async (
             console.error(`Failed to broadcast webhook for lead ${lead.id}:`, webhookError);
         }
     }
-    
+
     return savedCount;
 };
 
@@ -83,10 +82,9 @@ const getPriorityFromScore = (score: number): 'low' | 'medium' | 'high' | 'urgen
 
 export const runLeadDiscoveryWorker = async (): Promise<void> => {
     console.log('Starting lead discovery worker run...');
-    
+
     const campaigns = await prisma.campaign.findMany({
-        where: { 
-            // FIX: Your Campaign model has 'isActive', not 'status'.
+        where: {
             isActive: true,
             user: {
                 subscriptionStatus: { in: ['active', 'trialing'] }
@@ -108,7 +106,7 @@ export const runLeadDiscoveryWorker = async (): Promise<void> => {
 
         const currentLeadCount = await getCurrentMonthLeadCount(user.id);
         const leadLimit = getUserLeadLimit(user);
-        
+
         if (currentLeadCount >= leadLimit) {
             console.log(`⚠️  User ${user.id} has reached lead limit (${currentLeadCount}/${leadLimit})`);
             continue;
@@ -120,24 +118,22 @@ export const runLeadDiscoveryWorker = async (): Promise<void> => {
         try {
             if (campaign.generatedKeywords && campaign.generatedKeywords.length > 0) {
                 const rawLeads: RawLead[] = await findLeadsOnReddit(
-                    campaign.generatedKeywords, 
+                    campaign.generatedKeywords,
                     campaign.targetSubreddits
                 );
 
                 const enrichedLeads = await enrichLeadsForUser(rawLeads, user);
                 const saved = await saveLeadsToDatabase(enrichedLeads, campaign.id, user.id, 'DIRECT_LEAD');
-                
+
                 console.log(`  -> Saved ${saved} direct leads for user ${user.id}`);
             }
-
-            // FIX: Check against user.plan, not user.subscriptionTier
             if (user.plan === 'pro' && campaign.competitors && campaign.competitors.length > 0) {
                 const aiUsage = AIUsageService.getInstance();
                 const canUseCompetitorAI = await aiUsage.trackAIUsage(user.id, 'competitor');
-                
+
                 if (canUseCompetitorAI) {
                     const competitorLeads: RawLead[] = await findLeadsOnReddit(
-                        campaign.competitors, 
+                        campaign.competitors,
                         campaign.targetSubreddits
                     );
 
@@ -146,9 +142,9 @@ export const runLeadDiscoveryWorker = async (): Promise<void> => {
                             const sentiment = await analyzeSentiment(lead.title, lead.body || '', user.id);
                             const leadWithSentiment = { ...lead, sentiment, type: 'COMPETITOR_MENTION' };
                             const opportunityScore = calculateLeadScore(leadWithSentiment);
-                            return { 
-                                ...lead, 
-                                sentiment, 
+                            return {
+                                ...lead,
+                                sentiment,
                                 opportunityScore,
                                 intent: 'competitor_mention'
                             };
@@ -156,12 +152,12 @@ export const runLeadDiscoveryWorker = async (): Promise<void> => {
                     );
 
                     const savedCompetitor = await saveLeadsToDatabase(
-                        enrichedCompetitorLeads, 
-                        campaign.id, 
-                        user.id, 
+                        enrichedCompetitorLeads,
+                        campaign.id,
+                        user.id,
                         'COMPETITOR_MENTION'
                     );
-                    
+
                     console.log(`  -> Saved ${savedCompetitor} competitor leads for user ${user.id}`);
                 }
             }
@@ -188,7 +184,6 @@ async function getCurrentMonthLeadCount(userId: string): Promise<number> {
 }
 
 const getUserLeadLimit = (user: User): number => {
-    // FIX: Your User model has 'plan', not 'subscriptionTier'.
     switch (user.plan) {
         case 'free': return 25;
         case 'starter': return 200;

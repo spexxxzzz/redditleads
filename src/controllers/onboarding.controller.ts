@@ -46,7 +46,6 @@ export const analyzeWebsite: RequestHandler = async (req, res, next) => {
 };
 
 export const completeOnboarding: RequestHandler = async (req, res, next) => {
-    // --- FIX: Add `competitors` to the destructured request body ---
     const { userId, websiteUrl, generatedKeywords, generatedDescription, competitors } = req.body;
 
     if (!userId || !websiteUrl || !generatedKeywords || !generatedDescription) {
@@ -69,8 +68,6 @@ export const completeOnboarding: RequestHandler = async (req, res, next) => {
                 generatedKeywords,
                 generatedDescription,
                 targetSubreddits: subreddits,
-                // --- FIX: Include the new `competitors` field ---
-                // We use `|| []` to gracefully handle cases where it's not provided.
                 competitors: competitors || [],
             }
         });

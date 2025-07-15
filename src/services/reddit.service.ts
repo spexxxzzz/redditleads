@@ -1,15 +1,9 @@
 import snoowrap from 'snoowrap';
+import { RawLead } from '../types/reddit.types';
 
-// This variable will hold our verified snoowrap instance.
 let r: snoowrap | null = null;
 
-/**
- * Initializes and verifies the main application-level snoowrap instance.
- * It tries to authenticate and will throw a clear error if credentials are bad.
- * This prevents silent failures where searches return empty results.
- */
 const getAppAuthenticatedInstance = async (): Promise<snoowrap> => {
-    // If we already have a verified instance, reuse it.
     if (r) {
         return r;
     }
@@ -22,16 +16,12 @@ const getAppAuthenticatedInstance = async (): Promise<snoowrap> => {
             clientSecret: process.env.REDDIT_CLIENT_SECRET!,
             refreshToken: process.env.REDDIT_REFRESH_TOKEN!
         });
+        //@ts-ignore
 
-        // --- THE CRITICAL VERIFICATION STEP ---
-        // We ask Reddit "who am I?". If this fails, the credentials are bad.
-        //@ts-expect-error
         const me = await tempR.getMe();
         console.log(`✅ Reddit credentials verified for user: u/${me.name}`);
         
-        // Store the verified instance for future use.
         r = tempR;
-        // --- FIX: Return the locally scoped constant to break the type inference cycle. ---
         return tempR;
 
     } catch (error: any) {
@@ -44,17 +34,6 @@ const getAppAuthenticatedInstance = async (): Promise<snoowrap> => {
     }
 };
 
-
-import { RawLead } from '../types/reddit.types';
-
-// ... (existing code for getAppAuthenticatedInstance) ...
-
-/**
- * Finds leads on Reddit based on a set of keywords and subreddits.
- * @param keywords A list of keywords to search for.
- * @param subreddits A list of subreddits to search within.
- * @returns A promise that resolves to an array of RawLead objects.
- */
 export const findLeadsOnReddit = async (keywords: string[], subreddits: string[]): Promise<RawLead[]> => {
     try {
         const r = await getAppAuthenticatedInstance();
@@ -70,7 +49,7 @@ export const findLeadsOnReddit = async (keywords: string[], subreddits: string[]
                     sort: 'new',
                     time: 'month',
                 });
-                return searchResults.map((post): RawLead => ({ // FIX: Explicitly map to RawLead type
+                return searchResults.map((post): RawLead => ({
                     id: post.id,
                     title: post.title,
                     author: post.author.name,
@@ -80,8 +59,8 @@ export const findLeadsOnReddit = async (keywords: string[], subreddits: string[]
                     createdAt: post.created_utc,
                     numComments: post.num_comments,
                     upvoteRatio: post.upvote_ratio,
-                    authorKarma: post.author.link_karma > 0, // FIX: Convert karma to boolean
-                    type: 'DIRECT_LEAD' // FIX: Add the required 'type' property
+                    authorKarma: post.author.link_karma + post.author.comment_karma,
+                    type: 'DIRECT_LEAD'
                 }));
             } catch (error) {
                 console.warn(`⚠️  Could not search subreddit 'r/${subreddit}'. It might be private, banned, or non-existent. Skipping.`);
@@ -99,8 +78,6 @@ export const findLeadsOnReddit = async (keywords: string[], subreddits: string[]
         return [];
     }
 };
-
-// ... (rest of the file) ...
 
 export const postReply = async (parentId: string, text: string, userRefreshToken: string): Promise<string> => {
     try {
@@ -132,12 +109,6 @@ export const getCommentById = async (commentId: string): Promise<any> => {
     }
 };
 
-
-// ... keep your existing getAppAuthenticatedInstance function ...
-
-/**
- * Creates a user-specific Reddit instance
- */
 const getUserAuthenticatedInstance = (userRefreshToken: string) => {
     return new snoowrap({
         userAgent: process.env.REDDIT_USER_AGENT!,
@@ -147,9 +118,6 @@ const getUserAuthenticatedInstance = (userRefreshToken: string) => {
     });
 };
 
-/**
- * Posts a reply using the user's own Reddit account
- */
 export const postReplyAsUser = async (parentId: string, text: string, userRefreshToken: string): Promise<string> => {
     try {
         const userR = getUserAuthenticatedInstance(userRefreshToken);
@@ -161,9 +129,6 @@ export const postReplyAsUser = async (parentId: string, text: string, userRefres
     }
 };
 
-/**
- * Gets user's current karma using their own tokens
- */
 export const getUserKarma = async (userRefreshToken: string): Promise<number> => {
     try {
         const userR = getUserAuthenticatedInstance(userRefreshToken);
@@ -175,9 +140,6 @@ export const getUserKarma = async (userRefreshToken: string): Promise<number> =>
     }
 };
 
-/**
- * Checks if user has enough karma to post
- */
 export const checkKarmaThreshold = async (userRefreshToken: string, minimumKarma: number = 10): Promise<boolean> => {
     try {
         const karma = await getUserKarma(userRefreshToken);
@@ -188,4 +150,3 @@ export const checkKarmaThreshold = async (userRefreshToken: string, minimumKarma
     }
 };
 export { RawLead };
-

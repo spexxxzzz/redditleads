@@ -10,7 +10,6 @@ export const getUserUsage = async (req: Request, res: Response, next: NextFuncti
         const user = await prisma.user.findUnique({
             where: { id: userId },
             include: {
-                // FIX: The relation is named 'AIUsage' in your schema, not 'aiUsage'.
                 AIUsage: {
                     where: {
                         month: new Date().toISOString().slice(0, 7)
@@ -25,7 +24,6 @@ export const getUserUsage = async (req: Request, res: Response, next: NextFuncti
 
         const limits = getPlanLimits(user.plan);
         
-        // FIX: The relation is 'AIUsage', not 'aiUsage'.
         const currentUsage = user.AIUsage.reduce((acc, usage) => {
             (acc as any)[usage.type] = usage.count;
             return acc;

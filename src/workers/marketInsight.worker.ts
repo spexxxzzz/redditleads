@@ -47,29 +47,23 @@ export const runMarketInsightWorker = async (): Promise<void> => {
                 lead.campaign.generatedDescription
             ));
 
-            // --- THIS IS THE FIX ---
-            // Normalize the user's list of monitored competitors for a case-insensitive check.
             const monitoredCompetitorsLower = lead.campaign.competitors.map(c => c.toLowerCase());
 
             for (const name of discoveredNames) {
-                // Normalize the discovered name.
                 const discoveredNameLower = name.toLowerCase();
 
-                // If the user is already monitoring this competitor, skip it.
                 if (monitoredCompetitorsLower.includes(discoveredNameLower)) {
-                    continue; // Do not create an insight for something already known.
+                    continue;
                 }
 
-                // Create the insight record only if it's a truly new discovery.
                 await prisma.marketInsight.upsert({
                     where: { 
-                        // Use a unique constraint to prevent duplicate insights for the same competitor/campaign
                         campaignId_discoveredCompetitorName: {
                             campaignId: lead.campaignId,
                             discoveredCompetitorName: name
                         }
                     },
-                    update: {}, // Do nothing if it already exists
+                    update: {},
                     create: {
                         userId: lead.userId,
                         campaignId: lead.campaignId,
@@ -84,7 +78,6 @@ export const runMarketInsightWorker = async (): Promise<void> => {
         } catch (error: any) {
             console.error(`Failed to analyze lead ${lead.id} for insights:`, error.message);
         } finally {
-            // 3. ALWAYS mark the lead as processed to prevent re-analysis, even on error.
             await prisma.lead.update({
                 where: { id: lead.id },
                 data: { insightAnalysisRan: true }
