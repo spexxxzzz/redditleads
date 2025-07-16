@@ -8,12 +8,60 @@ const prisma = new PrismaClient();
 
 // Get API key from your .env file
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
 
 // --- OPTIMIZATION: In-memory cache to store AI responses ---
 // In a production, multi-server environment, you might replace this with a shared cache like Redis.
 const aiCache = new Map<string, any>();
+import { getAppAuthenticatedInstance } from './reddit.service'; // <-- IMPORT THE REDDIT SERVICE
 
+/**
+ * --- NEW & IMPROVED ---
+ * Generates a list of relevant and *verified* subreddit suggestions.
+ * It uses AI to get ideas and the Reddit API to confirm they are real.
+ */
+export const generateSubredditSuggestions = async (businessDescription: string): Promise<string[]> => {
+    console.log('[Subreddit Suggestions] Starting process...');
+    const cacheKey = `verified_subreddits_v2:${businessDescription.slice(0, 200)}`;
+    if (aiCache.has(cacheKey)) {
+        console.log('[CACHE HIT] for verified subreddit suggestions.');
+        return aiCache.get(cacheKey);
+    }
+
+    // Step 1: Use AI to brainstorm a list of potential subreddits.
+    const prompt = `You are a Reddit marketing expert. Based on the following business description, brainstorm a list of 15 to 20 potential subreddits where customers might be found. Include a mix of large and niche communities. Return the list as a simple comma-separated string of just the subreddit names (e.g., "gaming,playtoearn,web3"). Do not include "r/" or any other text. Business Description: "${businessDescription}"`;
+    
+    const result = await model.generateContent(prompt);
+    const candidateSubreddits = result.response.text().split(',').map(s => s.trim()).filter(Boolean);
+    console.log(`[Subreddit Suggestions] AI suggested ${candidateSubreddits.length} candidates.`);
+
+    // Step 2: Use the Reddit API to verify which of these subreddits actually exist.
+    const snoowrap = await getAppAuthenticatedInstance();
+    const verifiedSubreddits: string[] = [];
+
+    const verificationPromises = candidateSubreddits.map(async (name) => {
+        try {
+            //@ts-expect-error
+            await snoowrap.getSubreddit(name).fetch();
+            return name; // If fetch succeeds, the subreddit exists.
+        } catch (error) {
+            return null; // If fetch fails, it doesn't exist or is private/banned.
+        }
+    });
+
+    const results = await Promise.all(verificationPromises);
+    
+    // Filter out the null results (non-existent subreddits)
+    const finalSubreddits = results.filter((name): name is string => name !== null);
+
+    console.log(`[Subreddit Suggestions] Verified ${finalSubreddits.length} real subreddits.`);
+    
+    aiCache.set(cacheKey, finalSubreddits);
+    return finalSubreddits;
+};
+
+// --- All other functions remain the same ---
+// ... (generateKeywords, generateDescription, etc.)
 /**
  * Generates a list of keywords based on website text.
  */
@@ -55,27 +103,7 @@ export const generateDescription = async (websiteText: string): Promise<string> 
     return description;
 };
 
-/**
- * Generates a list of relevant subreddit suggestions based on a business description.
- */
-export const generateSubredditSuggestions = async (businessDescription: string): Promise<string[]> => {
-    const cacheKey = `subreddits:${businessDescription.slice(0, 200)}`;
-    if (aiCache.has(cacheKey)) {
-        console.log(`[CACHE HIT] for subreddit suggestions.`);
-        return aiCache.get(cacheKey);
-    }
-    
-    const prompt = `You are a Reddit marketing expert. Based on the following business description, recommend a list of 10 to 15 relevant subreddits where potential customers or interested users might be found. Include a mix of large, general subreddits and smaller, niche ones. Return the list as a simple comma-separated string of just the subreddit names (e.g., "gaming,playtoearn,web3"). Do not include "r/" or any other text. Business Description: "${businessDescription}"`;
-
-    const result = await model.generateContent(prompt);
-    const response = result.response;
-    const text = response.text();
-    const subreddits = text.split(',').map(s => s.trim()).filter(s => s);
-
-    aiCache.set(cacheKey, subreddits); // Store result in cache
-    return subreddits;
-};
-
+ 
 /**
  * Analyzes a subreddit's rules and description to generate a summary of its culture.
  */

@@ -59,31 +59,33 @@ model Webhook {
   
   @@map("webhooks")
 }
+ // prisma/schema.prisma
+
+// prisma/schema.prisma
+
 model Campaign {
-  id   String @id @default(cuid())
-  // --- FIX: Added a default value for the new required field ---
-  name String @default("Untitled Campaign")
+  id                    String    @id @default(cuid())
+  userId                String
+  name                  String    @default("Untitled Campaign")
+  analyzedUrl           String
+  generatedKeywords     String[]
+  generatedDescription  String
+  targetSubreddits      String[]  @default([]) // Now used for competitor tracking and suggestions
+  competitors           String[]  @default([])
+  isActive              Boolean   @default(true)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
-  // AI-generated assets for the campaign
-  analyzedUrl          String
-  generatedKeywords    String[]
-  generatedDescription String   @db.Text
-  targetSubreddits     String[] @default([])
-  competitors          String[] @default([])
-  isActive            Boolean  @default(true) // FIX: Change from 'status' to 'isActive'
+  // --- NEW FIELDS FOR GLOBAL SEARCH ---
+  negativeKeywords    String[]  @default([]) // Keywords to explicitly exclude
+  subredditBlacklist  String[]  @default([]) // Subreddits to completely ignore
 
-  // --- Relations ---
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  leads  Lead[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  leads                 Lead[]
+  MarketInsight         MarketInsight[]
 
   @@index([userId])
-  MarketInsight MarketInsight[]
 }
-
 model Lead {
   id        String   @id @default(cuid())
   redditId  String   @unique

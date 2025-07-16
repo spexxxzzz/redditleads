@@ -1,9 +1,11 @@
 import snoowrap from 'snoowrap';
 import { RawLead } from '../types/reddit.types';
 
+import pLimit from 'p-limit';
+
 let r: snoowrap | null = null;
 
-const getAppAuthenticatedInstance = async (): Promise<snoowrap> => {
+export const getAppAuthenticatedInstance = async (): Promise<snoowrap> => {
     if (r) {
         return r;
     }
@@ -16,8 +18,7 @@ const getAppAuthenticatedInstance = async (): Promise<snoowrap> => {
             clientSecret: process.env.REDDIT_CLIENT_SECRET!,
             refreshToken: process.env.REDDIT_REFRESH_TOKEN!
         });
-        //@ts-ignore
-
+          //@ts-expect-error
         const me = await tempR.getMe();
         console.log(`✅ Reddit credentials verified for user: u/${me.name}`);
         
@@ -34,9 +35,155 @@ const getAppAuthenticatedInstance = async (): Promise<snoowrap> => {
     }
 };
 
+/**
+ * Finds leads by searching for submissions (posts) on Reddit.
+ */
+export const findLeadsInSubmissions = async (keywords: string[], subreddits: string[]): Promise<RawLead[]> => {
+    try {
+        const reddit = await getAppAuthenticatedInstance();
+        console.log(`[Submissions] Starting search in ${subreddits.length} subreddits.`);
+
+        const searchQuery = keywords.join(' OR ');
+        const searchPromises = subreddits.map(async (subreddit) => {
+            try {
+                const searchResults = await reddit.getSubreddit(subreddit).search({
+                    query: searchQuery,
+                    sort: 'new',
+                    time: 'month',
+                });
+                return searchResults.map((post): RawLead => ({
+                    id: post.id,
+                    title: post.title,
+                    author: post.author.name,
+                    subreddit: post.subreddit.display_name,
+                    url: `https://www.reddit.com${post.permalink}`,
+                    body: post.selftext,
+                    createdAt: post.created_utc,
+                    numComments: post.num_comments,
+                    upvoteRatio: post.upvote_ratio,
+                    authorKarma: post.author.link_karma + post.author.comment_karma,
+                    type: 'DIRECT_LEAD'
+                }));
+            } catch (error) {
+                console.warn(`[Submissions] Could not search r/${subreddit}. Skipping.`);
+                return [];
+            }
+        });
+
+        const results = await Promise.all(searchPromises);
+        return results.flat();
+    } catch (error) {
+        console.error('[Submissions] Could not perform search due to an error.', error);
+        return [];
+    }
+};
+
+/**
+ * --- NEW FUNCTION ---
+ * Finds leads by streaming and filtering comments from specified subreddits.
+ */
+export const findLeadsInComments = async (keywords: string[], subreddits: string[]): Promise<RawLead[]> => {
+    try {
+        const reddit = await getAppAuthenticatedInstance();
+        console.log(`[Comments] Starting search in ${subreddits.length} subreddits.`);
+        const lowerCaseKeywords = keywords.map(k => k.toLowerCase());
+        const limiter = pLimit(5); // Limit concurrent requests to avoid rate limiting
+        let leads: RawLead[] = [];
+
+        const searchPromises = subreddits.map(subreddit => limiter(async () => {
+            try {
+                const comments = await reddit.getNewComments(subreddit, { limit: 100 });
+                for (const comment of comments) {
+                    const commentBodyLower = comment.body.toLowerCase();
+                    if (lowerCaseKeywords.some(keyword => commentBodyLower.includes(keyword))) {
+                        // Fetch the parent post for context
+                        const submissionId = comment.link_id.replace('t3_', '');
+                        //@ts-expect-error
+                        const submission = await reddit.getSubmission(submissionId).fetch();
+                        leads.push({
+                            id: comment.id,
+                            title: `Comment in: "${submission.title}"`, // Provide context in the title
+                            author: comment.author.name,
+                            subreddit: comment.subreddit.display_name,
+                            url: `https://www.reddit.com${comment.permalink}`, // Direct link to the comment
+                            body: comment.body,
+                            createdAt: comment.created_utc,
+                            numComments: submission.num_comments, // From parent post
+                            upvoteRatio: submission.upvote_ratio, // From parent post
+                            authorKarma: comment.author.link_karma + comment.author.comment_karma,
+                            type: 'DIRECT_LEAD'
+                        });
+                    }
+                }
+            } catch (error) {
+                console.warn(`[Comments] Could not fetch comments from r/${subreddit}. Skipping.`);
+            }
+        }));
+
+        await Promise.all(searchPromises);
+        return leads;
+    } catch (error) {
+        console.error('[Comments] Could not perform comment search due to an error.', error);
+        return [];
+    }
+};
+
+
+/**
+ * --- NEW PRIMARY SEARCH FUNCTION ---
+ * Finds leads by searching all of Reddit for keywords, while excluding
+ * negative keywords and blacklisted subreddits.
+ */
+/**
+ * --- NEW PRIMARY SEARCH FUNCTION ---
+ * Searches all of Reddit for given keywords, while excluding blacklisted terms and subreddits.
+ */
+export const findLeadsGlobally = async (
+    keywords: string[],
+    negativeKeywords: string[],
+    subredditBlacklist: string[]
+): Promise<RawLead[]> => {
+    try {
+        const reddit = await getAppAuthenticatedInstance();
+        console.log(`[Global Search] Starting Reddit-wide search.`);
+
+        const keywordQuery = keywords.map(k => `"${k}"`).join(' OR '); // Use quotes for exact phrases
+        const negativeKeywordQuery = negativeKeywords.map(kw => `-title:${kw} -selftext:${kw}`).join(' ');
+        const blacklistQuery = subredditBlacklist.map(sub => `-subreddit:${sub.trim().toLowerCase()}`).join(' ');
+
+        const finalQuery = `${keywordQuery} ${negativeKeywordQuery} ${blacklistQuery}`.trim();
+        console.log(`  -> Global query: ${finalQuery}`);
+
+        const searchResults = await reddit.search({
+            query: finalQuery,
+            sort: 'new',
+            time: 'week', // Focus on recent, relevant results
+            limit: 100,
+        });
+
+        return searchResults.map((post): RawLead => ({
+            id: post.id,
+            title: post.title,
+            author: post.author.name,
+            subreddit: post.subreddit.display_name,
+            url: `https://www.reddit.com${post.permalink}`,
+            body: post.selftext,
+            createdAt: post.created_utc,
+            numComments: post.num_comments,
+            upvoteRatio: post.upvote_ratio,
+            authorKarma: post.author.link_karma + post.author.comment_karma,
+            type: 'DIRECT_LEAD'
+        }));
+    } catch (error) {
+        console.error('[Global Search] A critical error occurred during global search.', error);
+        return [];
+    }
+};
+
+
 export const findLeadsOnReddit = async (keywords: string[], subreddits: string[]): Promise<RawLead[]> => {
     try {
-        const r = await getAppAuthenticatedInstance();
+        const reddit = await getAppAuthenticatedInstance();
         console.log(`Starting Reddit search for ${subreddits.length} subreddits.`);
 
         const searchQuery = keywords.join(' OR ');
@@ -44,10 +191,10 @@ export const findLeadsOnReddit = async (keywords: string[], subreddits: string[]
 
         const searchPromises = subreddits.map(async (subreddit) => {
             try {
-                const searchResults = await r.getSubreddit(subreddit).search({
+                const searchResults = await reddit.getSubreddit(subreddit).search({
                     query: searchQuery,
                     sort: 'new',
-                    time: 'month',
+                    time: 'year',
                 });
                 return searchResults.map((post): RawLead => ({
                     id: post.id,
@@ -59,7 +206,7 @@ export const findLeadsOnReddit = async (keywords: string[], subreddits: string[]
                     createdAt: post.created_utc,
                     numComments: post.num_comments,
                     upvoteRatio: post.upvote_ratio,
-                    authorKarma: post.author.link_karma + post.author.comment_karma,
+                    authorKarma: post.author.link_karma, // Keep as number
                     type: 'DIRECT_LEAD'
                 }));
             } catch (error) {
@@ -79,6 +226,19 @@ export const findLeadsOnReddit = async (keywords: string[], subreddits: string[]
     }
 };
 
+export const getCommentById = async (commentId: string): Promise<any> => {
+    try {
+        const reddit = await getAppAuthenticatedInstance();
+        const comment = await (reddit.getComment(commentId).fetch() as Promise<any>);
+        return comment;
+    } catch (error: any) {
+        console.error(`Failed to fetch comment ${commentId}:`, error.message);
+        throw new Error(`Reddit API Error: Could not fetch comment ${commentId}.`);
+    }
+};
+
+// ... (rest of the file remains the same)
+
 export const postReply = async (parentId: string, text: string, userRefreshToken: string): Promise<string> => {
     try {
         const userR = getUserAuthenticatedInstance(userRefreshToken);
@@ -96,16 +256,6 @@ export const getOptimalPostingDelay = (subredditName: string): number => {
         return 0;
     } else {
         return Math.floor(Math.random() * 10) + 5;
-    }
-};
-export const getCommentById = async (commentId: string): Promise<any> => {
-    try {
-        const reddit = await getAppAuthenticatedInstance();
-        const comment = await (reddit.getComment(commentId).fetch() as Promise<any>);
-        return comment;
-    } catch (error: any) {
-        console.error(`Failed to fetch comment ${commentId}:`, error.message);
-        throw new Error(`Reddit API Error: Could not fetch comment ${commentId}.`);
     }
 };
 
@@ -149,4 +299,7 @@ export const checkKarmaThreshold = async (userRefreshToken: string, minimumKarma
         return false;
     }
 };
-export { RawLead };
+
+
+export { RawLead,  };
+

@@ -1,5 +1,5 @@
-import { PrismaClient, LeadType, User } from '@prisma/client';
-import { findLeadsOnReddit, RawLead } from '../services/reddit.service';
+import { PrismaClient, LeadType, User, Campaign } from '@prisma/client';
+import { findLeadsGlobally, findLeadsInSubmissions, findLeadsInComments, RawLead } from '../services/reddit.service';
 import { enrichLeadsForUser, EnrichedLead } from '../services/enrichment.service';
 import { analyzeSentiment } from '../services/ai.service';
 import { calculateLeadScore } from '../services/scoring.service';
@@ -91,7 +91,7 @@ export const runLeadDiscoveryWorker = async (): Promise<void> => {
     let cursor: string | null = null;
 
     while (true) {
-        const campaigns: (import('@prisma/client').Campaign & { user: User })[] = await prisma.campaign.findMany({
+        const campaigns: (Campaign & { user: User })[] = await prisma.campaign.findMany({
             take: BATCH_SIZE,
             ...(cursor && { skip: 1, cursor: { id: cursor } }),
             where: {
@@ -129,23 +129,46 @@ export const runLeadDiscoveryWorker = async (): Promise<void> => {
 
                     console.log(`Processing campaign ${campaign.id} for user ${user.id}`);
 
+                    // --- PRIMARY LEAD DISCOVERY: Use Global Search ---
                     if (campaign.generatedKeywords && campaign.generatedKeywords.length > 0) {
-                        const rawLeads: RawLead[] = await findLeadsOnReddit(
+                        console.log(`[Worker] Running GLOBAL search for campaign ${campaign.id}...`);
+                        const rawLeads = await findLeadsGlobally(
                             campaign.generatedKeywords,
-                            campaign.targetSubreddits
+                            campaign.negativeKeywords || [],
+                            campaign.subredditBlacklist || []
                         );
-                        const enrichedLeads = await enrichLeadsForUser(rawLeads, user);
-                        const saved = await saveLeadsToDatabase(enrichedLeads, campaign.id, user.id, 'DIRECT_LEAD');
-                        console.log(`  -> Saved ${saved} direct leads for user ${user.id}`);
+
+                        console.log(`[Worker] Found ${rawLeads.length} potential global leads.`);
+                        
+                        if (rawLeads.length > 0) {
+                            const enrichedLeads = await enrichLeadsForUser(rawLeads, user);
+                            const saved = await saveLeadsToDatabase(enrichedLeads, campaign.id, user.id, 'DIRECT_LEAD');
+                            console.log(`  -> Saved ${saved} direct leads for user ${user.id}`);
+                        }
                     }
 
+                    // --- COMPETITOR DISCOVERY: Uses targeted search for precision ---
                     if (user.plan === 'pro' && campaign.competitors && campaign.competitors.length > 0) {
                         const aiUsage = AIUsageService.getInstance();
                         const canUseCompetitorAI = await aiUsage.trackAIUsage(user.id, 'competitor');
                         if (canUseCompetitorAI) {
-                            const competitorLeads = await findLeadsOnReddit(campaign.competitors, campaign.targetSubreddits);
+                            console.log(`[Worker] Running TARGETED competitor search for campaign ${campaign.id}...`);
+                            const [submissionLeads, commentLeads] = await Promise.all([
+                                findLeadsInSubmissions(campaign.competitors, campaign.targetSubreddits),
+                                findLeadsInComments(campaign.competitors, campaign.targetSubreddits)
+                            ]);
+                            
+                            const competitorLeads = [...submissionLeads, ...commentLeads];
+                            const uniqueCompetitorLeadsMap = new Map<string, RawLead>();
+                            competitorLeads.forEach(lead => {
+                                if(!uniqueCompetitorLeadsMap.has(lead.url)) {
+                                    uniqueCompetitorLeadsMap.set(lead.url, lead);
+                                }
+                            });
+                            const uniqueCompetitorLeads = Array.from(uniqueCompetitorLeadsMap.values());
+
                             const enrichedCompetitorLeads = await Promise.all(
-                                competitorLeads.map(async (lead): Promise<EnrichedLead> => {
+                                uniqueCompetitorLeads.map(async (lead): Promise<EnrichedLead> => {
                                     const sentiment = await analyzeSentiment(lead.title, lead.body, user.id);
                                     const opportunityScore = calculateLeadScore({ ...lead, sentiment, type: 'COMPETITOR_MENTION' });
                                     return { ...lead, sentiment, opportunityScore, intent: 'competitor_mention' };

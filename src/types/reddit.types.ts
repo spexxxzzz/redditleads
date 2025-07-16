@@ -1,3 +1,5 @@
+// src/types/reddit.types.ts
+
 export interface RawLead {
   id: string;
   title: string;
@@ -8,6 +10,6 @@ export interface RawLead {
   createdAt: number;
   numComments: number;
   upvoteRatio: number;
-  authorKarma: number;
+  authorKarma: number; // Added this field for consistency
   type: 'DIRECT_LEAD' | 'COMPETITOR_MENTION';
 }

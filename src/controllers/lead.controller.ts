@@ -1,8 +1,6 @@
-// src/controllers/lead.controller.ts
-
 import { RequestHandler } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { findLeadsOnReddit } from '../services/reddit.service';
+import { findLeadsGlobally, findLeadsInSubmissions, findLeadsInComments, RawLead } from '../services/reddit.service';
 import { enrichLeadsForUser } from '../services/enrichment.service';
 import { summarizeTextContent } from '../services/summarisation.service';
 
@@ -13,7 +11,7 @@ export const runManualDiscovery: RequestHandler = async (req, res, next) => {
 
     if (!campaignId) {
          res.status(400).json({ message: 'Campaign ID is required.' });
-         return
+         return;
     }
 
     try {
@@ -25,18 +23,26 @@ export const runManualDiscovery: RequestHandler = async (req, res, next) => {
 
         if (!campaign || !campaign.user) {
              res.status(404).json({ message: 'Campaign or associated user not found.' });
-             return
+             return;
         }
 
         const user = campaign.user;
-        const rawLeads = await findLeadsOnReddit(campaign.generatedKeywords, campaign.targetSubreddits);
+        
+        // --- MODIFIED: Manual discovery now uses the powerful global search ---
+        console.log(`[Manual Discovery] Running GLOBAL search for campaign ${campaign.id}...`);
+        const rawLeads = await findLeadsGlobally(
+            campaign.generatedKeywords,
+            campaign.negativeKeywords || [],
+            campaign.subredditBlacklist || []
+        );
+        
+        console.log(`[Manual Discovery] Found ${rawLeads.length} unique raw leads.`);
+
         const enrichedLeads = await enrichLeadsForUser(rawLeads, user);
         
         const savedLeads = [];
         for (const lead of enrichedLeads) {
             try {
-                // --- ATOMIC OPERATION ---
-                // Use upsert to create the lead if it doesn't exist.
                 const savedLead = await prisma.lead.upsert({
                     where: { url: lead.url }, // Assumes URL is a unique field in your schema
                     update: {}, // Don't update if it exists
@@ -70,22 +76,15 @@ export const runManualDiscovery: RequestHandler = async (req, res, next) => {
     }
 };
 
-// ... (keep the rest of the file unchanged)
-
-/**
- * Fetches saved leads from the database for a specific campaign's "Lead Inbox".
- * Results are paginated and sorted by the highest opportunity score.
- */
-
 export const getLeadsForCampaign: RequestHandler = async (req, res, next) => {
     const { campaignId } = req.params;
     const {
         page = '1',
         limit = '20',
-        sortBy = 'opportunityScore', // Default sort key
-        sortOrder = 'desc',       // Default sort order
-        status,                   // Filter by status (e.g., 'new', 'saved')
-        intent,                   // Filter by intent (e.g., 'solution_seeking')
+        sortBy = 'opportunityScore',
+        sortOrder = 'desc',
+        status,
+        intent,
     } = req.query;
 
     const pageNum = parseInt(page as string);
@@ -100,7 +99,6 @@ export const getLeadsForCampaign: RequestHandler = async (req, res, next) => {
     try {
         console.log(`📋 [Get Leads] Fetching leads for campaign: ${campaignId}`);
 
-        // Build dynamic query conditions
         const where: any = { campaignId };
         if (status && status !== 'all') {
             where.status = status as string;
@@ -122,7 +120,6 @@ export const getLeadsForCampaign: RequestHandler = async (req, res, next) => {
 
         console.log(`📋 [Get Leads] Found ${leads.length} leads (${totalLeads} total) matching criteria`);
 
-        // Transform the data to match what your frontend expects
         const transformedLeads = leads.map(lead => ({
             id: lead.id,
             title: lead.title,
@@ -131,12 +128,12 @@ export const getLeadsForCampaign: RequestHandler = async (req, res, next) => {
             url: lead.url,
             body: lead.body,
             createdAt: Math.floor(lead.postedAt.getTime() / 1000),
-            numComments: 0, // You might want to store this
-            upvoteRatio: 0.67, // You might want to store this
+            numComments: 0, 
+            upvoteRatio: 0.67,
             intent: lead.intent || 'information_seeking',
             opportunityScore: lead.opportunityScore,
             status: lead.status,
-            isGoogleRanked: false, // You might want to store this
+            isGoogleRanked: false,
         }));
 
         res.status(200).json({
@@ -154,10 +151,6 @@ export const getLeadsForCampaign: RequestHandler = async (req, res, next) => {
     }
 };
 
-
-/**
- * Updates the status of a lead (new, replied, saved, ignored)
- */
 export const updateLeadStatus: RequestHandler = async (req, res, next) => {
     const { leadId } = req.params;
     const { status } = req.body;
@@ -167,7 +160,6 @@ export const updateLeadStatus: RequestHandler = async (req, res, next) => {
         return;
     }
 
-    // Validate status values
     const validStatuses = ['new', 'replied', 'saved', 'ignored'];
     if (!validStatuses.includes(status)) {
         res.status(400).json({ message: 'Invalid status. Must be one of: new, replied, saved, ignored' });
@@ -182,7 +174,6 @@ export const updateLeadStatus: RequestHandler = async (req, res, next) => {
             data: { status }
         });
 
-        // Transform the response to match frontend expectations
         const transformedLead = {
             id: updatedLead.id,
             title: updatedLead.title,
@@ -216,13 +207,12 @@ export const summarizeLead: RequestHandler = async (req, res, next) => {
 
         if (!lead) {
              res.status(404).json({ message: 'Lead not found.' });
-             return
+             return;
         }
 
-        // --- Use the lead's body text instead of the URL ---
         if (!lead.body || lead.body.trim().length === 0) {
              res.status(400).json({ message: 'Lead has no content to summarize.' });
-             return
+             return;
         }
 
         console.log(`[SUMMARIZE] Request for lead ${id}, using internal text.`);
