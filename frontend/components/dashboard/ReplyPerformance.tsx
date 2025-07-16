@@ -1,19 +1,20 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  ArrowUp, 
-  MessageCircle, 
-  ExternalLink, 
-  Calendar, 
-  TrendingUp, 
-  Users, 
+import {
+  ArrowUp,
+  MessageCircle,
+  ExternalLink,
+  Calendar,
+  TrendingUp,
+  Users,
   Target,
   Loader,
   AlertCircle,
   BarChart3
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useAuth } from '@clerk/nextjs'; // Import the useAuth hook
 
 interface ReplyPerformance {
   id: string;
@@ -39,9 +40,8 @@ interface PerformanceMetrics {
   repliesWithAuthorResponse: number;
 }
 
-const TEST_USER_ID = 'clerk_test_user_123';
-
 export default function PerformancePage() {
+  const { getToken } = useAuth(); // Use the Clerk hook
   const [replies, setReplies] = useState<ReplyPerformance[]>([]);
   const [metrics, setMetrics] = useState<PerformanceMetrics>({
     totalReplies: 0,
@@ -53,11 +53,11 @@ export default function PerformancePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch performance data
-  const fetchPerformance = async () => {
+  const fetchPerformance = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await api.getReplyPerformance(TEST_USER_ID);
+      const token = await getToken();
+      const response = await api.getReplyPerformance(token); // Pass token to the API call
       setReplies(response.data || []);
       setMetrics(response.metrics || {
         totalReplies: 0,
@@ -71,18 +71,17 @@ export default function PerformancePage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [getToken]); // Add getToken to the dependency array
 
   useEffect(() => {
     fetchPerformance();
-  }, []);
+  }, [fetchPerformance]);
 
   const getTimeAgo = (dateString: string) => {
     const diff = Date.now() - new Date(dateString).getTime();
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    
     if (days > 0) return `${days}d ago`;
+    const hours = Math.floor(diff / (1000 * 60 * 60));
     if (hours > 0) return `${hours}h ago`;
     return 'Just now';
   };
@@ -108,7 +107,6 @@ export default function PerformancePage() {
   return (
     <div className="min-h-screen bg-[#0f1419] p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">Reply Performance</h1>
           <p className="text-gray-400">
@@ -116,44 +114,14 @@ export default function PerformancePage() {
           </p>
         </div>
 
-        {/* Performance Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
-          <MetricCard
-            title="Total Replies"
-            value={metrics.totalReplies}
-            icon={MessageCircle}
-            color="blue"
-          />
-          <MetricCard
-            title="Total Upvotes"
-            value={metrics.totalUpvotes}
-            icon={ArrowUp}
-            color="green"
-          />
-          <MetricCard
-            title="Avg Upvotes"
-            value={metrics.averageUpvotes}
-            icon={TrendingUp}
-            color="yellow"
-            isDecimal
-          />
-          <MetricCard
-            title="Response Rate"
-            value={metrics.responseRate}
-            icon={Users}
-            color="purple"
-            suffix="%"
-            isDecimal
-          />
-          <MetricCard
-            title="Author Replies"
-            value={metrics.repliesWithAuthorResponse}
-            icon={Target}
-            color="orange"
-          />
+            <MetricCard title="Total Replies" value={metrics.totalReplies} icon={MessageCircle} color="blue" />
+            <MetricCard title="Total Upvotes" value={metrics.totalUpvotes} icon={ArrowUp} color="green" />
+            <MetricCard title="Avg Upvotes" value={metrics.averageUpvotes} icon={TrendingUp} color="yellow" isDecimal />
+            <MetricCard title="Response Rate" value={metrics.responseRate} icon={Users} color="purple" suffix="%" isDecimal />
+            <MetricCard title="Author Replies" value={metrics.repliesWithAuthorResponse} icon={Target} color="orange" />
         </div>
 
-        {/* Error Message */}
         {error && (
           <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-3">
             <AlertCircle className="w-5 h-5 text-red-400" />
@@ -161,7 +129,6 @@ export default function PerformancePage() {
           </div>
         )}
 
-        {/* Replies List */}
         {replies.length === 0 ? (
           <div className="text-center py-24">
             <BarChart3 className="w-16 h-16 text-gray-600 mx-auto mb-4" />
@@ -190,7 +157,7 @@ export default function PerformancePage() {
   );
 }
 
-// Metric Card Component
+// ... (MetricCard and ReplyCard components remain the same)
 interface MetricCardProps {
   title: string;
   value: number;
@@ -229,7 +196,6 @@ const MetricCard = ({ title, value, icon: Icon, color, suffix = '', isDecimal = 
   );
 };
 
-// Reply Card Component
 interface ReplyCardProps {
   reply: ReplyPerformance;
   getTimeAgo: (date: string) => string;
@@ -244,7 +210,6 @@ const ReplyCard = ({ reply, getTimeAgo, getUpvoteColor }: ReplyCardProps) => {
       exit={{ opacity: 0, y: -20 }}
       className="bg-[#1a1a1b] rounded-lg border border-[#343536] p-6 hover:border-[#ff4500] transition-colors"
     >
-      {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
           <h3 className="font-semibold text-white mb-1">{reply.lead.title}</h3>
@@ -261,7 +226,6 @@ const ReplyCard = ({ reply, getTimeAgo, getUpvoteColor }: ReplyCardProps) => {
         </div>
         
         <div className="flex items-center gap-4">
-          {/* Upvotes */}
           <div className="flex items-center gap-1">
             <ArrowUp className={`w-4 h-4 ${getUpvoteColor(reply.upvotes)}`} />
             <span className={`font-medium ${getUpvoteColor(reply.upvotes)}`}>
@@ -269,7 +233,6 @@ const ReplyCard = ({ reply, getTimeAgo, getUpvoteColor }: ReplyCardProps) => {
             </span>
           </div>
           
-          {/* Author Reply Indicator */}
           {reply.authorReplied && (
             <div className="flex items-center gap-1 text-green-400">
               <MessageCircle className="w-4 h-4" />
@@ -279,12 +242,10 @@ const ReplyCard = ({ reply, getTimeAgo, getUpvoteColor }: ReplyCardProps) => {
         </div>
       </div>
 
-      {/* Reply Content */}
       <div className="mb-4">
         <p className="text-gray-300 leading-relaxed">{reply.content}</p>
       </div>
 
-      {/* Actions */}
       <div className="flex items-center gap-4 pt-4 border-t border-[#343536]">
         <a 
           href={reply.lead.url}

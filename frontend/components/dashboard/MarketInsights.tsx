@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Eye, 
@@ -16,6 +16,7 @@ import {
   Target
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useAuth } from '@clerk/nextjs'; // Import the useAuth hook
 
 interface MarketInsight {
   id: string;
@@ -34,10 +35,13 @@ interface InsightMetrics {
   ignoredInsights: number;
 }
 
-const TEST_USER_ID = 'clerk_test_user_123';
-const TEST_CAMPAIGN_ID = 'cm4rtj3v10001v6fhqpgdwxii'; // You'll need to get this dynamically
+// The component now accepts the activeCampaignId as a prop
+interface MarketInsightsPageProps {
+    activeCampaignId: string | null;
+}
 
-export default function MarketInsightsPage() {
+export default function MarketInsightsPage({ activeCampaignId }: MarketInsightsPageProps) {
+  const { getToken } = useAuth(); // Use the Clerk hook
   const [insights, setInsights] = useState<MarketInsight[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -49,14 +53,15 @@ export default function MarketInsightsPage() {
     ignoredInsights: 0
   });
 
-  // Fetch insights from API
-  const fetchInsights = async () => {
+  const fetchInsights = useCallback(async () => {
+    if (!activeCampaignId) return;
+
     try {
       setIsLoading(true);
-      const response = await api.getMarketInsights(TEST_CAMPAIGN_ID);
+      const token = await getToken();
+      const response = await api.getMarketInsights(activeCampaignId, token);
       setInsights(response.data || []);
       
-      // Calculate metrics
       const total = response.data?.length || 0;
       const newCount = response.data?.filter((i: MarketInsight) => i.status === 'NEW').length || 0;
       const actionedCount = response.data?.filter((i: MarketInsight) => i.status === 'ACTIONED').length || 0;
@@ -73,20 +78,18 @@ export default function MarketInsightsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [activeCampaignId, getToken]);
 
-  // Add competitor to campaign
   const addCompetitor = async (insightId: string) => {
     setProcessingInsight(insightId);
     try {
-      await api.addCompetitorToCampaign(insightId);
-      // Update the insight status locally
+      const token = await getToken();
+      await api.addCompetitorToCampaign(insightId, token);
       setInsights(prev => prev.map(insight => 
         insight.id === insightId 
           ? { ...insight, status: 'ACTIONED' as const }
           : insight
       ));
-      // Update metrics
       setMetrics(prev => ({
         ...prev,
         newInsights: prev.newInsights - 1,
@@ -99,17 +102,15 @@ export default function MarketInsightsPage() {
     }
   };
 
-  // Update insight status
   const updateInsightStatus = async (insightId: string, status: MarketInsight['status']) => {
     setProcessingInsight(insightId);
     try {
-      await api.updateInsightStatus(insightId, status);
-      // Update locally
+      const token = await getToken();
+      await api.updateInsightStatus(insightId, status, token);
       setInsights(prev => prev.map(insight => 
         insight.id === insightId ? { ...insight, status } : insight
       ));
       
-      // Update metrics
       const insight = insights.find(i => i.id === insightId);
       if (insight?.status === 'NEW') {
         setMetrics(prev => ({
@@ -126,17 +127,15 @@ export default function MarketInsightsPage() {
     }
   };
 
-  // Load insights on mount
   useEffect(() => {
     fetchInsights();
-  }, []);
+  }, [fetchInsights]);
 
   const getTimeAgo = (dateString: string) => {
     const diff = Date.now() - new Date(dateString).getTime();
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    
     if (days > 0) return `${days}d ago`;
+    const hours = Math.floor(diff / (1000 * 60 * 60));
     if (hours > 0) return `${hours}h ago`;
     return 'Just now';
   };
@@ -155,7 +154,6 @@ export default function MarketInsightsPage() {
   return (
     <div className="min-h-screen bg-[#0f1419] p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">Market Intelligence</h1>
           <p className="text-gray-400">
@@ -163,49 +161,23 @@ export default function MarketInsightsPage() {
           </p>
         </div>
 
-        {/* Metrics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <MetricCard
-            title="Total Insights"
-            value={metrics.totalInsights}
-            icon={TrendingUp}
-            color="blue"
-          />
-          <MetricCard
-            title="New Discoveries"
-            value={metrics.newInsights}
-            icon={Eye}
-            color="orange"
-          />
-          <MetricCard
-            title="Added to Campaign"
-            value={metrics.actionedInsights}
-            icon={CheckCircle}
-            color="green"
-          />
-          <MetricCard
-            title="Ignored"
-            value={metrics.ignoredInsights}
-            icon={X}
-            color="gray"
-          />
+            <MetricCard title="Total Insights" value={metrics.totalInsights} icon={TrendingUp} color="blue" />
+            <MetricCard title="New Discoveries" value={metrics.newInsights} icon={Eye} color="orange" />
+            <MetricCard title="Added to Campaign" value={metrics.actionedInsights} icon={CheckCircle} color="green" />
+            <MetricCard title="Ignored" value={metrics.ignoredInsights} icon={X} color="gray" />
         </div>
 
-        {/* Error Message */}
         {error && (
           <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-3">
             <AlertCircle className="w-5 h-5 text-red-400" />
             <span className="text-red-400">{error}</span>
-            <button 
-              onClick={() => setError(null)}
-              className="ml-auto text-red-400 hover:text-red-300"
-            >
+            <button onClick={() => setError(null)} className="ml-auto text-red-400 hover:text-red-300">
               <X className="w-4 h-4" />
             </button>
           </div>
         )}
 
-        {/* Insights Grid */}
         {insights.length === 0 ? (
           <div className="text-center py-24">
             <Building className="w-16 h-16 text-gray-600 mx-auto mb-4" />
@@ -235,7 +207,7 @@ export default function MarketInsightsPage() {
   );
 }
 
-// Metric Card Component
+// ... (MetricCard and InsightCard components remain the same)
 interface MetricCardProps {
   title: string;
   value: number;
@@ -266,7 +238,6 @@ const MetricCard = ({ title, value, icon: Icon, color }: MetricCardProps) => {
   );
 };
 
-// Insight Card Component
 interface InsightCardProps {
   insight: MarketInsight;
   onAddCompetitor: () => void;
@@ -293,7 +264,6 @@ const InsightCard = ({ insight, onAddCompetitor, onUpdateStatus, isProcessing, g
       className="bg-[#1a1a1b] rounded-lg border border-[#343536] overflow-hidden hover:border-[#ff4500] transition-colors"
     >
       <div className="p-6">
-        {/* Header */}
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-[#ff4500]/10 rounded-lg flex items-center justify-center">
@@ -312,14 +282,12 @@ const InsightCard = ({ insight, onAddCompetitor, onUpdateStatus, isProcessing, g
           </span>
         </div>
 
-        {/* Context */}
         <div className="mb-4">
           <p className="text-sm text-gray-300 leading-relaxed">
             {insight.sourceTextSnippet}
           </p>
         </div>
 
-        {/* Source Link */}
         <div className="mb-6">
           <a 
             href={insight.sourceUrl}
@@ -332,7 +300,6 @@ const InsightCard = ({ insight, onAddCompetitor, onUpdateStatus, isProcessing, g
           </a>
         </div>
 
-        {/* Actions */}
         {insight.status === 'NEW' && (
           <div className="flex items-center gap-3 pt-4 border-t border-[#343536]">
             <button

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Inter, Poppins } from 'next/font/google';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useUser } from '@clerk/nextjs'; // Import the useUser hook
 
 const inter = Inter({ subsets: ['latin'] });
 const poppins = Poppins({ 
@@ -34,14 +35,7 @@ interface Campaign {
   targetSubreddits: string[];
 }
 
-interface UserInfo {
-  name: string;
-  email: string;
-  avatar: string;
-  plan: string;
-  planColor: string;
-}
-
+// The UserInfo prop is no longer needed, as we get the user from the hook.
 interface Props {
   campaigns: Campaign[];
   activeCampaign: string | null;
@@ -51,7 +45,7 @@ interface Props {
   stats: { new: number; replied: number; saved: number; all: number };
   isCollapsed: boolean;
   setIsCollapsed: (collapsed: boolean) => void;
-  user: UserInfo;
+  // user prop is removed
 }
 
 export const DashboardSidebar = ({ 
@@ -62,14 +56,37 @@ export const DashboardSidebar = ({
   setActiveFilter, 
   stats,
   isCollapsed,
-  setIsCollapsed,
-  user
+  setIsCollapsed
 }: Props) => {
+  // Get the user data from the useUser hook
+  const { isLoaded, isSignedIn, user } = useUser();
   const [expandedSections, setExpandedSections] = useState({
     inbox: true,
     campaigns: false,
     actions: false
   });
+
+  // Handle loading and signed-out states
+  if (!isLoaded) {
+    // You can return a skeleton loader here if you want
+    return <div className="p-4">Loading...</div>;
+  }
+
+  if (!isSignedIn) {
+    // If the user is not signed in, don't render the sidebar
+    return null;
+  }
+  
+  // NOTE: The 'plan' and 'planColor' are not part of the default Clerk user object.
+  // This data would typically be fetched from your own backend database.
+  // For now, we'll hardcode it for display purposes.
+  const userInfo = {
+      name: user.fullName || 'User',
+      email: user.primaryEmailAddress?.emailAddress || '',
+      avatar: user.imageUrl,
+      plan: 'Pro', 
+      planColor: 'bg-yellow-500' 
+  };
 
   const toggleSection = (section: keyof typeof expandedSections) => {
     if (isCollapsed) return;
@@ -129,13 +146,13 @@ export const DashboardSidebar = ({
           <div className="flex flex-col items-center gap-2">
             <div className="relative">
               <img 
-                src={user.avatar} 
-                alt={user.name}
+                src={userInfo.avatar} 
+                alt={userInfo.name}
                 className="w-8 h-8 rounded-full object-cover"
               />
-              <div className={`absolute -top-1 -right-1 w-3 h-3 ${user.planColor} rounded-full border-2 border-gray-900 flex items-center justify-center`}>
-                {user.plan === 'Pro' && <Crown className="w-1.5 h-1.5 text-white" />}
-                {user.plan === 'Free' && <User className="w-1.5 h-1.5 text-white" />}
+              <div className={`absolute -top-1 -right-1 w-3 h-3 ${userInfo.planColor} rounded-full border-2 border-gray-900 flex items-center justify-center`}>
+                {userInfo.plan === 'Pro' && <Crown className="w-1.5 h-1.5 text-white" />}
+                {userInfo.plan === 'Free' && <User className="w-1.5 h-1.5 text-white" />}
               </div>
             </div>
             <button
@@ -150,25 +167,25 @@ export const DashboardSidebar = ({
           <div className="flex items-center gap-3">
             <div className="relative">
               <img 
-                src={user.avatar} 
-                alt={user.name}
+                src={userInfo.avatar} 
+                alt={userInfo.name}
                 className="w-10 h-10 rounded-full object-cover"
               />
-              <div className={`absolute -top-1 -right-1 w-4 h-4 ${user.planColor} rounded-full border-2 border-gray-900 flex items-center justify-center`}>
-                {user.plan === 'Pro' && <Crown className="w-2 h-2 text-white" />}
-                {user.plan === 'Free' && <User className="w-2 h-2 text-white" />}
+              <div className={`absolute -top-1 -right-1 w-4 h-4 ${userInfo.planColor} rounded-full border-2 border-gray-900 flex items-center justify-center`}>
+                {userInfo.plan === 'Pro' && <Crown className="w-2 h-2 text-white" />}
+                {userInfo.plan === 'Free' && <User className="w-2 h-2 text-white" />}
               </div>
             </div>
             <div className="flex-1 min-w-0">
               <p className={`text-sm font-medium text-white truncate ${poppins.className}`}>
-                {user.name}
+                {userInfo.name}
               </p>
               <p className={`text-xs text-gray-400 truncate ${inter.className}`}>
-                {user.email}
+                {userInfo.email}
               </p>
               <div className="flex items-center gap-1 mt-1">
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${user.planColor} text-white`}>
-                  {user.plan}
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${userInfo.planColor} text-white`}>
+                  {userInfo.plan}
                 </span>
               </div>
             </div>

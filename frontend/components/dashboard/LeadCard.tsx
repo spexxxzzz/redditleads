@@ -21,6 +21,7 @@ import { motion } from "framer-motion";
 import { ReplyModal } from "./ReplyModal";
 import { Inter, Poppins } from "next/font/google";
 import { api } from "@/lib/api";
+import { useAuth } from "@clerk/nextjs"; // Import the useAuth hook
 
 const inter = Inter({ subsets: ["latin"] });
 const poppins = Poppins({
@@ -53,6 +54,7 @@ interface Props {
 const MIN_WORDS_FOR_SUMMARY = 40;
 
 export const LeadCard = ({ lead, onUpdate, currentFilter }: Props) => {
+  const { getToken } = useAuth(); // Get the getToken function from Clerk
   const [isExpanded, setIsExpanded] = useState(false);
   const [showReplyModal, setShowReplyModal] = useState(false);
   const [summary, setSummary] = useState<string | null>(lead.summary || null);
@@ -103,7 +105,8 @@ export const LeadCard = ({ lead, onUpdate, currentFilter }: Props) => {
     setSummaryError(null);
     
     try {
-      const response = await api.generateSummary(lead.id);
+      const token = await getToken(); // Get the auth token
+      const response = await api.generateSummary(lead.id, token); // Pass the token to the API call
       setSummary(response.summary);
     } catch (error: any) {
       setSummaryError(error.message || "Failed to generate summary. Please try again.");
@@ -115,13 +118,9 @@ export const LeadCard = ({ lead, onUpdate, currentFilter }: Props) => {
   const wordCount = lead.body.split(' ').length;
   const shouldShowSummary = wordCount >= MIN_WORDS_FOR_SUMMARY;
 
-  // Determine which buttons to show based on current filter
   const showSaveButton = currentFilter !== "saved";
   const showIgnoreButton = currentFilter !== "ignored";
   const showReplyButton = currentFilter !== "replied";
-
-  // Add debug logging
-  console.log(`Lead ${lead.id} - currentFilter: ${currentFilter}, showIgnoreButton: ${showIgnoreButton}`);
 
   return (
     <>
@@ -260,7 +259,6 @@ export const LeadCard = ({ lead, onUpdate, currentFilter }: Props) => {
             {showSaveButton && (
               <button
                 onClick={() => {
-                  console.log(`Save button clicked for lead ${lead.id}`);
                   onUpdate(lead.id, 'saved');
                 }}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-[#343536] hover:bg-[#404041] text-gray-300 rounded-lg text-sm font-medium transition-colors"
@@ -273,7 +271,6 @@ export const LeadCard = ({ lead, onUpdate, currentFilter }: Props) => {
             {showIgnoreButton && (
               <button
                 onClick={() => {
-                  console.log(`Ignore button clicked for lead ${lead.id}`);
                   onUpdate(lead.id, 'ignored');
                 }}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-[#343536] hover:bg-[#404041] text-gray-300 rounded-lg text-sm font-medium transition-colors"

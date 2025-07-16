@@ -7,6 +7,7 @@ import { Loader, RefreshCw, AlertCircle, ArrowUp, ArrowDown } from 'lucide-react
 import { api } from '@/lib/api';
 import { Inter, Poppins } from 'next/font/google';
 import { RedLeadHeader } from './DashboardHeader';
+import { useAuth } from '@clerk/nextjs'; // Import the useAuth hook
 
 const inter = Inter({ subsets: ['latin'] });
 const poppins = Poppins({
@@ -44,11 +45,10 @@ interface Campaign {
   };
 }
 
-const TEST_USER_ID = 'clerk_test_user_123';
-
 export const DashboardLayout = () => {
+  const { getToken } = useAuth(); // Get the getToken function from Clerk
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [allLeads, setAllLeads] = useState<Lead[]>([]); // Store all leads for stats calculation
+  const [allLeads, setAllLeads] = useState<Lead[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRunningDiscovery, setIsRunningDiscovery] = useState(false);
@@ -56,29 +56,20 @@ export const DashboardLayout = () => {
   const [error, setError] = useState<string | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  // --- State for sorting and filtering ---
   const [activeFilter, setActiveFilter] = useState("all");
   const [intentFilter, setIntentFilter] = useState("all");
   const [sortBy, setSortBy] = useState("opportunityScore");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
-  // Mock user data
-  const mockUser = {
-    name: 'John Doe',
-    email: 'john.doe@example.com',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&crop=face&auto=format',
-    plan: 'Pro',
-    planColor: 'bg-yellow-500'
-  };
-
   const debugLog = (message: string, data?: any) => {
     console.log(`🔍 [Dashboard Debug] ${message}`, data);
   };
 
-  const fetchCampaigns = async () => {
+  const fetchCampaigns = useCallback(async () => {
     try {
-      debugLog('Fetching campaigns for user:', TEST_USER_ID);
-      const data = await api.getCampaigns(TEST_USER_ID);
+      debugLog('Fetching campaigns for current user...');
+      const token = await getToken();
+      const data = await api.getCampaigns(token);
       setCampaigns(data);
       if (data.length > 0 && !activeCampaign) {
         setActiveCampaign(data[0].id);
@@ -87,25 +78,24 @@ export const DashboardLayout = () => {
       console.error('❌ Error fetching campaigns:', err);
       setError(`Failed to load campaigns: ${err.message}`);
     }
-  };
+  }, [getToken, activeCampaign]);
 
   const fetchLeads = useCallback(async (campaignId: string) => {
     setIsLoading(true);
     try {
       debugLog('Fetching leads for campaign:', campaignId);
+      const token = await getToken();
       
-      // First, fetch ALL leads for stats calculation
       const allLeadsResponse = await api.getLeads(campaignId, {
         intent: intentFilter,
         sortBy,
         sortOrder,
         page: 1,
-        limit: 1000, // Get all leads for stats
-      });
+        limit: 1000,
+      }, token);
       
       setAllLeads(allLeadsResponse.data || []);
       
-      // Then filter the leads based on the current filter
       let filteredLeads = allLeadsResponse.data || [];
       
       if (activeFilter !== "all") {
@@ -127,13 +117,14 @@ export const DashboardLayout = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [activeFilter, intentFilter, sortBy, sortOrder]);
+  }, [getToken, activeFilter, intentFilter, sortBy, sortOrder]);
 
   const handleManualDiscovery = async () => {
     if (!activeCampaign) return;
     setIsRunningDiscovery(true);
     try {
-      await api.runManualDiscovery(activeCampaign);
+      const token = await getToken();
+      await api.runManualDiscovery(activeCampaign, token);
       setTimeout(() => fetchLeads(activeCampaign), 2000);
     } catch (err: any) {
       setError(`Manual discovery failed: ${err.message}`);
@@ -149,7 +140,7 @@ export const DashboardLayout = () => {
       await fetchCampaigns();
     };
     loadData();
-  }, []);
+  }, [fetchCampaigns]);
 
   useEffect(() => {
     if (activeCampaign) {
@@ -157,7 +148,6 @@ export const DashboardLayout = () => {
     }
   }, [activeCampaign, fetchLeads]);
 
-  // Calculate stats from all leads, not just filtered ones
   const leadStats = {
     new: allLeads.filter(l => (l.status || 'new') === 'new').length,
     replied: allLeads.filter(l => l.status === 'replied').length,
@@ -167,7 +157,6 @@ export const DashboardLayout = () => {
 
   const handleLeadUpdate = async (leadId: string, status: Lead['status']) => {
     try {
-      // Update the lead status in both arrays
       setLeads(prev => prev.map(lead => 
         lead.id === leadId ? { ...lead, status } : lead
       ));
@@ -176,19 +165,16 @@ export const DashboardLayout = () => {
         lead.id === leadId ? { ...lead, status } : lead
       ));
       
-      // Only remove from current view if it's not "all" and the status doesn't match the filter
       if (activeFilter !== "all" && status !== activeFilter) {
         setLeads(prev => prev.filter(lead => lead.id !== leadId));
       }
       
-      // Call the API to update the backend
       if(status){
-   await api.updateLeadStatus(leadId, status);
+        const token = await getToken();
+        await api.updateLeadStatus(leadId, status, token);
       }
-
    
     } catch (err: any) {
-      // If the API call fails, revert the UI by refetching the leads
       if (activeCampaign) fetchLeads(activeCampaign);
     }
   };
@@ -212,7 +198,6 @@ export const DashboardLayout = () => {
 
   return (
     <div className="min-h-screen bg-black relative overflow-hidden">
-      {/* Background Elements */}
       <div className="absolute inset-0 z-0">
         <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-black/40 to-black/20 opacity-70"></div>
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.03),transparent_70%)] opacity-50"></div>
@@ -225,11 +210,11 @@ export const DashboardLayout = () => {
         <RedLeadHeader />
         <div className="flex pt--2 pb--1">
           <motion.aside initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0, width: isSidebarCollapsed ? 80 : 280 }} transition={{ duration: 0.3 }} className="flex-shrink-0 border-r border-gray-800 bg-black/50">
-            <DashboardSidebar campaigns={campaigns} activeCampaign={activeCampaign} setActiveCampaign={setActiveCampaign} activeFilter={activeFilter} setActiveFilter={setActiveFilter} stats={leadStats} isCollapsed={isSidebarCollapsed} setIsCollapsed={setIsSidebarCollapsed} user={mockUser} />
+            {/* The user prop will be passed from a higher-level component or context */}
+            <DashboardSidebar campaigns={campaigns} activeCampaign={activeCampaign} setActiveCampaign={setActiveCampaign} activeFilter={activeFilter} setActiveFilter={setActiveFilter} stats={leadStats} isCollapsed={isSidebarCollapsed} setIsCollapsed={setIsSidebarCollapsed} />
           </motion.aside>
 
           <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto h-screen">
-            {/* --- Filter and Sort Controls --- */}
             <div className="mb-6 flex flex-wrap items-center gap-4">
               <select value={intentFilter} onChange={(e) => setIntentFilter(e.target.value)} className="bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2 text-xs font-semibold text-gray-300 focus:ring-2 focus:ring-blue-500 focus:outline-none">
                 <option value="all">All Intents</option>

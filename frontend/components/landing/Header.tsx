@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import { Inter, Poppins } from 'next/font/google';
 import { motion } from "framer-motion";
+import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs"; // Import Clerk components
 
 const inter = Inter({ subsets: ['latin'] });
 const poppins = Poppins({ 
@@ -25,19 +26,11 @@ export const Header = () => {
 
   return (
     <header className="w-full sticky top-0 z-50 backdrop-blur-xl border-b border-orange-500/20 shadow-lg shadow-orange-500/10">
-      {/* Black Background - Matching Hero Component */}
       <div className="absolute inset-0">
-        {/* Primary Black Base */}
         <div className="absolute inset-0 bg-black"></div>
-        
-        {/* Subtle Dark Overlay */}
         <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-black/40 to-black/20 opacity-70"></div>
-        
-        {/* Minimal Radial Gradients */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.03),transparent_70%)] opacity-50"></div>
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(255,255,255,0.02),transparent_70%)] opacity-40"></div>
-        
-        {/* Subtle Orange Accent Lines */}
         <div className="absolute inset-y-0 left-1/4 w-px bg-gradient-to-b from-transparent via-orange-500/20 to-transparent opacity-40"></div>
         <div className="absolute inset-y-0 right-1/3 w-px bg-gradient-to-b from-transparent via-orange-500/15 to-transparent opacity-30"></div>
       </div>
@@ -45,13 +38,11 @@ export const Header = () => {
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         <nav className="flex justify-between items-center h-20">
-          {/* Logo */}
           <Link href="/" className={`flex items-center text-3xl font-black text-white ${poppins.className}`}>
             <img src="/logo.png" alt="Logo" className="h-8 w-auto mr-2" />
             red<span className="bg-gradient-to-r from-orange-400 to-orange-500 bg-clip-text text-transparent">lead</span>
           </Link>
 
-          {/* Desktop Menu */}
           <div className="hidden md:flex items-center gap-2">
             {navLinks.map((link) => (
               <Link
@@ -66,27 +57,33 @@ export const Header = () => {
           </div>
 
           <div className="hidden md:flex items-center gap-4">
-            <Link
-              href="/login"
-              className={`text-lg font-semibold text-white/80 hover:text-orange-400 transition-all duration-300 px-6 py-3 rounded-lg border-2 border-orange-500/20 hover:border-orange-400 hover:bg-orange-500/10 backdrop-blur-sm ${poppins.className}`}
-            >
-              Login
-            </Link>
-            
-            <div className="relative group">
-              <div className="absolute -inset-1 bg-gradient-to-r from-orange-500/30 via-orange-400/40 to-orange-500/30 rounded-xl blur opacity-30 group-hover:opacity-60 transition duration-500"></div>
-              
+            {/* Show these buttons only if the user is signed out */}
+            <SignedOut>
               <Link
-                href="/signup"
-                className={`relative bg-white/10 backdrop-blur-xl hover:bg-white/20 text-white font-bold py-3 px-8 rounded-xl text-lg transition-all duration-300 hover:scale-105 border border-orange-500/20 ${poppins.className}`}
+                href="/sign-in" // Updated route
+                className={`text-lg font-semibold text-white/80 hover:text-orange-400 transition-all duration-300 px-6 py-3 rounded-lg border-2 border-orange-500/20 hover:border-orange-400 hover:bg-orange-500/10 backdrop-blur-sm ${poppins.className}`}
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-orange-500/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-                <span className="relative z-10">Get Started</span>
+                Login
               </Link>
-            </div>
+              
+              <div className="relative group">
+                <div className="absolute -inset-1 bg-gradient-to-r from-orange-500/30 via-orange-400/40 to-orange-500/30 rounded-xl blur opacity-30 group-hover:opacity-60 transition duration-500"></div>
+                <Link
+                  href="/sign-up" // Updated route
+                  className={`relative bg-white/10 backdrop-blur-xl hover:bg-white/20 text-white font-bold py-3 px-8 rounded-xl text-lg transition-all duration-300 hover:scale-105 border border-orange-500/20 ${poppins.className}`}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-orange-500/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                  <span className="relative z-10">Get Started</span>
+                </Link>
+              </div>
+            </SignedOut>
+
+            {/* Show this button only if the user is signed in */}
+            <SignedIn>
+              <UserButton afterSignOutUrl="/" />
+            </SignedIn>
           </div>
 
-          {/* Mobile Menu Button */}
           <div className="md:hidden">
             <button
               onClick={() => setIsMenuOpen(true)}
@@ -99,37 +96,9 @@ export const Header = () => {
         </nav>
       </div>
 
-      {/* Mobile Menu Overlay */}
       {isMenuOpen && (
         <div className="md:hidden fixed inset-0 z-50 flex flex-col">
-          {/* Black Background for Mobile Menu - Matching Hero */}
-          <div className="absolute inset-0">
-            {/* Primary Black Base */}
-            <div className="absolute inset-0 bg-black"></div>
-            
-            {/* Subtle Dark Overlay */}
-            <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-black/40 to-black/20 opacity-70"></div>
-            
-            {/* Minimal Radial Gradients */}
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.03),transparent_70%)] opacity-50"></div>
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(255,255,255,0.02),transparent_70%)] opacity-40"></div>
-            
-            {/* Subtle Floating Orbs for Mobile */}
-            <motion.div
-              animate={{ 
-                x: [0, 30, 0],
-                y: [0, -20, 0],
-                scale: [1, 1.1, 1]
-              }}
-              transition={{ 
-                duration: 20, 
-                repeat: Infinity, 
-                ease: "easeInOut" 
-              }}
-              className="absolute top-1/4 left-1/3 w-48 h-48 bg-gradient-to-br from-white/5 to-white/2 rounded-full blur-3xl opacity-30"
-            />
-          </div>
-          
+          <div className="absolute inset-0 bg-black"></div>
           <div className="relative p-4">
             <div className="flex justify-between items-center mb-8 h-20">
               <Link href="/" className={`flex items-center text-3xl font-black text-white ${poppins.className}`}>
@@ -159,26 +128,33 @@ export const Header = () => {
               
               <div className="w-full border-t border-orange-500/20 my-4"></div>
               
-              <Link
-                href="/login"
-                className={`text-lg font-semibold text-white/80 hover:text-orange-400 transition-all duration-300 px-6 py-3 rounded-lg border-2 border-orange-500/20 hover:border-orange-400 hover:bg-orange-500/10 backdrop-blur-sm ${poppins.className}`}
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Login
-              </Link>
-
-              <div className="relative group">
-                <div className="absolute -inset-1 bg-gradient-to-r from-orange-500/30 via-orange-400/40 to-orange-500/30 rounded-xl blur opacity-30 group-hover:opacity-60 transition duration-500"></div>
-                
+              {/* Show these buttons only if the user is signed out */}
+              <SignedOut>
                 <Link
-                  href="/signup"
-                  className={`relative bg-white/10 backdrop-blur-xl hover:bg-white/20 text-white font-bold py-3 px-8 rounded-xl text-lg transition-all duration-300 hover:scale-105 border border-orange-500/20 ${poppins.className}`}
+                  href="/sign-in" // Updated route
+                  className={`text-lg font-semibold text-white/80 hover:text-orange-400 transition-all duration-300 px-6 py-3 rounded-lg border-2 border-orange-500/20 hover:border-orange-400 hover:bg-orange-500/10 backdrop-blur-sm ${poppins.className}`}
                   onClick={() => setIsMenuOpen(false)}
                 >
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-orange-500/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-                  <span className="relative z-10">Get Started</span>
+                  Login
                 </Link>
-              </div>
+
+                <div className="relative group">
+                  <div className="absolute -inset-1 bg-gradient-to-r from-orange-500/30 via-orange-400/40 to-orange-500/30 rounded-xl blur opacity-30 group-hover:opacity-60 transition duration-500"></div>
+                  <Link
+                    href="/sign-up" // Updated route
+                    className={`relative bg-white/10 backdrop-blur-xl hover:bg-white/20 text-white font-bold py-3 px-8 rounded-xl text-lg transition-all duration-300 hover:scale-105 border border-orange-500/20 ${poppins.className}`}
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-orange-500/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                    <span className="relative z-10">Get Started</span>
+                  </Link>
+                </div>
+              </SignedOut>
+
+              {/* Show this button only if the user is signed in */}
+              <SignedIn>
+                <UserButton afterSignOutUrl="/" />
+              </SignedIn>
             </div>
           </div>
         </div>
