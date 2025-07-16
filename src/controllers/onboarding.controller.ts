@@ -11,8 +11,8 @@ import { PrismaClient } from '@prisma/client';
 const MIN_CONTENT_LENGTH = 300;
 const prisma = new PrismaClient();
 
-// OPTIMIZATION: This controller now only scrapes text, it does not call the AI.
-// The AI calls are moved to the frontend or a later step to avoid costs for non-committed users.
+// This function can remain public as it's the first step of the onboarding
+// process and does not interact with user-specific data.
 export const analyzeWebsite: RequestHandler = async (req, res, next) => {
     const { websiteUrl } = req.body;
 
@@ -29,10 +29,6 @@ export const analyzeWebsite: RequestHandler = async (req, res, next) => {
             scrapedText = await scrapeWebsiteTextAdvanced(websiteUrl);
         }
 
-        // We now generate the description and keywords on the frontend to give the user control
-        // and avoid unnecessary backend API costs. However, you can still do it here if you
-        // add logic to check if the user is on a paid plan.
-        // For maximum cost saving, we let the frontend handle the initial generation.
         const [keywords, description] = await Promise.all([
             generateKeywords(scrapedText),
             generateDescription(scrapedText)
@@ -43,6 +39,7 @@ export const analyzeWebsite: RequestHandler = async (req, res, next) => {
             generatedKeywords: keywords,
             generatedDescription: description
         });
+        return;
      
     } catch (error) {
         next(error);
@@ -50,10 +47,18 @@ export const analyzeWebsite: RequestHandler = async (req, res, next) => {
 };
 
 
-export const completeOnboarding: RequestHandler = async (req, res, next) => {
-    const { userId, websiteUrl, generatedKeywords, generatedDescription, competitors } = req.body;
+export const completeOnboarding: RequestHandler = async (req: any, res, next) => {
+    // Get the authenticated user's ID from Clerk's middleware
+    const { userId } = req.auth;
+    const { websiteUrl, generatedKeywords, generatedDescription, competitors } = req.body;
 
-    if (!userId || !websiteUrl || !generatedKeywords || !generatedDescription) {
+    // Ensure the user is authenticated
+    if (!userId) {
+        res.status(401).json({ message: 'User not authenticated.' });
+        return;
+    }
+
+    if (!websiteUrl || !generatedKeywords || !generatedDescription) {
           res.status(400).json({ message: 'All onboarding data is required.' });
           return;
     }
@@ -61,7 +66,6 @@ export const completeOnboarding: RequestHandler = async (req, res, next) => {
     try {
         console.log(`[1/3] Entering completeOnboarding for user: ${userId}`);
 
-        // OPTIMIZATION: The only AI call made during onboarding is now here, after user confirmation.
         console.log('[2/3] Calling AI to generate subreddit suggestions...');
         const subreddits = await generateSubredditSuggestions(generatedDescription);
         
@@ -69,7 +73,7 @@ export const completeOnboarding: RequestHandler = async (req, res, next) => {
 
         const newCampaign = await prisma.campaign.create({
             data: {
-                userId,
+                userId, // Use the secure, authenticated userId
                 analyzedUrl: websiteUrl,
                 generatedKeywords,
                 generatedDescription,
@@ -79,6 +83,7 @@ export const completeOnboarding: RequestHandler = async (req, res, next) => {
         });
 
         res.status(201).json(newCampaign);
+        return;
 
     } catch (error) {
         console.error("!!! ERROR in completeOnboarding:", error);

@@ -7,6 +7,8 @@ import onboardingRouter from './routes/onboarding';
 import engagementRouter from './routes/engagement';
 import insightRouter from './routes/insights';
 import performanceRouter from './routes/performance';
+import { clerkMiddleware } from '@clerk/express';
+
 
 // --- NEW: Import campaigns router ---
 import campaignRouter from './routes/campaign';
@@ -20,6 +22,8 @@ const PORT = process.env.PORT || 5000;
 
 // --- Enable CORS globally ---
 app.use(cors());
+app.use(clerkMiddleware());
+
 
 app.use(express.json());
 

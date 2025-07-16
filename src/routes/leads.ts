@@ -1,15 +1,20 @@
-import express, { Request, Response } from 'express'
+import express, { Request, Response } from 'express';
 import { getLeadsForCampaign, runManualDiscovery, updateLeadStatus } from '../controllers/lead.controller';
 import { summarizeLead } from '../controllers/post.controller';
-// Middleware to ensure the user is authenticated
-const leadRouter = express.Router()
+import { gateKeeper } from '../middleware/gateKeeper';
 
-//Get the "inbox" of saved leads for a specific campaign
-leadRouter.get('/campaign/:campaignId',  getLeadsForCampaign);
+const leadRouter = express.Router();
 
-// Manually trigger a new search for a campaign
-leadRouter.post('/discover/manual/:campaignId', runManualDiscovery);
-leadRouter.patch('/:leadId/status', updateLeadStatus);
-leadRouter.post('/:id/summarize', summarizeLead); // New route
+// Get the "inbox" of saved leads for a specific campaign (Pro feature)
+leadRouter.get('/campaign/:campaignId', gateKeeper, getLeadsForCampaign);
+
+// Manually trigger a new search for a campaign (Pro feature)
+leadRouter.post('/discover/manual/:campaignId', gateKeeper, runManualDiscovery);
+
+// Update a lead's status (Pro feature)
+leadRouter.patch('/:leadId/status', gateKeeper, updateLeadStatus);
+
+// Summarize a lead using AI (Pro feature)
+leadRouter.post('/:id/summarize', gateKeeper, summarizeLead);
 
 export default leadRouter;

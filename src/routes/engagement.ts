@@ -12,6 +12,7 @@ engagementRouter.post('/generate', gateKeeper, getReplyOptions);
 engagementRouter.post('/refine', gateKeeper, postRefineReply);
 
 // Post reply to Reddit (Pro feature)
-engagementRouter.post('/post-reply',  postReplyToLead);
+// Added gateKeeper to ensure only subscribed users can post
+engagementRouter.post('/post-reply', gateKeeper, postReplyToLead);
 
 export default engagementRouter;

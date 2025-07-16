@@ -4,28 +4,33 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 /**
- * Fetches reply performance metrics for a user
+ * Fetches reply performance metrics for the authenticated user
  */
-export const getReplyPerformance: RequestHandler = async (req, res, next) => {
-    const { userId } = req.params;
+export const getReplyPerformance: RequestHandler = async (req: any, res, next) => {
+    // Get the authenticated user's ID from Clerk
+    const { userId } = req.auth;
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
     const skip = (page - 1) * limit;
 
+    // Ensure user is authenticated
     if (!userId) {
-        res.status(400).json({ message: 'User ID is required.' });
+        res.status(401).json({ message: 'User not authenticated.' });
         return;
     }
 
     try {
         console.log(`📊 [Performance] Fetching reply performance for user: ${userId}`);
 
+        // Securely query for replies belonging to the authenticated user
+        const whereClause = { 
+            lead: {
+                userId: userId
+            }
+        };
+
         const replies = await prisma.scheduledReply.findMany({
-            where: { 
-                lead: {
-                    userId: userId
-                }
-            },
+            where: whereClause,
             include: {
                 lead: {
                     select: {
@@ -45,14 +50,9 @@ export const getReplyPerformance: RequestHandler = async (req, res, next) => {
         });
 
         const totalReplies = await prisma.scheduledReply.count({
-            where: { 
-                lead: {
-                    userId: userId
-                }
-            }
+            where: whereClause
         });
 
-        // Calculate performance metrics
         const totalUpvotes = replies.reduce((sum, reply) => sum + (reply.upvotes || 0), 0);
         const repliesWithAuthorResponse = replies.filter(reply => reply.authorReplied).length;
         const averageUpvotes = replies.length > 0 ? totalUpvotes / replies.length : 0;
@@ -76,6 +76,8 @@ export const getReplyPerformance: RequestHandler = async (req, res, next) => {
                 repliesWithAuthorResponse
             }
         });
+        return;
+
     } catch (error) {
         console.error('❌ [Performance] Error fetching reply performance:', error);
         next(error);
@@ -83,10 +85,18 @@ export const getReplyPerformance: RequestHandler = async (req, res, next) => {
 };
 
 /**
- * Fetches detailed performance for a specific reply
+ * Fetches detailed performance for a specific reply, ensuring it belongs to the authenticated user
  */
-export const getReplyDetails: RequestHandler = async (req, res, next) => {
+export const getReplyDetails: RequestHandler = async (req: any, res, next) => {
+    // Get the authenticated user's ID from Clerk
+    const { userId } = req.auth;
     const { replyId } = req.params;
+
+    // Ensure user is authenticated
+    if (!userId) {
+        res.status(401).json({ message: 'User not authenticated.' });
+        return;
+    }
 
     if (!replyId) {
         res.status(400).json({ message: 'Reply ID is required.' });
@@ -94,8 +104,14 @@ export const getReplyDetails: RequestHandler = async (req, res, next) => {
     }
 
     try {
-        const reply = await prisma.scheduledReply.findUnique({
-            where: { id: replyId },
+        // Securely find the reply, ensuring it belongs to the authenticated user
+        const reply = await prisma.scheduledReply.findFirst({
+            where: { 
+                id: replyId,
+                lead: {
+                    userId: userId
+                } 
+            },
             include: {
                 lead: {
                     include: {
@@ -112,11 +128,13 @@ export const getReplyDetails: RequestHandler = async (req, res, next) => {
         });
 
         if (!reply) {
-            res.status(404).json({ message: 'Reply not found.' });
+            res.status(404).json({ message: 'Reply not found or you do not have permission to access it.' });
             return;
         }
 
         res.status(200).json(reply);
+        return;
+        
     } catch (error) {
         console.error('❌ [Performance] Error fetching reply details:', error);
         next(error);

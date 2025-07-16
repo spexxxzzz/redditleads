@@ -1,13 +1,21 @@
 import { RequestHandler } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { findLeadsGlobally, findLeadsInSubmissions, findLeadsInComments, RawLead } from '../services/reddit.service';
+import { findLeadsGlobally } from '../services/reddit.service';
 import { enrichLeadsForUser } from '../services/enrichment.service';
 import { summarizeTextContent } from '../services/summarisation.service';
 
 const prisma = new PrismaClient();
 
-export const runManualDiscovery: RequestHandler = async (req, res, next) => {
+export const runManualDiscovery: RequestHandler = async (req: any, res, next) => {
+    // Get the authenticated user's ID from Clerk
+    const { userId } = req.auth;
     const { campaignId } = req.params;
+
+    // Ensure the user is authenticated
+    if (!userId) {
+        res.status(401).json({ message: 'User not authenticated.' });
+        return;
+    }
 
     if (!campaignId) {
          res.status(400).json({ message: 'Campaign ID is required.' });
@@ -15,20 +23,24 @@ export const runManualDiscovery: RequestHandler = async (req, res, next) => {
     }
 
     try {
-        console.log(`🔍 [Manual Discovery] Starting for campaign: ${campaignId}`);
-        const campaign = await prisma.campaign.findUnique({
-            where: { id: campaignId },
+        console.log(`🔍 [Manual Discovery] User ${userId} starting for campaign: ${campaignId}`);
+        
+        // Securely find the campaign, ensuring it belongs to the authenticated user
+        const campaign = await prisma.campaign.findFirst({
+            where: { 
+                id: campaignId,
+                userId: userId 
+            },
             include: { user: true }
         });
 
         if (!campaign || !campaign.user) {
-             res.status(404).json({ message: 'Campaign or associated user not found.' });
+             res.status(404).json({ message: 'Campaign not found or you do not have permission to access it.' });
              return;
         }
 
         const user = campaign.user;
         
-        // --- MODIFIED: Manual discovery now uses the powerful global search ---
         console.log(`[Manual Discovery] Running GLOBAL search for campaign ${campaign.id}...`);
         const rawLeads = await findLeadsGlobally(
             campaign.generatedKeywords,
@@ -44,8 +56,8 @@ export const runManualDiscovery: RequestHandler = async (req, res, next) => {
         for (const lead of enrichedLeads) {
             try {
                 const savedLead = await prisma.lead.upsert({
-                    where: { url: lead.url }, // Assumes URL is a unique field in your schema
-                    update: {}, // Don't update if it exists
+                    where: { url: lead.url },
+                    update: {}, 
                     create: {
                         redditId: lead.id,
                         title: lead.title,
@@ -70,13 +82,15 @@ export const runManualDiscovery: RequestHandler = async (req, res, next) => {
 
         const sortedLeads = savedLeads.sort((a, b) => b.opportunityScore - a.opportunityScore);
         res.status(200).json(sortedLeads);
+        return;
          
     } catch (error) {
         next(error);
     }
 };
 
-export const getLeadsForCampaign: RequestHandler = async (req, res, next) => {
+export const getLeadsForCampaign: RequestHandler = async (req: any, res, next) => {
+    const { userId } = req.auth;
     const { campaignId } = req.params;
     const {
         page = '1',
@@ -91,15 +105,24 @@ export const getLeadsForCampaign: RequestHandler = async (req, res, next) => {
     const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
 
+    if (!userId) {
+        res.status(401).json({ message: 'User not authenticated.' });
+        return;
+    }
+
     if (!campaignId) {
         res.status(400).json({ message: 'Campaign ID is required.' });
         return;
     }
 
     try {
-        console.log(`📋 [Get Leads] Fetching leads for campaign: ${campaignId}`);
+        console.log(`📋 [Get Leads] User ${userId} fetching leads for campaign: ${campaignId}`);
 
-        const where: any = { campaignId };
+        // Securely build the where clause
+        const where: any = { 
+            campaignId,
+            userId: userId // Ensure leads belong to the authenticated user
+        };
         if (status && status !== 'all') {
             where.status = status as string;
         }
@@ -145,15 +168,22 @@ export const getLeadsForCampaign: RequestHandler = async (req, res, next) => {
                 totalPages: Math.ceil(totalLeads / limitNum)
             }
         });
+        return;
     } catch (error) {
         console.error(`❌ [Get Leads] Error:`, error);
         next(error);
     }
 };
 
-export const updateLeadStatus: RequestHandler = async (req, res, next) => {
+export const updateLeadStatus: RequestHandler = async (req: any, res, next) => {
+    const { userId } = req.auth;
     const { leadId } = req.params;
     const { status } = req.body;
+
+    if (!userId) {
+        res.status(401).json({ message: 'User not authenticated.' });
+        return;
+    }
 
     if (!leadId || !status) {
         res.status(400).json({ message: 'Lead ID and status are required.' });
@@ -167,46 +197,52 @@ export const updateLeadStatus: RequestHandler = async (req, res, next) => {
     }
 
     try {
-        console.log(`📝 [Update Lead] Updating lead ${leadId} status to: ${status}`);
+        console.log(`📝 [Update Lead] User ${userId} updating lead ${leadId} status to: ${status}`);
 
-        const updatedLead = await prisma.lead.update({
-            where: { id: leadId },
+        // Securely update the lead only if it belongs to the authenticated user
+        const result = await prisma.lead.updateMany({
+            where: { 
+                id: leadId,
+                userId: userId
+            },
             data: { status }
         });
 
-        const transformedLead = {
-            id: updatedLead.id,
-            title: updatedLead.title,
-            author: updatedLead.author,
-            subreddit: updatedLead.subreddit,
-            url: updatedLead.url,
-            body: updatedLead.body,
-            createdAt: Math.floor(updatedLead.postedAt.getTime() / 1000),
-            numComments: 0,
-            upvoteRatio: 0.67,
-            intent: updatedLead.intent || 'information_seeking',
-            opportunityScore: updatedLead.opportunityScore,
-            status: updatedLead.status
-        };
+        if (result.count === 0) {
+            res.status(404).json({ message: 'Lead not found or you do not have permission to update it.' });
+            return;
+        }
 
         console.log(`✅ [Update Lead] Successfully updated lead status`);
-        res.status(200).json(transformedLead);
+        res.status(200).json({ message: 'Lead status updated successfully.' });
+        return;
+
     } catch (error) {
         console.error('❌ [Update Lead] Error updating lead status:', error);
         next(error);
     }
 };
 
-export const summarizeLead: RequestHandler = async (req, res, next) => {
-    const { id } = req.params;
+export const summarizeLead: RequestHandler = async (req: any, res, next) => {
+    const { userId } = req.auth;
+    const { id: leadId } = req.params;
+
+    if (!userId) {
+        res.status(401).json({ message: 'User not authenticated.' });
+        return;
+    }
 
     try {
-        const lead = await prisma.lead.findUnique({
-            where: { id },
+        // Securely find the lead, ensuring it belongs to the authenticated user
+        const lead = await prisma.lead.findFirst({
+            where: { 
+                id: leadId,
+                userId: userId
+            },
         });
 
         if (!lead) {
-             res.status(404).json({ message: 'Lead not found.' });
+             res.status(404).json({ message: 'Lead not found or you do not have permission to access it.' });
              return;
         }
 
@@ -215,15 +251,16 @@ export const summarizeLead: RequestHandler = async (req, res, next) => {
              return;
         }
 
-        console.log(`[SUMMARIZE] Request for lead ${id}, using internal text.`);
+        console.log(`[SUMMARIZE] User ${userId} requesting summary for lead ${leadId}`);
         const summary = await summarizeTextContent(lead.body);
 
-        const updatedLead = await prisma.lead.update({
-            where: { id },
+        await prisma.lead.update({
+            where: { id: leadId },
             data: { summary },
         });
 
-        res.status(200).json({ summary: updatedLead.summary });
+        res.status(200).json({ summary });
+        return;
 
     } catch (error) {
         next(error);

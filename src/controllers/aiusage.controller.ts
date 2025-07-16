@@ -3,8 +3,14 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-export const getUserUsage = async (req: Request, res: Response, next: NextFunction) => {
-    const { userId } = req.params;
+export const getUserUsage = async (req: any, res: Response, next: NextFunction) => {
+    // Get the authenticated user's ID from Clerk's middleware
+    const { userId } = req.auth;
+
+    // Ensure the user is authenticated
+    if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+    }
     
     try {
         const user = await prisma.user.findUnique({

@@ -1,16 +1,21 @@
-
 import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
-const MINIMUM_KARMA_TO_POST = 1;
-
 import { checkKarmaThreshold, getUserKarma, postReplyAsUser } from '../services/reddit.service';
 import { RequestHandler } from 'express';
 import { summarizeTextContent } from '../services/summarisation.service';
 
-export const postReplyToLead: RequestHandler = async (req, res, next) => {
-    const userId = req.headers['x-user-id'] as string;
+const prisma = new PrismaClient();
+const MINIMUM_KARMA_TO_POST = 1;
+
+export const postReplyToLead: RequestHandler = async (req: any, res, next) => {
+    // Get the authenticated user's ID from Clerk's middleware
+    const { userId } = req.auth;
     const { leadId, content } = req.body;
+
+    // Ensure the user is authenticated
+    if (!userId) {
+        res.status(401).json({ message: 'User not authenticated.' });
+        return;
+    }
 
     if (!leadId || !content) {
         res.status(400).json({ message: 'leadId and content are required.' });
@@ -18,9 +23,16 @@ export const postReplyToLead: RequestHandler = async (req, res, next) => {
     }
 
     try {
-        // 1. Fetch user and lead data
+        // 1. Fetch user and lead data securely
         const user = await prisma.user.findUnique({ where: { id: userId } });
-        const lead = await prisma.lead.findUnique({ where: { id: leadId } });
+        
+        // Find the lead ONLY if it belongs to the authenticated user
+        const lead = await prisma.lead.findFirst({ 
+            where: { 
+                id: leadId,
+                userId: userId
+            } 
+        });
 
         if (!user || !lead) {
             res.status(404).json({ message: 'User or Lead not found.' });
@@ -77,59 +89,76 @@ export const postReplyToLead: RequestHandler = async (req, res, next) => {
             redditPostId: newRedditPostId,
             postedAs: user.redditUsername
         });
+        return;
 
     } catch (error: any) {
         console.error('❌ [Post Reply] Error posting reply:', error);
-        const lead = await prisma.lead.findUnique({ where: { id: leadId } });
+        
+        // Fetch lead again for error context, if it exists
+        const leadForError = await prisma.lead.findFirst({ where: { id: leadId, userId: userId } });
 
-        // Handle specific Reddit errors
         if (error.message.includes('403')) {
             res.status(403).json({ 
                 message: 'Reddit blocked this post. Your account may be restricted, shadowbanned, or banned from this subreddit.',
                 error: 'REDDIT_FORBIDDEN',
-                redditUrl: `https://reddit.com/r/${lead?.subreddit}/comments/${lead?.redditId?.replace('t1_', '')}`
+                redditUrl: `https://reddit.com/r/${leadForError?.subreddit}/comments/${leadForError?.redditId?.replace('t1_', '')}`
             });
+            return;
         } else if (error.message.includes('429')) {
             res.status(429).json({ 
                 message: 'Rate limited by Reddit. Please wait before posting again.',
                 error: 'REDDIT_RATE_LIMIT'
             });
+            return;
         } else {
             res.status(500).json({ 
                 message: 'Failed to post reply to Reddit',
                 error: error.message
             });
+            return;
         }
     }
 };
-export const summarizeLead: RequestHandler = async (req, res, next) => {
-    const { id } = req.params;
+
+export const summarizeLead: RequestHandler = async (req: any, res, next) => {
+    const { userId } = req.auth;
+    const { id: leadId } = req.params;
+
+    if (!userId) {
+        res.status(401).json({ message: 'User not authenticated.' });
+        return;
+    }
 
     try {
-        const lead = await prisma.lead.findUnique({
-            where: { id },
+        // Securely find the lead, ensuring it belongs to the authenticated user
+        const lead = await prisma.lead.findFirst({
+            where: { 
+                id: leadId,
+                userId: userId
+            },
         });
 
         if (!lead) {
-              res.status(404).json({ message: 'Lead not found.' });
+              res.status(404).json({ message: 'Lead not found or you do not have permission to access it.' });
               return;
         }
 
-        if (!lead.url) {
-             res.status(400).json({ message: 'Lead has no associated URL to summarize.' });
+        if (!lead.body || lead.body.trim().length === 0) {
+             res.status(400).json({ message: 'Lead has no content to summarize.' });
              return;
         }
 
-        console.log(`[SUMMARIZE] Request for lead ${id}, URL: ${lead.url}`);
-        const summary = await summarizeTextContent(lead.url);
+        console.log(`[SUMMARIZE] User ${userId} requesting summary for lead ${leadId}`);
+        const summary = await summarizeTextContent(lead.body);
 
         // Update the lead in the database with the new summary
         const updatedLead = await prisma.lead.update({
-            where: { id },
+            where: { id: leadId },
             data: { summary },
         });
 
         res.status(200).json({ summary: updatedLead.summary });
+        return;
 
     } catch (error) {
         next(error);
