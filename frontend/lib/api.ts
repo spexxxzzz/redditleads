@@ -223,4 +223,12 @@ export const api = {
     if (!response.ok) throw new Error('Failed to test webhook');
     return response.json();
   },
+  deleteCurrentUser: async (token: string | null) => {
+    const response = await fetch(`${API_BASE_URL}/api/user`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) throw new Error('Failed to delete account');
+    return response.json();
+  },
 };

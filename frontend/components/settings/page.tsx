@@ -1,9 +1,10 @@
+// frontend/components/settings/DangerZone.tsx
 "use client";
 import { useAuth } from "@clerk/nextjs";
 import { api } from "@/lib/api";
 import { useState } from "react";
 
-const DangerZone = () => {
+export const DangerZone = () => {
   const { getToken, signOut } = useAuth();
   const [showConfirm, setShowConfirm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -52,6 +53,3 @@ const DangerZone = () => {
     </div>
   );
 };
-
-// Fix: Export DangerZone as default
-export default DangerZone;

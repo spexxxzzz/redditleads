@@ -28,7 +28,8 @@
     "node-fetch": "^2.7.0",
     "p-limit": "^6.2.0",
     "puppeteer": "^24.10.2",
-    "snoowrap": "^1.23.0"
+    "snoowrap": "^1.23.0",
+    "svix": "^1.69.0"
   },
   "devDependencies": {
     "@types/cheerio": "^0.22.35",

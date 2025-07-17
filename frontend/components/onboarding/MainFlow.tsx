@@ -1,16 +1,19 @@
+// frontend/components/onboarding/MainFlow.tsx
+
 "use client";
 import React, { useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Step1_AnalyzeUrl } from './Step1_AnalyzeUrl';
 import { Step2_ConfirmDetails } from './Step2_ConfirmDetails';
 import { Step3_Success } from './Step3_Success';
 import { Inter, Poppins } from 'next/font/google';
 import { CheckCircle } from 'lucide-react';
+import { useAuth } from '@clerk/nextjs'; // Import the useAuth hook
 
 const inter = Inter({ subsets: ['latin'] });
-const poppins = Poppins({ 
-  subsets: ['latin'], 
-  weight: ['400', '600', '700', '800', '900'] 
+const poppins = Poppins({
+  subsets: ['latin'],
+  weight: ['400', '600', '700', '800', '900']
 });
 
 export interface AnalysisResult {
@@ -20,6 +23,7 @@ export interface AnalysisResult {
 }
 
 export const OnboardingFlow = () => {
+  const { getToken } = useAuth(); // Use the Clerk hook
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,9 +33,10 @@ export const OnboardingFlow = () => {
     setIsLoading(true);
     setError(null);
     try {
+      // This endpoint can remain public as it's the first step
       const response = await fetch('http://localhost:5000/api/onboarding/analyze', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ websiteUrl: url }),
@@ -56,15 +61,16 @@ export const OnboardingFlow = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const userId = 'clerk_test_user_123';
-      
+      const token = await getToken(); // Get the authentication token
+
       const response = await fetch('http://localhost:5000/api/onboarding/complete', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // Add the Authorization header
         },
         body: JSON.stringify({
-          userId,
+          // The userId is no longer needed in the body; the backend gets it from the token
           websiteUrl: analysisResult?.websiteUrl,
           generatedDescription: details.description,
           generatedKeywords: details.keywords,
@@ -93,13 +99,12 @@ export const OnboardingFlow = () => {
 
   return (
     <div className="min-h-screen bg-cream relative overflow-hidden">
-      {/* Background Elements */}
+      {/* ... (Rest of the JSX remains the same) ... */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-20 left-20 w-32 h-32 bg-primary/10 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute bottom-20 right-20 w-40 h-40 bg-orange-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
       </div>
 
-      {/* Header */}
       <div className="relative z-10 pt-12 pb-8">
         <div className="max-w-4xl mx-auto px-6 text-center">
           <motion.h1 
@@ -124,7 +129,6 @@ export const OnboardingFlow = () => {
         </div>
       </div>
 
-      {/* Progress Indicator */}
       <div className="relative z-10 pb-12">
         <div className="max-w-4xl mx-auto px-6">
           <div className="flex items-center justify-between">
@@ -175,7 +179,6 @@ export const OnboardingFlow = () => {
         </div>
       </div>
 
-      {/* Content Area */}
       <div className="relative z-10 flex flex-col items-center justify-center px-4 pb-20">
         <motion.div 
           className="w-full max-w-2xl bg-white rounded-3xl p-10 shadow-lg"

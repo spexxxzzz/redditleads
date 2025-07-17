@@ -3,7 +3,7 @@ import { generateAIReplies, refineAIReply } from './ai.service';
 
 const prisma = new PrismaClient();
 
-export const generateReplyOptions = async (leadId: string): Promise<string[]> => {
+export const generateReplyOptions = async (leadId: string, userId: any): Promise<string[]> => {
     const lead = await prisma.lead.findUnique({
         where: { id: leadId },
         include: {
