@@ -75,6 +75,14 @@ export const handleRedditCallback: RequestHandler = async (req, res, next) => {
                 hasConnectedReddit: true // Mark as connected
             }
         });
+        // Update Clerk's public metadata to reflect Reddit connection
+        await clerkClient.users.updateUser(user.id, {
+            publicMetadata: {
+                hasConnectedReddit: true, // Set the flag here
+                redditUsername: me.name,
+            }
+        });
+
         
         // Also update Clerk's public metadata for easy frontend access
         await clerkClient.users.updateUser(user.id, {
@@ -84,7 +92,7 @@ export const handleRedditCallback: RequestHandler = async (req, res, next) => {
         });
 
         console.log(`✅ Reddit account connected for user ${user.id}: u/${me.name}`);
-        res.redirect(`${process.env.FRONTEND_URL}/dashboard`);
+        res.redirect(`${process.env.FRONTEND_URL}/connect-reddit?status=success`);
         return;
         
     } catch (error) {

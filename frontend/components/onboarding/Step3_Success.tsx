@@ -13,7 +13,7 @@ const poppins = Poppins({
 export const Step3_Success: React.FC = () => {
   useEffect(() => {
     const timer = setTimeout(() => {
-      window.location.href = '/dashboard';
+      window.location.href = '/connect-reddit';
     }, 5000);
     return () => clearTimeout(timer);
   }, []);
@@ -77,7 +77,7 @@ export const Step3_Success: React.FC = () => {
 
         {/* Manual Continue Button */}
         <button
-          onClick={() => window.location.href = '/dashboard'}
+          onClick={() => window.location.href = '/connect-reddit'}
           className="group inline-flex items-center gap-3 px-10 py-4 bg-gradient-to-r from-orange-500 to-pink-500 text-white text-lg font-semibold rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300"
         >
           <span>Go to Dashboard</span>
