@@ -82,8 +82,6 @@ export const LeadFeed: React.FC<LeadFeedProps> = ({
           <LeadCard 
             key={lead.id} 
             lead={lead} 
-            onUpdate={onLeadUpdate}
-            currentFilter={currentFilter}
           />
         ))}
       </AnimatePresence>

@@ -1,5 +1,7 @@
 "use client";
 import React, { useState } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { 
   Inbox, 
   Send, 
@@ -15,11 +17,14 @@ import {
   ChevronDown,
   ChevronLeft,
   User,
-  Crown
+  Crown,
+  Webhook,
+  PieChart,
+  Activity
 } from 'lucide-react';
 import { Inter, Poppins } from 'next/font/google';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useUser } from '@clerk/nextjs'; // Import the useUser hook
+import { useUser } from '@clerk/nextjs';
 
 const inter = Inter({ subsets: ['latin'] });
 const poppins = Poppins({ 
@@ -35,7 +40,6 @@ interface Campaign {
   targetSubreddits: string[];
 }
 
-// The UserInfo prop is no longer needed, as we get the user from the hook.
 interface Props {
   campaigns: Campaign[];
   activeCampaign: string | null;
@@ -45,7 +49,6 @@ interface Props {
   stats: { new: number; replied: number; saved: number; all: number };
   isCollapsed: boolean;
   setIsCollapsed: (collapsed: boolean) => void;
-  // user prop is removed
 }
 
 export const DashboardSidebar = ({ 
@@ -58,22 +61,20 @@ export const DashboardSidebar = ({
   isCollapsed,
   setIsCollapsed
 }: Props) => {
-  // Get the user data from the useUser hook
   const { isLoaded, isSignedIn, user } = useUser();
+  const pathname = usePathname();
   const [expandedSections, setExpandedSections] = useState({
     inbox: true,
     campaigns: false,
-    actions: false
+    tools: true
   });
 
   // Handle loading and signed-out states
   if (!isLoaded) {
-    // You can return a skeleton loader here if you want
     return <div className="p-4">Loading...</div>;
   }
 
   if (!isSignedIn) {
-    // If the user is not signed in, don't render the sidebar
     return null;
   }
   
@@ -81,11 +82,11 @@ export const DashboardSidebar = ({
   // This data would typically be fetched from your own backend database.
   // For now, we'll hardcode it for display purposes.
   const userInfo = {
-      name: user.fullName || 'User',
-      email: user.primaryEmailAddress?.emailAddress || '',
-      avatar: user.imageUrl,
-      plan: 'Pro', 
-      planColor: 'bg-yellow-500' 
+    name: user.fullName || 'User',
+    email: user.primaryEmailAddress?.emailAddress || '',
+    avatar: user.imageUrl,
+    plan: 'Pro', 
+    planColor: 'bg-yellow-500' 
   };
 
   const toggleSection = (section: keyof typeof expandedSections) => {
@@ -120,6 +121,22 @@ export const DashboardSidebar = ({
         </span>
       )}
     </button>
+  );
+
+  const NavButton = ({ href, icon: Icon, label, isActive }: any) => (
+    <Link href={href}>
+      <button
+        className={`w-full flex items-center ${isCollapsed ? 'justify-center px-2' : 'gap-2 px-3'} py-2 text-sm transition-colors rounded ${
+          isActive 
+            ? 'bg-blue-600 text-white' 
+            : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+        }`}
+        title={isCollapsed ? label : ''}
+      >
+        <Icon className="w-4 h-4" />
+        {!isCollapsed && <span className={inter.className}>{label}</span>}
+      </button>
+    </Link>
   );
 
   const SectionHeader = ({ icon: Icon, title, isExpanded, onClick }: any) => (
@@ -203,16 +220,16 @@ export const DashboardSidebar = ({
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         
-        {/* Inbox Section */}
+        {/* Navigation Tools Section */}
         <div className="border-b border-gray-800 pb-4">
           <SectionHeader
-            icon={Inbox}
-            title="Inbox"
-            isExpanded={expandedSections.inbox}
-            onClick={() => toggleSection('inbox')}
+            icon={BarChart3}
+            title="Tools"
+            isExpanded={expandedSections.tools}
+            onClick={() => toggleSection('tools')}
           />
           <AnimatePresence>
-            {expandedSections.inbox && !isCollapsed && (
+            {expandedSections.tools && !isCollapsed && (
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}
@@ -220,74 +237,163 @@ export const DashboardSidebar = ({
                 transition={{ duration: 0.2 }}
                 className="mt-2 space-y-1"
               >
-                <FilterButton 
-                  icon={Zap} 
-                  label="New" 
-                  count={stats.new} 
-                  isActive={activeFilter === 'new'} 
-                  onClick={() => setActiveFilter('new')} 
+                <NavButton 
+                  href="/dashboard"
+                  icon={Inbox}
+                  label="Leads"
+                  isActive={pathname === '/dashboard'}
                 />
-                <FilterButton 
-                  icon={Send} 
-                  label="Replied" 
-                  count={stats.replied} 
-                  isActive={activeFilter === 'replied'} 
-                  onClick={() => setActiveFilter('replied')} 
+                <NavButton 
+                  href="/dashboard/webhooks"
+                  icon={Webhook}
+                  label="Webhooks"
+                  isActive={pathname === '/dashboard/webhooks'}
                 />
-                <FilterButton 
-                  icon={Bookmark} 
-                  label="Saved" 
-                  count={stats.saved} 
-                  isActive={activeFilter === 'saved'} 
-                  onClick={() => setActiveFilter('saved')} 
+                <NavButton 
+                  href="/dashboard/performance"
+                  icon={Activity}
+                  label="Performance"
+                  isActive={pathname === '/dashboard/performance'}
                 />
-                <FilterButton 
-                  icon={Users} 
-                  label="All" 
-                  count={stats.all} 
-                  isActive={activeFilter === 'all'} 
-                  onClick={() => setActiveFilter('all')} 
+                <NavButton 
+                  href="/dashboard/analytics"
+                  icon={PieChart}
+                  label="Analytics"
+                  isActive={pathname === '/dashboard/analytics'}
+                />
+                <NavButton 
+                  href="/dashboard/settings"
+                  icon={Settings}
+                  label="Settings"
+                  isActive={pathname === '/dashboard/settings'}
                 />
               </motion.div>
             )}
-            {/* Collapsed state filters */}
+            {/* Collapsed state navigation */}
             {isCollapsed && (
               <div className="mt-2 space-y-1">
-                <FilterButton 
-                  icon={Zap} 
-                  label="New" 
-                  count={stats.new} 
-                  isActive={activeFilter === 'new'} 
-                  onClick={() => setActiveFilter('new')} 
+                <NavButton 
+                  href="/dashboard"
+                  icon={Inbox}
+                  label="Leads"
+                  isActive={pathname === '/dashboard'}
                 />
-                <FilterButton 
-                  icon={Send} 
-                  label="Replied" 
-                  count={stats.replied} 
-                  isActive={activeFilter === 'replied'} 
-                  onClick={() => setActiveFilter('replied')} 
+                <NavButton 
+                  href="/dashboard/webhooks"
+                  icon={Webhook}
+                  label="Webhooks"
+                  isActive={pathname === '/dashboard/webhooks'}
                 />
-                <FilterButton 
-                  icon={Bookmark} 
-                  label="Saved" 
-                  count={stats.saved} 
-                  isActive={activeFilter === 'saved'} 
-                  onClick={() => setActiveFilter('saved')} 
+                <NavButton 
+                  href="/dashboard/performance"
+                  icon={Activity}
+                  label="Performance"
+                  isActive={pathname === '/dashboard/performance'}
                 />
-                <FilterButton 
-                  icon={Users} 
-                  label="All" 
-                  count={stats.all} 
-                  isActive={activeFilter === 'all'} 
-                  onClick={() => setActiveFilter('all')} 
+                <NavButton 
+                  href="/dashboard/analytics"
+                  icon={PieChart}
+                  label="Analytics"
+                  isActive={pathname === '/dashboard/analytics'}
+                />
+                <NavButton 
+                  href="/dashboard/settings"
+                  icon={Settings}
+                  label="Settings"
+                  isActive={pathname === '/dashboard/settings'}
                 />
               </div>
             )}
           </AnimatePresence>
         </div>
 
-        {/* Campaigns Section */}
-        {!isCollapsed && (
+        {/* Inbox Section - Only show on leads page */}
+        {pathname === '/dashboard' && (
+          <div className="border-b border-gray-800 pb-4">
+            <SectionHeader
+              icon={Inbox}
+              title="Inbox"
+              isExpanded={expandedSections.inbox}
+              onClick={() => toggleSection('inbox')}
+            />
+            <AnimatePresence>
+              {expandedSections.inbox && !isCollapsed && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="mt-2 space-y-1"
+                >
+                  <FilterButton 
+                    icon={Zap} 
+                    label="New" 
+                    count={stats.new} 
+                    isActive={activeFilter === 'new'} 
+                    onClick={() => setActiveFilter('new')} 
+                  />
+                  <FilterButton 
+                    icon={Send} 
+                    label="Replied" 
+                    count={stats.replied} 
+                    isActive={activeFilter === 'replied'} 
+                    onClick={() => setActiveFilter('replied')} 
+                  />
+                  <FilterButton 
+                    icon={Bookmark} 
+                    label="Saved" 
+                    count={stats.saved} 
+                    isActive={activeFilter === 'saved'} 
+                    onClick={() => setActiveFilter('saved')} 
+                  />
+                  <FilterButton 
+                    icon={Users} 
+                    label="All" 
+                    count={stats.all} 
+                    isActive={activeFilter === 'all'} 
+                    onClick={() => setActiveFilter('all')} 
+                  />
+                </motion.div>
+              )}
+              {/* Collapsed state filters */}
+              {isCollapsed && (
+                <div className="mt-2 space-y-1">
+                  <FilterButton 
+                    icon={Zap} 
+                    label="New" 
+                    count={stats.new} 
+                    isActive={activeFilter === 'new'} 
+                    onClick={() => setActiveFilter('new')} 
+                  />
+                  <FilterButton 
+                    icon={Send} 
+                    label="Replied" 
+                    count={stats.replied} 
+                    isActive={activeFilter === 'replied'} 
+                    onClick={() => setActiveFilter('replied')} 
+                  />
+                  <FilterButton 
+                    icon={Bookmark} 
+                    label="Saved" 
+                    count={stats.saved} 
+                    isActive={activeFilter === 'saved'} 
+                    onClick={() => setActiveFilter('saved')} 
+                  />
+                  <FilterButton 
+                    icon={Users} 
+                    label="All" 
+                    count={stats.all} 
+                    isActive={activeFilter === 'all'} 
+                    onClick={() => setActiveFilter('all')} 
+                  />
+                </div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
+
+        {/* Campaigns Section - Only show on leads page */}
+        {!isCollapsed && pathname === '/dashboard' && (
           <div className="border-b border-gray-800 pb-4">
             <SectionHeader
               icon={Target}
@@ -360,42 +466,6 @@ export const DashboardSidebar = ({
                       </div>
                     ))
                   )}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        )}
-
-        {/* Quick Actions Section */}
-        {!isCollapsed && (
-          <div>
-            <SectionHeader
-              icon={BarChart3}
-              title="Actions"
-              isExpanded={expandedSections.actions}
-              onClick={() => toggleSection('actions')}
-            />
-            <AnimatePresence>
-              {expandedSections.actions && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="mt-2 space-y-1"
-                >
-                  <button className="w-full px-3 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white rounded transition-colors flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4" />
-                    <span className={inter.className}>Analytics</span>
-                  </button>
-                  <button className="w-full px-3 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white rounded transition-colors flex items-center gap-2">
-                    <Zap className="w-4 h-4" />
-                    <span className={inter.className}>Discovery</span>
-                  </button>
-                  <button className="w-full px-3 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white rounded transition-colors flex items-center gap-2">
-                    <Settings className="w-4 h-4" />
-                    <span className={inter.className}>Settings</span>
-                  </button>
                 </motion.div>
               )}
             </AnimatePresence>

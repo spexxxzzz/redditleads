@@ -1,74 +1,60 @@
+// src/controllers/reddit.controller.ts
 import { RequestHandler } from 'express';
 import { PrismaClient } from '@prisma/client';
-import snoowrap, { RedditUser } from 'snoowrap';
+import snoowrap from 'snoowrap';
+import { clerkClient } from '@clerk/express';
+import crypto from 'crypto';
 
 const prisma = new PrismaClient();
 
-/**
- * Generates the Reddit OAuth URL for user authentication
- */
-export const getRedditAuthUrl: RequestHandler = async (req, res, next) => {
-    const { userId } = req.params;
-    
+// This function now generates a secure, random state and stores it.
+export const getRedditAuthUrl: RequestHandler = async (req: any, res, next) => {
+    const { userId } = req.auth;
     if (!userId) {
-        res.status(400).json({ message: 'User ID is required' });
+        res.status(401).json({ message: 'User not authenticated.' });
         return;
     }
 
     try {
-        // Generate a unique state parameter for security
-        const state = `${userId}-${Date.now()}`;
-        
+        const state = crypto.randomBytes(16).toString('hex');
+        await prisma.user.update({
+            where: { id: userId },
+            data: { redditAuthState: state }
+        });
+
         const authUrl = snoowrap.getAuthUrl({
             clientId: process.env.REDDIT_CLIENT_ID!,
-            scope: ['identity', 'read', 'submit', 'history'],
+            scope: ['identity', 'read', 'submit', 'history', 'edit'], // Added 'edit' scope
             redirectUri: process.env.REDDIT_REDIRECT_URI!,
             permanent: true,
             state: state
         });
 
-        // Store the state temporarily (you might want to use Redis in production)
-        await prisma.user.update({
-            where: { id: userId },
-            data: { 
-                // Store state in a temporary field for verification
-                redditUsername: state // We'll use this temporarily
-            }
-        });
-
         res.json({ authUrl });
+        return;
     } catch (error) {
-        console.error('Error generating Reddit auth URL:', error);
         next(error);
     }
 };
 
-/**
- * Handles the Reddit OAuth callback
- */
+// This function now securely verifies the state and stores the refresh token.
 export const handleRedditCallback: RequestHandler = async (req, res, next) => {
     const { code, state } = req.query;
-
     if (!code || !state) {
         res.status(400).json({ message: 'Missing authorization code or state' });
         return;
     }
 
     try {
-        // Extract userId from state
-        const [userId] = (state as string).split('-');
-        
-        // Verify state matches what we stored
-        const user  = await prisma.user.findUnique({
-            where: { id: userId }
+        const user = await prisma.user.findFirst({
+            where: { redditAuthState: state as string }
         });
 
-        if (!user || user.redditUsername !== state) {
-            res.status(400).json({ message: 'Invalid state parameter' });
+        if (!user) {
+            res.status(400).json({ message: 'Invalid state parameter. Authentication failed.' });
             return;
         }
 
-        // Exchange code for tokens
         const r = await snoowrap.fromAuthCode({
             code: code as string,
             userAgent: process.env.REDDIT_USER_AGENT!,
@@ -76,31 +62,35 @@ export const handleRedditCallback: RequestHandler = async (req, res, next) => {
             clientSecret: process.env.REDDIT_CLIENT_SECRET!,
             redirectUri: process.env.REDDIT_REDIRECT_URI!
         });
-
-        // Get user info
-        //@ts-expect-error (todo)
-        const me = await r.getMe() as RedditUser;
-
+        //@ts-expect-error
+        const me = await r.getMe();
         
-        // Store tokens and user info
+        // Update user with tokens and mark reddit as connected
         await prisma.user.update({
-            where: { id: userId },
+            where: { id: user.id },
             data: {
                 redditUsername: me.name,
                 redditRefreshToken: r.refreshToken,
-                redditKarma: (me.link_karma || 0) + (me.comment_karma || 0),
-                lastKarmaCheck: new Date()
+                redditAuthState: null, // Clear the state
+                hasConnectedReddit: true // Mark as connected
+            }
+        });
+        
+        // Also update Clerk's public metadata for easy frontend access
+        await clerkClient.users.updateUser(user.id, {
+            publicMetadata: {
+                redditUsername: me.name,
             }
         });
 
-        console.log(`✅ Reddit account connected for user ${userId}: u/${me.name}`);
-        
-        // Redirect to dashboard with success message
-        res.redirect(`${process.env.FRONTEND_URL}/dashboard?reddit=connected`);
+        console.log(`✅ Reddit account connected for user ${user.id}: u/${me.name}`);
+        res.redirect(`${process.env.FRONTEND_URL}/dashboard`);
+        return;
         
     } catch (error) {
         console.error('Error in Reddit callback:', error);
-        res.redirect(`${process.env.FRONTEND_URL}/dashboard?reddit=error`);
+        res.redirect(`${process.env.FRONTEND_URL}/dashboard/settings?error=reddit`);
+        return;
     }
 };
 
