@@ -1,30 +1,44 @@
-// frontend/app/connect-reddit/page.tsx
 "use client";
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { RedditConnection } from '@/components/dashboard/RedditSettings';
 import { CheckCircle, Loader } from 'lucide-react';
-import { useUser } from '@clerk/nextjs'; // Import the useUser hook
+import { useUser } from '@clerk/nextjs';
 
 export default function ConnectRedditPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, isLoaded } = useUser(); // Get user object and loading state
+  const { user, isLoaded } = useUser();
 
-  const isSuccess = searchParams.get('status') === 'success';
+  const isSuccessRedirect = searchParams.get('status') === 'success';
 
+  // This effect will run when the component mounts or when the `user` object updates.
   useEffect(() => {
-    // This effect runs when the user object changes or after the page loads.
-    // If the user object is loaded AND has the connected flag, we can redirect.
+    // If the user object is loaded and already has the flag, redirect immediately.
     if (isLoaded && user?.publicMetadata?.hasConnectedReddit === true) {
       router.push('/dashboard');
     }
-  }, [isLoaded, user, router]); // Dependency array ensures this runs when user data updates
+  }, [isLoaded, user, router]);
 
-  // If we are in the success state from the redirect, show the loading spinner.
-  // The useEffect above will handle the redirect once the session is synced.
-  if (isSuccess && !user?.publicMetadata?.hasConnectedReddit) {
+
+  // This effect runs ONLY when the page is loaded with a `status=success` param.
+  useEffect(() => {
+    const handleSuccessRedirect = async () => {
+      if (isSuccessRedirect && user) {
+        // This is the key change. We manually tell Clerk to fetch the latest user data.
+        // This will update the `user` object from the hook and trigger the effect above.
+        await user.reload();
+      }
+    };
+
+    handleSuccessRedirect();
+  }, [isSuccessRedirect, user]); // Only run this when the success param or user object is available.
+
+
+  // If this is a success redirect, show the loading/syncing state
+  // while the reload and subsequent redirect happen.
+  if (isSuccessRedirect) {
     return (
       <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4">
         <motion.div
@@ -43,7 +57,7 @@ export default function ConnectRedditPage() {
     );
   }
 
-  // The default state for users who land here initially
+  // The default view for users who need to connect
   return (
     <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4">
        <motion.div
@@ -54,11 +68,12 @@ export default function ConnectRedditPage() {
             <div className="bg-[#1a1a1b] rounded-xl border border-[#343536] p-8 text-center">
                 <h1 className="text-3xl font-bold text-white mb-2">Final Step!</h1>
                 <p className="text-gray-400 mb-6">
-                    Connect your Reddit account to start discovering leads. 
-                    This allows RedLead to perform actions securely on your behalf.
+                    Connect your Reddit account to start discovering leads.
                 </p>
-                
                 <RedditConnection />
+                <p className="text-gray-500 mt-6">
+                    Already connected? <a href="/dashboard" className="text-blue-500 hover:underline">Go to Dashboard</a>
+                </p>
             </div>
        </motion.div>
     </div>

@@ -6,7 +6,6 @@ import {
   Inbox,
   Send,
   Bookmark,
-  TrendingUp,
   Settings,
   ChevronRight,
   Users,
@@ -16,15 +15,19 @@ import {
   Eye,
   ChevronDown,
   ChevronLeft,
-  User,
   Crown,
   Webhook,
   PieChart,
   Activity
 } from 'lucide-react';
-import { Inter, Poppins } from 'next/font/google';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useUser } from '@clerk/nextjs';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Card, CardContent } from "@/components/ui/card";
+import { Inter, Poppins } from 'next/font/google';
 
 const inter = Inter({ subsets: ['latin'] });
 const poppins = Poppins({
@@ -49,6 +52,8 @@ interface Props {
   stats: { new: number; replied: number; saved: number; all: number };
   isCollapsed: boolean;
   setIsCollapsed: (collapsed: boolean) => void;
+  activeView: 'dashboard' | 'leads';
+  setActiveView: (view: 'dashboard' | 'leads') => void;
 }
 
 export const DashboardSidebar = ({
@@ -59,218 +64,319 @@ export const DashboardSidebar = ({
   setActiveFilter,
   stats,
   isCollapsed,
-  setIsCollapsed
+  setIsCollapsed,
+  activeView,
+  setActiveView
 }: Props) => {
   const { isLoaded, isSignedIn, user } = useUser();
   const pathname = usePathname();
   const [expandedSections, setExpandedSections] = useState({
+    main: true,
     inbox: true,
-    campaigns: false,
-    tools: true
+    campaigns: true
   });
 
   if (!isLoaded) {
-    return <div className="p-4">Loading...</div>;
+    return (
+      <div className="h-screen p-4 border-r bg-black border-zinc-800 sticky top-0 z-20">
+        <div className="animate-pulse space-y-4">
+          <div className="h-10 bg-zinc-900 rounded"></div>
+          <div className="h-8 bg-zinc-900 rounded w-3/4"></div>
+          <div className="h-8 bg-zinc-900 rounded w-1/2"></div>
+        </div>
+      </div>
+    );
   }
 
   if (!isSignedIn) {
     return null;
   }
 
-  // Get Reddit username from Clerk's public metadata
   const redditUsername = user.publicMetadata?.redditUsername as string | undefined;
 
-  const userInfo = {
-    name: user.fullName || 'User',
-    email: user.primaryEmailAddress?.emailAddress || '',
-    avatar: user.imageUrl,
-    plan: 'Pro', // This would be fetched from your DB in a real app
-    planColor: 'bg-yellow-500',
-    redditUsername: redditUsername
-  };
-
-  const toggleSection = (section: keyof typeof expandedSections) => {
-    if (isCollapsed) return;
-    setExpandedSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }));
-  };
-
   const FilterButton = ({ icon: Icon, label, count, isActive, onClick }: any) => (
-    <button
+    <Button
       onClick={onClick}
-      className={`w-full flex items-center ${isCollapsed ? 'justify-center px-2' : 'justify-between px-3'} py-2 text-sm transition-colors rounded ${
-        isActive
-          ? 'bg-blue-600 text-white'
-          : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+      variant="ghost"
+      className={`w-full justify-start ${isCollapsed ? 'px-2' : 'px-3'} h-9 transition-all duration-200 ${
+        isActive 
+          ? 'bg-orange-500 hover:bg-orange-600 text-white' 
+          : 'hover:bg-zinc-900 text-gray-300 hover:text-white'
       }`}
       title={isCollapsed ? `${label} (${count})` : ''}
     >
-      <div className="flex items-center gap-2">
-        <Icon className="w-4 h-4" />
-        {!isCollapsed && <span className={inter.className}>{label}</span>}
-      </div>
+      <Icon className="h-4 w-4 mr-2" />
       {!isCollapsed && (
-        <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
-          isActive
-            ? 'bg-blue-500 text-white'
-            : 'bg-gray-700 text-gray-300'
-        }`}>
-          {count}
-        </span>
+        <>
+          <span className={`flex-1 text-left ${inter.className}`}>{label}</span>
+          <Badge 
+            variant="outline" 
+            className={`ml-auto text-xs ${
+              isActive 
+                ? 'border-white/30 text-white bg-white/10' 
+                : 'border-zinc-700 text-gray-400 bg-transparent hover:bg-zinc-900'
+            }`}
+          >
+            {count}
+          </Badge>
+        </>
       )}
-    </button>
+    </Button>
   );
 
-  const NavButton = ({ href, icon: Icon, label, isActive }: any) => (
-    <Link href={href}>
-      <button
-        className={`w-full flex items-center ${isCollapsed ? 'justify-center px-2' : 'gap-2 px-3'} py-2 text-sm transition-colors rounded ${
-          isActive
-            ? 'bg-blue-600 text-white'
-            : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-        }`}
-        title={isCollapsed ? label : ''}
-      >
-        <Icon className="w-4 h-4" />
-        {!isCollapsed && <span className={inter.className}>{label}</span>}
-      </button>
-    </Link>
-  );
-
-  const SectionHeader = ({ icon: Icon, title, isExpanded, onClick }: any) => (
-    <button
-      onClick={onClick}
-      className={`w-full flex items-center ${isCollapsed ? 'justify-center px-2' : 'justify-between px-3'} py-2 text-gray-300 hover:text-white hover:bg-gray-800 rounded transition-colors`}
-      title={isCollapsed ? title : ''}
+  const NavButton = ({ href, icon: Icon, label, isActive, onClick }: any) => (
+    <Button
+      onClick={onClick || (() => {})}
+      variant="ghost"
+      className={`w-full justify-start ${isCollapsed ? 'px-2' : 'px-3'} h-9 transition-all duration-200 ${
+        isActive 
+          ? 'bg-orange-500 hover:bg-orange-600 text-white' 
+          : 'hover:bg-zinc-900 text-gray-300 hover:text-white'
+      }`}
+      title={isCollapsed ? label : ''}
+      asChild={!!href}
     >
-      <div className="flex items-center gap-2">
-        <Icon className="w-4 h-4" />
-        {!isCollapsed && <span className={`text-sm font-medium ${poppins.className}`}>{title}</span>}
-      </div>
-      {!isCollapsed && (
-        <ChevronRight className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+      {href ? (
+        <Link href={href}>
+          <Icon className="h-4 w-4 mr-2" />
+          {!isCollapsed && <span className={inter.className}>{label}</span>}
+        </Link>
+      ) : (
+        <>
+          <Icon className="h-4 w-4 mr-2" />
+          {!isCollapsed && <span className={inter.className}>{label}</span>}
+        </>
       )}
-    </button>
+    </Button>
   );
 
   return (
-    <div className="h-screen flex flex-col bg-black/30 backdrop-blur-sm">
+    <div className="h-screen flex flex-col bg-black border-r border-zinc-800 sticky top-0 z-20">
       {/* User Profile Section */}
-      <div className="border-b border-gray-800 p-4">
+      <div className="p-4 border-b border-zinc-800 bg-black">
         {isCollapsed ? (
-          <div className="flex flex-col items-center gap-2">
-            <div className="relative">
-              <img
-                src={userInfo.avatar}
-                alt={userInfo.name}
-                className="w-8 h-8 rounded-full object-cover"
-              />
-              <div className={`absolute -top-1 -right-1 w-3 h-3 ${userInfo.planColor} rounded-full border-2 border-gray-900 flex items-center justify-center`}>
-                {userInfo.plan === 'Pro' && <Crown className="w-1.5 h-1.5 text-white" />}
-                {userInfo.plan === 'Free' && <User className="w-1.5 h-1.5 text-white" />}
-              </div>
-            </div>
-            <button
-              onClick={() => setIsCollapsed(!isCollapsed)}
-              className="p-1 text-gray-400 hover:text-white hover:bg-gray-800 rounded transition-colors"
-              title="Expand sidebar"
+          <div className="flex flex-col items-center space-y-2">
+            <Avatar className="h-8 w-8">
+              <AvatarImage src={user.imageUrl} alt={user.fullName || 'User'} />
+              <AvatarFallback className="bg-orange-500 text-white">
+                {user.fullName?.charAt(0) || 'U'}
+              </AvatarFallback>
+            </Avatar>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setIsCollapsed(false)}
+              className="p-1 h-6 w-6 hover:bg-zinc-900 text-gray-400 hover:text-white"
             >
-              <ChevronRight className="w-3 h-3" />
-            </button>
+              <ChevronRight className="h-3 w-3" />
+            </Button>
           </div>
         ) : (
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <img
-                src={userInfo.avatar}
-                alt={userInfo.name}
-                className="w-10 h-10 rounded-full object-cover"
-              />
-              <div className={`absolute -top-1 -right-1 w-4 h-4 ${userInfo.planColor} rounded-full border-2 border-gray-900 flex items-center justify-center`}>
-                {userInfo.plan === 'Pro' && <Crown className="w-2 h-2 text-white" />}
-                {userInfo.plan === 'Free' && <User className="w-2 h-2 text-white" />}
-              </div>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className={`text-sm font-medium text-white truncate ${poppins.className}`}>
-                {userInfo.name}
-              </p>
-              {/* --- ADDED THIS BLOCK --- */}
-              {userInfo.redditUsername && (
-                <p className={`text-xs text-orange-400 truncate ${inter.className}`}>
-                  u/{userInfo.redditUsername}
+          <div className="space-y-3">
+            <div className="flex items-center space-x-3">
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={user.imageUrl} alt={user.fullName || 'User'} />
+                <AvatarFallback className="bg-orange-500 text-white">
+                  {user.fullName?.charAt(0) || 'U'}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-medium truncate text-white ${poppins.className}`}>
+                  {user.fullName || 'User'}
                 </p>
-              )}
-              {/* --- END OF BLOCK --- */}
-              <div className="flex items-center gap-1 mt-1">
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${userInfo.planColor} text-white`}>
-                  {userInfo.plan}
-                </span>
+                {redditUsername && (
+                  <p className={`text-xs text-orange-400 truncate ${inter.className}`}>
+                    u/{redditUsername}
+                  </p>
+                )}
               </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setIsCollapsed(true)}
+                className="p-1 h-6 w-6 hover:bg-zinc-900 text-gray-400 hover:text-white"
+              >
+                <ChevronLeft className="h-3 w-3" />
+              </Button>
             </div>
-            <button
-              onClick={() => setIsCollapsed(!isCollapsed)}
-              className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded transition-colors"
-              title="Collapse sidebar"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
+            <Badge className="bg-orange-500 hover:bg-orange-600 text-white border-0">
+              <Crown className="h-3 w-3 mr-1" />
+              Pro
+            </Badge>
           </div>
         )}
       </div>
 
-      {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {/* Navigation Tools Section */}
-        <div className="border-b border-gray-800 pb-4">
-          <SectionHeader
-            icon={BarChart3}
-            title="Tools"
-            isExpanded={expandedSections.tools}
-            onClick={() => toggleSection('tools')}
-          />
-          <AnimatePresence>
-            {expandedSections.tools && !isCollapsed && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="mt-2 space-y-1"
-              >
-                <NavButton href="/dashboard" icon={Inbox} label="Leads" isActive={pathname === '/dashboard'} />
-                <NavButton href="/dashboard/webhooks" icon={Webhook} label="Webhooks" isActive={pathname === '/dashboard/webhooks'} />
-                <NavButton href="/dashboard/performance" icon={Activity} label="Performance" isActive={pathname === '/dashboard/performance'} />
-                <NavButton href="/dashboard/analytics" icon={PieChart} label="Analytics" isActive={pathname === '/dashboard/analytics'} />
-                <NavButton href="/dashboard/settings" icon={Settings} label="Settings" isActive={pathname === '/dashboard/settings'} />
-              </motion.div>
-            )}
-            {isCollapsed && (
-              <div className="mt-2 space-y-1">
-                 <NavButton href="/dashboard" icon={Inbox} label="Leads" isActive={pathname === '/dashboard'} />
-                 <NavButton href="/dashboard/webhooks" icon={Webhook} label="Webhooks" isActive={pathname === '/dashboard/webhooks'} />
-                 <NavButton href="/dashboard/performance" icon={Activity} label="Performance" isActive={pathname === '/dashboard/performance'} />
-                 <NavButton href="/dashboard/analytics" icon={PieChart} label="Analytics" isActive={pathname === '/dashboard/analytics'} />
-                 <NavButton href="/dashboard/settings" icon={Settings} label="Settings" isActive={pathname === '/dashboard/settings'} />
-              </div>
-            )}
-          </AnimatePresence>
+      {/* Navigation */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-black">
+        {/* Main Navigation */}
+        <div>
+          {!isCollapsed && (
+            <p className={`text-xs font-medium text-gray-500 mb-3 px-3 uppercase tracking-wider ${inter.className}`}>
+              Main
+            </p>
+          )}
+          <div className="space-y-1">
+            <NavButton 
+              icon={BarChart3} 
+              label="Dashboard" 
+              isActive={activeView === 'dashboard'}
+              onClick={() => setActiveView('dashboard')}
+            />
+            <NavButton 
+              icon={Inbox} 
+              label="Leads" 
+              isActive={activeView === 'leads'}
+              onClick={() => setActiveView('leads')}
+            />
+            <NavButton 
+              href="/dashboard/webhooks" 
+              icon={Webhook} 
+              label="Webhooks" 
+              isActive={pathname === '/dashboard/webhooks'} 
+            />
+            <NavButton 
+              href="/dashboard/performance" 
+              icon={Activity} 
+              label="Performance" 
+              isActive={pathname === '/dashboard/performance'} 
+            />
+            <NavButton 
+              href="/dashboard/analytics" 
+              icon={PieChart} 
+              label="Analytics" 
+              isActive={pathname === '/dashboard/analytics'} 
+            />
+            <NavButton 
+              href="/dashboard/settings" 
+              icon={Settings} 
+              label="Settings" 
+              isActive={pathname === '/dashboard/settings'} 
+            />
+          </div>
         </div>
 
         {/* Inbox Section */}
-        {pathname === '/dashboard' && (
-           <div className="border-b border-gray-800 pb-4">
-             {/* ... (Inbox JSX remains the same) */}
-           </div>
-        )}
+        {activeView === 'leads' && (
+          <>
+            <Separator className="bg-zinc-800" />
+            <div>
+              {!isCollapsed && (
+                <p className={`text-xs font-medium text-gray-500 mb-3 px-3 uppercase tracking-wider ${inter.className}`}>
+                  Inbox
+                </p>
+              )}
+              <div className="space-y-1">
+                <FilterButton 
+                  icon={Zap} 
+                  label="New" 
+                  count={stats.new} 
+                  isActive={activeFilter === 'new'} 
+                  onClick={() => setActiveFilter('new')} 
+                />
+                <FilterButton 
+                  icon={Send} 
+                  label="Replied" 
+                  count={stats.replied} 
+                  isActive={activeFilter === 'replied'} 
+                  onClick={() => setActiveFilter('replied')} 
+                />
+                <FilterButton 
+                  icon={Bookmark} 
+                  label="Saved" 
+                  count={stats.saved} 
+                  isActive={activeFilter === 'saved'} 
+                  onClick={() => setActiveFilter('saved')} 
+                />
+                <FilterButton 
+                  icon={Users} 
+                  label="All" 
+                  count={stats.all} 
+                  isActive={activeFilter === 'all'} 
+                  onClick={() => setActiveFilter('all')} 
+                />
+              </div>
+            </div>
 
-        {/* Campaigns Section */}
-        {!isCollapsed && pathname === '/dashboard' && (
-          <div className="border-b border-gray-800 pb-4">
-            {/* ... (Campaigns JSX remains the same) */}
-          </div>
+            {/* Campaigns Section */}
+            {!isCollapsed && (
+              <>
+                <Separator className="bg-zinc-800" />
+                <div>
+                  <p className={`text-xs font-medium text-gray-500 mb-3 px-3 uppercase tracking-wider ${inter.className}`}>
+                    Campaigns
+                  </p>
+                  <div className="space-y-2">
+                    {campaigns.length === 0 ? (
+                      <Card className="bg-zinc-900 border-zinc-800">
+                        <CardContent className="p-3 text-center">
+                          <p className={`text-xs text-gray-400 ${inter.className}`}>No campaigns</p>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      campaigns.map((campaign) => (
+                        <div key={campaign.id}>
+                          <Button
+                            onClick={() => setActiveCampaign(campaign.id)}
+                            variant="ghost"
+                            className={`w-full justify-between text-left h-auto p-3 rounded-lg transition-all duration-200 ${
+                              activeCampaign === campaign.id 
+                                ? 'bg-orange-500 hover:bg-orange-600 text-white' 
+                                : 'hover:bg-zinc-900 text-gray-300 hover:text-white'
+                            }`}
+                          >
+                            <div className="flex-1">
+                              <div className={`font-medium text-sm ${poppins.className}`}>
+                                {new URL(campaign.analyzedUrl).hostname}
+                              </div>
+                            </div>
+                            <ChevronDown className="h-3 w-3" />
+                          </Button>
+                          
+                          {activeCampaign === campaign.id && (
+                            <motion.div 
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              className="mx-3 mt-1 mb-2"
+                            >
+                              <Card className="bg-zinc-900 border-zinc-800">
+                                <CardContent className="p-3 space-y-3">
+                                  <div>
+                                    <p className={`text-xs font-medium mb-2 text-gray-300 ${inter.className}`}>
+                                      Keywords
+                                    </p>
+                                    <div className="flex flex-wrap gap-1">
+                                      {campaign.generatedKeywords.slice(0, 2).map((keyword) => (
+                                        <Badge key={keyword} className="bg-orange-500/10 text-orange-400 border-orange-500/20 hover:bg-orange-500/20">
+                                          {keyword}
+                                        </Badge>
+                                      ))}
+                                      {campaign.generatedKeywords.length > 2 && (
+                                        <Badge 
+                                          variant="outline" 
+                                          className="text-xs border-zinc-700 text-gray-400"
+                                        >
+                                          +{campaign.generatedKeywords.length - 2}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-xs text-gray-400">
+                                    <Eye className="h-3 w-3 text-orange-500" />
+                                    <span className={inter.className}>{campaign.targetSubreddits.length} subreddits</span>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            </motion.div>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </>
         )}
       </div>
     </div>
