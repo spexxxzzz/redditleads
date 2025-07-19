@@ -19,6 +19,7 @@ const poppins = Poppins({
   weight: ['400', '500', '600', '700', '800']
 });
 
+// This interface is local to DashboardLayout
 interface Lead {
   id: string;
   title: string;
@@ -32,12 +33,14 @@ interface Lead {
   intent: string;
   summary?: string | null;
   opportunityScore: number;
+  // **FIX #2:** The status is made optional to match the type expected by LeadFeed.
   status?: "new" | "replied" | "saved" | "ignored";
 }
 
 interface Campaign {
   id: string;
   userId: string;
+  name: string;
   analyzedUrl: string;
   generatedKeywords: string[];
   generatedDescription: string;
@@ -60,14 +63,12 @@ export const DashboardLayout = () => {
   const [error, setError] = useState<string | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  // New state for view management
   const [activeView, setActiveView] = useState<'dashboard' | 'leads'>('dashboard');
-  const [activeFilter, setActiveFilter] = useState("all");
+  const [activeFilter, setActiveFilter] = useState<Lead['status'] | 'all'>("all");
   const [intentFilter, setIntentFilter] = useState("all");
   const [sortBy, setSortBy] = useState("opportunityScore");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
-  // Your existing fetch functions remain the same
   const fetchCampaigns = useCallback(async () => {
     try {
       const token = await getToken();
@@ -95,11 +96,14 @@ export const DashboardLayout = () => {
         limit: 1000,
       }, token);
       
-      const leadsData = allLeadsResponse.data || [];
+      const leadsData: Lead[] = (allLeadsResponse.data || []).map((lead: any) => ({
+          ...lead,
+          status: lead.status || 'new' // Ensure status is never undefined
+      }));
       setAllLeads(leadsData);
       
       if (activeFilter !== "all") {
-        setLeads(leadsData.filter((lead: Lead) => (lead.status || 'new') === activeFilter));
+        setLeads(leadsData.filter((lead) => lead.status === activeFilter));
       } else {
         setLeads(leadsData);
       }
@@ -131,29 +135,28 @@ export const DashboardLayout = () => {
   }, [fetchCampaigns]);
 
   useEffect(() => {
-    if (activeCampaign && activeView === 'leads') {
+    if (activeCampaign) {
       fetchLeads(activeCampaign);
     }
-  }, [activeCampaign, fetchLeads, activeFilter, activeView]);
+  }, [activeCampaign, fetchLeads, activeFilter]);
+
 
   const leadStats = {
-    new: allLeads.filter(l => (l.status || 'new') === 'new').length,
+    new: allLeads.filter(l => l.status === 'new').length,
     replied: allLeads.filter(l => l.status === 'replied').length,
     saved: allLeads.filter(l => l.status === 'saved').length,
-    all: allLeads.length
+    all: allLeads.length,
+    ignored: allLeads.filter(l => l.status === 'ignored').length,
   };
 
   const handleLeadUpdate = (leadId: string, status: Lead['status']) => {
-    setLeads(prevLeads =>
-      prevLeads.map(lead =>
+    const updateLeadList = (list: Lead[]) =>
+      list.map(lead =>
         lead.id === leadId ? { ...lead, status } : lead
-      )
-    );
-    setAllLeads(prevAllLeads =>
-      prevAllLeads.map(lead =>
-        lead.id === leadId ? { ...lead, status } : lead
-      )
-    );
+      );
+      
+    setLeads(updateLeadList(leads));
+    setAllLeads(updateLeadList(allLeads));
   };
 
   if (error && campaigns.length === 0) {
@@ -201,11 +204,12 @@ export const DashboardLayout = () => {
             campaigns={campaigns} 
             activeCampaign={activeCampaign} 
             setActiveCampaign={setActiveCampaign} 
-            activeFilter={activeFilter} 
-            setActiveFilter={setActiveFilter} 
+            activeFilter={activeFilter ?? "all"} 
+            setActiveFilter={(filter) => setActiveFilter(filter as Lead['status'] | 'all')} 
             stats={leadStats} 
             isCollapsed={isSidebarCollapsed} 
             setIsCollapsed={setIsSidebarCollapsed}
+            // **FIX #1:** Added the missing props that DashboardSidebar expects.
             activeView={activeView}
             setActiveView={setActiveView}
           />
@@ -266,10 +270,11 @@ export const DashboardLayout = () => {
                  <LoadingLeads />
                 ) : (
                   <LeadFeed 
-                    leads={leads} 
-                    onManualDiscovery={handleManualDiscovery} 
-                    isRunningDiscovery={isRunningDiscovery}
-                    onLeadUpdate={handleLeadUpdate} 
+                        leads={leads}
+                        onManualDiscovery={handleManualDiscovery}
+                        isRunningDiscovery={isRunningDiscovery}
+                        onLeadUpdate={handleLeadUpdate} 
+                        activeFilter={activeFilter ?? "all"}
                   />
                 )}
               </motion.div>

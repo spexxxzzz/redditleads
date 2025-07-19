@@ -2,19 +2,31 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ArrowUp,
-  MessageCircle,
-  ExternalLink,
-  Calendar,
-  TrendingUp,
-  Users,
-  Target,
-  Loader,
-  AlertCircle,
-  BarChart3
-} from 'lucide-react';
+  ArrowUpIcon,
+  ChatBubbleLeftIcon,
+  ArrowTopRightOnSquareIcon,
+  CalendarIcon,
+  ArrowTrendingUpIcon,
+  UsersIcon,
+  CursorArrowRaysIcon,
+  ExclamationCircleIcon,
+  ChartBarIcon
+} from '@heroicons/react/24/outline';
 import { api } from '@/lib/api';
-import { useAuth } from '@clerk/nextjs'; // Import the useAuth hook
+import { useAuth } from '@clerk/nextjs';
+import { Inter, Poppins } from 'next/font/google';
+import PulsatingDotsLoader from '../loading/LoadingLeads';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { LoadingWrapper } from '../loading/LoadingWrapper';
+import PulsatingDotsLoaderReplies from '../loading/LoadingReplies';
+
+const inter = Inter({ subsets: ['latin'] });
+const poppins = Poppins({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800']
+});
 
 interface ReplyPerformance {
   id: string;
@@ -41,7 +53,7 @@ interface PerformanceMetrics {
 }
 
 export default function PerformancePage() {
-  const { getToken } = useAuth(); // Use the Clerk hook
+  const { getToken } = useAuth();
   const [replies, setReplies] = useState<ReplyPerformance[]>([]);
   const [metrics, setMetrics] = useState<PerformanceMetrics>({
     totalReplies: 0,
@@ -57,7 +69,7 @@ export default function PerformancePage() {
     try {
       setIsLoading(true);
       const token = await getToken();
-      const response = await api.getReplyPerformance(token); // Pass token to the API call
+      const response = await api.getReplyPerformance(token);
       setReplies(response.data || []);
       setMetrics(response.metrics || {
         totalReplies: 0,
@@ -71,7 +83,7 @@ export default function PerformancePage() {
     } finally {
       setIsLoading(false);
     }
-  }, [getToken]); // Add getToken to the dependency array
+  }, [getToken]);
 
   useEffect(() => {
     fetchPerformance();
@@ -94,70 +106,110 @@ export default function PerformancePage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[#0f1419] flex items-center justify-center">
-        <div className="text-center">
-          <Loader className="w-8 h-8 text-[#ff4500] animate-spin mx-auto mb-4" />
-          <p className="text-gray-400">Loading performance data...</p>
-        </div>
-      </div>
-    );
+    <PulsatingDotsLoaderReplies/>
   }
 
   return (
-    <div className="min-h-screen bg-[#0f1419] p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Reply Performance</h1>
-          <p className="text-gray-400">
-            Track the success of your Reddit engagement
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
-            <MetricCard title="Total Replies" value={metrics.totalReplies} icon={MessageCircle} color="blue" />
-            <MetricCard title="Total Upvotes" value={metrics.totalUpvotes} icon={ArrowUp} color="green" />
-            <MetricCard title="Avg Upvotes" value={metrics.averageUpvotes} icon={TrendingUp} color="yellow" isDecimal />
-            <MetricCard title="Response Rate" value={metrics.responseRate} icon={Users} color="purple" suffix="%" isDecimal />
-            <MetricCard title="Author Replies" value={metrics.repliesWithAuthorResponse} icon={Target} color="orange" />
-        </div>
-
-        {error && (
-          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-red-400" />
-            <span className="text-red-400">{error}</span>
-          </div>
-        )}
-
-        {replies.length === 0 ? (
-          <div className="text-center py-24">
-            <BarChart3 className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-white mb-2">No replies yet</h3>
-            <p className="text-gray-400">
-              Start engaging with leads to see your performance metrics here.
+    <div className="min-h-screen bg-black">
+      <div className="p-8 space-y-8">
+        <div className="max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="space-y-2 mb-8">
+            <h1 className={`text-3xl font-bold text-white ${poppins.className}`}>
+              Reply Performance
+            </h1>
+            <p className={`text-gray-400 ${inter.className}`}>
+              Track the success of your Reddit engagement
             </p>
           </div>
-        ) : (
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-white mb-4">Recent Replies</h2>
-            <AnimatePresence>
-              {replies.map((reply) => (
-                <ReplyCard
-                  key={reply.id}
-                  reply={reply}
-                  getTimeAgo={getTimeAgo}
-                  getUpvoteColor={getUpvoteColor}
-                />
-              ))}
-            </AnimatePresence>
+
+          {/* Metrics Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+            <MetricCard 
+              title="Total Replies" 
+              value={metrics.totalReplies} 
+              icon={ChatBubbleLeftIcon} 
+              color="blue" 
+            />
+            <MetricCard 
+              title="Total Upvotes" 
+              value={metrics.totalUpvotes} 
+              icon={ArrowUpIcon} 
+              color="green" 
+            />
+            <MetricCard 
+              title="Avg Upvotes" 
+              value={metrics.averageUpvotes} 
+              icon={ArrowTrendingUpIcon} 
+              color="yellow" 
+              isDecimal 
+            />
+            <MetricCard 
+              title="Response Rate" 
+              value={metrics.responseRate} 
+              icon={UsersIcon} 
+              color="purple" 
+              suffix="%" 
+              isDecimal 
+            />
+            <MetricCard 
+              title="Author Replies" 
+              value={metrics.repliesWithAuthorResponse} 
+              icon={CursorArrowRaysIcon} 
+              color="orange" 
+            />
           </div>
-        )}
+
+          {/* Error Display */}
+          {error && (
+            <Card className="mb-6 bg-red-500/5 border-red-500/20">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <ExclamationCircleIcon className="w-5 h-5 text-red-400" />
+                  <span className={`text-red-400 ${inter.className}`}>{error}</span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Empty State or Reply List */}
+          {replies.length === 0 ? (
+            <Card>
+              <CardContent className="text-center py-24">
+                <ChartBarIcon className="w-16 h-16 text-gray-500 mx-auto mb-4" />
+                <CardTitle className={`text-xl font-semibold mb-2 ${poppins.className}`}>
+                  No replies yet
+                </CardTitle>
+                <p className={`text-muted-foreground ${inter.className}`}>
+                  Start engaging with leads to see your performance metrics here.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-6">
+              <h2 className={`text-xl font-semibold text-white ${poppins.className}`}>
+                Recent Replies
+              </h2>
+              <div className="space-y-4">
+                <AnimatePresence>
+                  {replies.map((reply) => (
+                    <ReplyCard
+                      key={reply.id}
+                      reply={reply}
+                      getTimeAgo={getTimeAgo}
+                      getUpvoteColor={getUpvoteColor}
+                    />
+                  ))}
+                </AnimatePresence>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-// ... (MetricCard and ReplyCard components remain the same)
 interface MetricCardProps {
   title: string;
   value: number;
@@ -179,20 +231,28 @@ const MetricCard = ({ title, value, icon: Icon, color, suffix = '', isDecimal = 
   const displayValue = isDecimal ? value.toFixed(1) : value.toString();
 
   return (
-    <div className="bg-[#1a1a1b] rounded-lg p-6 border border-[#343536]">
-      <div className="flex items-center justify-between mb-4">
-        <div className={`p-2 rounded-lg ${colors[color]}`}>
-          
-          <Icon className="w-5 h-5" />
-        </div>
-      </div>
-      <div>
-        <p className="text-2xl font-bold text-white mb-1">
-          {displayValue}{suffix}
-        </p>
-        <p className="text-sm text-gray-400">{title}</p>
-      </div>
-    </div>
+    <motion.div
+      whileHover={{ y: -1 }}
+      transition={{ duration: 0.15 }}
+    >
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className={`text-sm font-medium text-muted-foreground ${inter.className}`}>
+              {title}
+            </CardTitle>
+            <div className={`p-2 rounded-lg ${colors[color]}`}>
+              <Icon className="w-4 h-4" />
+            </div>
+          </div>
+          <div>
+            <div className={`text-2xl font-bold ${poppins.className}`}>
+              {displayValue}{suffix}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
   );
 };
 
@@ -208,67 +268,80 @@ const ReplyCard = ({ reply, getTimeAgo, getUpvoteColor }: ReplyCardProps) => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      className="bg-[#1a1a1b] rounded-lg border border-[#343536] p-6 hover:border-[#ff4500] transition-colors"
     >
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex-1">
-          <h3 className="font-semibold text-white mb-1">{reply.lead.title}</h3>
-          <div className="flex items-center gap-2 text-sm text-gray-400">
-            <span>r/{reply.lead.subreddit}</span>
-            <span>•</span>
-            <span>u/{reply.lead.author}</span>
-            <span>•</span>
-            <span className="flex items-center gap-1">
-              <Calendar className="w-3 h-3" />
-              {getTimeAgo(reply.postedAt)}
-            </span>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1">
-            <ArrowUp className={`w-4 h-4 ${getUpvoteColor(reply.upvotes)}`} />
-            <span className={`font-medium ${getUpvoteColor(reply.upvotes)}`}>
-              {reply.upvotes}
-            </span>
-          </div>
-          
-          {reply.authorReplied && (
-            <div className="flex items-center gap-1 text-green-400">
-              <MessageCircle className="w-4 h-4" />
-              <span className="text-xs">Author replied</span>
+      <Card>
+        <CardHeader>
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <CardTitle className={`text-lg font-semibold mb-2 ${poppins.className}`}>
+                {reply.lead.title}
+              </CardTitle>
+              <div className={`flex items-center gap-2 text-sm text-muted-foreground ${inter.className}`}>
+                <Badge variant="outline" className="text-orange-400 border-orange-400/20">
+                  r/{reply.lead.subreddit}
+                </Badge>
+                <span>u/{reply.lead.author}</span>
+                <span className="flex items-center gap-1">
+                  <CalendarIcon className="w-3 h-3" />
+                  {getTimeAgo(reply.postedAt)}
+                </span>
+              </div>
             </div>
-          )}
-        </div>
-      </div>
+            
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1">
+                <ArrowUpIcon className={`w-4 h-4 ${getUpvoteColor(reply.upvotes)}`} />
+                <span className={`font-medium ${getUpvoteColor(reply.upvotes)} ${inter.className}`}>
+                  {reply.upvotes}
+                </span>
+              </div>
+              
+              {reply.authorReplied && (
+                <Badge variant="outline" className="text-green-400 border-green-400/20">
+                  <ChatBubbleLeftIcon className="w-3 h-3 mr-1" />
+                  <span className={`text-xs ${inter.className}`}>Author replied</span>
+                </Badge>
+              )}
+            </div>
+          </div>
+        </CardHeader>
 
-      <div className="mb-4">
-        <p className="text-gray-300 leading-relaxed">{reply.content}</p>
-      </div>
+        <CardContent className="pt-0">
+          <div className="mb-4">
+            <p className={`text-muted-foreground leading-relaxed ${inter.className}`}>
+              {reply.content}
+            </p>
+          </div>
 
-      <div className="flex items-center gap-4 pt-4 border-t border-[#343536]">
-        <a 
-          href={reply.lead.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-sm text-[#ff4500] hover:text-[#ff6b35] transition-colors"
-        >
-          <ExternalLink className="w-3 h-3" />
-          View Original Post
-        </a>
-        
-        {reply.redditUrl && (
-          <a 
-            href={reply.redditUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-sm text-blue-400 hover:text-blue-300 transition-colors"
-          >
-            <ExternalLink className="w-3 h-3" />
-            View Reply on Reddit
-          </a>
-        )}
-      </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <a 
+                href={reply.lead.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`inline-flex items-center gap-1 ${inter.className}`}
+              >
+                <ArrowTopRightOnSquareIcon className="w-3 h-3" />
+                View Original Post
+              </a>
+            </Button>
+            
+            {reply.redditUrl && (
+              <Button variant="outline" size="sm" asChild>
+                <a 
+                  href={reply.redditUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`inline-flex items-center gap-1 ${inter.className}`}
+                >
+                  <ArrowTopRightOnSquareIcon className="w-3 h-3" />
+                  View Reply
+                </a>
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </motion.div>
   );
 };

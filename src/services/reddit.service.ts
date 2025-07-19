@@ -263,7 +263,7 @@ export const getOptimalPostingDelay = (subredditName: string): number => {
     }
 };
 
-const getUserAuthenticatedInstance = (userRefreshToken: string) => {
+export const getUserAuthenticatedInstance = (userRefreshToken: string) => {
     return new snoowrap({
         userAgent: process.env.REDDIT_USER_AGENT!,
         clientId: process.env.REDDIT_CLIENT_ID!,

@@ -132,27 +132,28 @@ export const deleteWebhook = async (req: any, res: Response) => {
 };
 
 export const testWebhook = async (req: any, res: Response) => {
-  const { userId } = req.auth;
-  const { webhookId } = req.params;
+    const { userId } = req.auth;
+    const { webhookId } = req.params;
 
-  if (!userId) {
-    res.status(401).json({ error: 'User not authenticated.' });
-    return;
-  }
-  
-  try {
-    const isOwner = await verifyWebhookOwner(webhookId, userId);
-    if (!isOwner) {
-        res.status(403).json({ error: 'You do not have permission to test this webhook.' });
+    if (!userId) {
+        res.status(401).json({ error: 'User not authenticated.' });
         return;
     }
 
-    const success = await webhookService.testWebhook(webhookId);
-    res.json({ success });
-    return;
-  } catch (error) {
-    console.error('Failed to test webhook:', error);
-    res.status(500).json({ error: 'Failed to test webhook' });
-    return;
-  }
+    try {
+        const isOwner = await verifyWebhookOwner(webhookId, userId);
+        if (!isOwner) {
+            res.status(403).json({ error: 'You do not have permission to test this webhook.' });
+            return;
+        }
+
+        const success = await webhookService.testWebhook(webhookId);
+        res.json({ success });
+        return;
+
+    } catch (error) {
+        console.error('Failed to test webhook:', error);
+        res.status(500).json({ error: 'Failed to test webhook' });
+        return;
+    }
 };

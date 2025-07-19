@@ -1,9 +1,32 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Bot, Edit3, Loader, AlertCircle, CheckCircle, RefreshCw, ExternalLink, Copy, Check } from 'lucide-react';
+import {
+  XMarkIcon,
+  ChatBubbleLeftIcon,
+  PencilSquareIcon,
+  ExclamationCircleIcon,
+  CheckCircleIcon,
+  ArrowPathIcon,
+  ArrowTopRightOnSquareIcon,
+  DocumentDuplicateIcon,
+  CheckIcon
+} from '@heroicons/react/24/outline';
 import { api } from '@/lib/api';
-import { useAuth } from '@clerk/nextjs'; // Import the useAuth hook
+import { useAuth } from '@clerk/nextjs';
+import { Inter, Poppins } from 'next/font/google';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import  {Textarea}  from  "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { ReplyLoader, RefiningLoader } from '@/components/loading/reply-loader';
+
+const inter = Inter({ subsets: ['latin'] });
+const poppins = Poppins({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800']
+});
 
 interface Lead {
   id: string;
@@ -35,7 +58,7 @@ interface Props {
 }
 
 export const ReplyModal = ({ lead, isOpen, onClose, onLeadUpdate }: Props) => {
-  const { getToken } = useAuth(); // Use the Clerk hook
+  const { getToken } = useAuth();
   const [replyOptions, setReplyOptions] = useState<ReplyOption[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,11 +73,14 @@ export const ReplyModal = ({ lead, isOpen, onClose, onLeadUpdate }: Props) => {
     setError(null);
     try {
       const token = await getToken();
-      // Pass the lead ID and a context string (you can customize this)
       const data = await api.generateReply(lead.id, "Generate a reply for this lead.", token);
 
       if (Array.isArray(data.replies)) {
-        setReplyOptions(data.replies.map((text: string, index: number) => ({ id: `${lead.id}-${index}`, text, isRefining: false })));
+        setReplyOptions(data.replies.map((text: string, index: number) => ({ 
+          id: `${lead.id}-${index}`, 
+          text, 
+          isRefining: false 
+        })));
       } else {
         throw new Error("Invalid response format from API.");
       }
@@ -71,12 +97,12 @@ export const ReplyModal = ({ lead, isOpen, onClose, onLeadUpdate }: Props) => {
 
     setReplyOptions(prev => prev.map(r => r.id === replyId ? { ...r, isRefining: true } : r));
     try {
-        const token = await getToken();
-        const data = await api.refineReply(originalText, instruction, token);
-        setReplyOptions(prev => prev.map(r => r.id === replyId ? { ...r, text: data.refinedReply, isRefining: false } : r));
+      const token = await getToken();
+      const data = await api.refineReply(originalText, instruction, token);
+      setReplyOptions(prev => prev.map(r => r.id === replyId ? { ...r, text: data.refinedReply, isRefining: false } : r));
     } catch (err: any) {
-        setError(err.message || 'Failed to refine reply.');
-        setReplyOptions(prev => prev.map(r => r.id === replyId ? { ...r, isRefining: false } : r));
+      setError(err.message || 'Failed to refine reply.');
+      setReplyOptions(prev => prev.map(r => r.id === replyId ? { ...r, isRefining: false } : r));
     }
   };
   
@@ -122,119 +148,165 @@ export const ReplyModal = ({ lead, isOpen, onClose, onLeadUpdate }: Props) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-        <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="w-full max-w-4xl max-h-[90vh] bg-[#1a1a1b] rounded-xl border border-[#343536] overflow-hidden"
-        >
-            <div className="flex items-center justify-between p-6 border-b border-[#343536]">
-              <div className="flex items-center gap-3">
-                <Bot className="w-6 h-6 text-[#ff4500]" />
-                <div>
-                  <h2 className="text-xl font-bold text-white">AI Reply Generator</h2>
-                  <p className="text-sm text-gray-400">r/{lead.subreddit} • {lead.author}</p>
-                </div>
-              </div>
-              <button
-                onClick={onClose}
-                className="p-2 rounded-lg hover:bg-[#272729] text-gray-400 hover:text-white transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        className="w-full max-w-6xl max-h-[90vh] bg-black rounded-xl border border-zinc-800 overflow-hidden"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-zinc-800">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-orange-500/10 rounded-lg">
+              <ChatBubbleLeftIcon className="w-6 h-6 text-orange-500" />
             </div>
-            <div className="flex h-[calc(90vh-80px)]">
-              <div className="w-1/3 p-6 border-r border-[#343536] overflow-y-auto">
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="font-semibold text-white mb-2">Original Post</h3>
-                    <div className="p-4 bg-[#272729] rounded-lg">
-                      <h4 className="font-medium text-white mb-2">{lead.title}</h4>
-                      <p className="text-sm text-gray-300 leading-relaxed">{lead.body}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className={`px-2 py-1 rounded-full bg-orange-500/10 text-orange-400`}>
-                      {lead.opportunityScore}/100 opportunity
-                    </span>
-                    <span className="px-2 py-1 rounded-full bg-blue-500/10 text-blue-400">
-                      {lead.intent.replace('_', ' ')}
-                    </span>
-                  </div>
-                </div>
+            <div>
+              <h2 className={`text-xl font-bold text-white ${poppins.className}`}>
+                AI Reply Generator
+              </h2>
+              <p className={`text-sm text-gray-400 ${inter.className}`}>
+                r/{lead.subreddit} • u/{lead.author}
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClose}
+            className="text-gray-400 hover:text-white p-2"
+          >
+            <XMarkIcon className="w-5 h-5" />
+          </Button>
+        </div>
+
+        <div className="flex h-[calc(90vh-100px)]">
+          {/* Left Panel - Original Post */}
+          <div className="w-1/3 p-6 border-r border-zinc-800 overflow-y-auto">
+            <div className="space-y-4">
+              <div>
+                <h3 className={`font-semibold text-white mb-3 ${poppins.className}`}>
+                  Original Post
+                </h3>
+                <Card className="bg-zinc-900 border-zinc-800">
+                  <CardContent className="p-4">
+                    <h4 className={`font-medium text-white mb-2 ${poppins.className}`}>
+                      {lead.title}
+                    </h4>
+                    <p className={`text-sm text-gray-300 leading-relaxed ${inter.className}`}>
+                      {lead.body}
+                    </p>
+                  </CardContent>
+                </Card>
               </div>
-              <div className="flex-1 flex flex-col">
-                <div className="p-6 border-b border-[#343536]">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-white">AI-Generated Replies</h3>
-                    <button
-                      onClick={generateReplies}
-                      disabled={isGenerating}
-                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#ff4500] text-white text-sm rounded-lg hover:bg-[#ff5722] transition-colors disabled:opacity-50"
-                    >
-                      <RefreshCw className={`w-4 h-4 ${isGenerating ? 'animate-spin' : ''}`} />
-                      Regenerate
-                    </button>
-                  </div>
-                </div>
+              
+              <div className="flex flex-wrap gap-2">
+                <Badge className="bg-orange-500/10 text-orange-400 border-orange-500/20">
+                  <span className={inter.className}>
+                    {lead.opportunityScore}% opportunity
+                  </span>
+                </Badge>
+                <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20">
+                  <span className={inter.className}>
+                    {lead.intent.replace('_', ' ')}
+                  </span>
+                </Badge>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Panel - AI Replies */}
+          <div className="flex-1 flex flex-col">
+            {/* Replies Header */}
+            <div className="p-6 border-b border-zinc-800">
+              <div className="flex items-center justify-between">
+                <h3 className={`font-semibold text-white ${poppins.className}`}>
+                  AI-Generated Replies
+                </h3>
+                <Button
+                  onClick={generateReplies}
+                  disabled={isGenerating}
+                  variant="outline"
+                  size="sm"
+                  className="border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white"
+                >
+                  <ArrowPathIcon className={`w-4 h-4 mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
+                  <span className={inter.className}>Regenerate</span>
+                </Button>
+              </div>
+            </div>
+
+            {/* Error/Success Messages */}
+            <AnimatePresence>
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                >
+                  <Card className="mx-6 mt-4 bg-red-500/5 border-red-500/20">
+                    <CardContent className="p-3">
+                      <div className="flex items-center gap-2">
+                        <ExclamationCircleIcon className="w-4 h-4 text-red-400" />
+                        <span className={`text-red-400 text-sm ${inter.className}`}>
+                          {error}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+              {success && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                >
+                  <Card className="mx-6 mt-4 bg-green-500/5 border-green-500/20">
+                    <CardContent className="p-3">
+                      <div className="flex items-center gap-2">
+                        <CheckCircleIcon className="w-4 h-4 text-green-400" />
+                        <span className={`text-green-400 text-sm ${inter.className}`}>
+                          {success}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Replies Content */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {isGenerating ? (
+                <ReplyLoader />
+              ) : (
                 <AnimatePresence>
-                  {error && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="mx-6 mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-2"
-                    >
-                      <AlertCircle className="w-4 h-4 text-red-400" />
-                      <span className="text-red-400 text-sm">{error}</span>
-                    </motion.div>
-                  )}
-                  {success && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="mx-6 mt-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg flex items-center gap-2"
-                    >
-                      <CheckCircle className="w-4 h-4 text-green-400" />
-                      <span className="text-green-400 text-sm">{success}</span>
-                    </motion.div>
-                  )}
+                  {replyOptions.map((reply, index) => (
+                    <ReplyOptionCard
+                      key={reply.id}
+                      reply={reply}
+                      lead={lead}
+                      index={index}
+                      activeEditId={activeEditId}
+                      editText={editText}
+                      refinementInstruction={refinementInstruction}
+                      copiedReplyId={copiedReplyId}
+                      onStartEdit={startEditing}
+                      onSaveEdit={saveEdit}
+                      onCancelEdit={() => setActiveEditId(null)}
+                      onEditTextChange={setEditText}
+                      onRefinementChange={setRefinementInstruction}
+                      onRefine={refineReply}
+                      onCopy={copyReply}
+                      onReply={handleReply}
+                    />
+                  ))}
                 </AnimatePresence>
-                <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                  {isGenerating ? (
-                    <div className="flex flex-col items-center justify-center h-64">
-                      <Loader className="w-8 h-8 text-[#ff4500] animate-spin mb-4" />
-                      <p className="text-gray-400">Generating AI replies...</p>
-                    </div>
-                  ) : (
-                    <AnimatePresence>
-                      {replyOptions.map((reply, index) => (
-                        <ReplyOptionCard
-                          key={reply.id}
-                          reply={reply}
-                          lead={lead}
-                          index={index}
-                          activeEditId={activeEditId}
-                          editText={editText}
-                          refinementInstruction={refinementInstruction}
-                          copiedReplyId={copiedReplyId}
-                          onStartEdit={startEditing}
-                          onSaveEdit={saveEdit}
-                          onCancelEdit={() => setActiveEditId(null)}
-                          onEditTextChange={setEditText}
-                          onRefinementChange={setRefinementInstruction}
-                          onRefine={refineReply}
-                          onCopy={copyReply}
-                          onReply={handleReply}
-                        />
-                      ))}
-                    </AnimatePresence>
-                  )}
-                </div>
-              </div>
+              )}
             </div>
-        </motion.div>
+          </div>
+        </div>
+      </motion.div>
     </div>
   );
 };
@@ -274,115 +346,144 @@ const ReplyOptionCard = ({
   onCopy,
   onReply
 }: ReplyOptionCardProps) => {
-    const [showRefinement, setShowRefinement] = useState(false);
-    const isEditing = activeEditId === reply.id;
-    const isCopied = copiedReplyId === reply.id;
+  const [showRefinement, setShowRefinement] = useState(false);
+  const isEditing = activeEditId === reply.id;
+  const isCopied = copiedReplyId === reply.id;
 
-    return (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-            className="bg-[#272729] p-4 rounded-lg border border-[#343536]"
-        >
-            <div className="flex justify-between items-start mb-3">
-                <span className="text-sm font-medium text-gray-400">Option {index + 1}</span>
-                {reply.isRefining && (
-                <Loader className="w-4 h-4 text-[#ff4500] animate-spin" />
-                )}
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.1 }}
+    >
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex justify-between items-center">
+            <CardTitle className={`text-sm font-medium text-gray-400 ${inter.className}`}>
+              Option {index + 1}
+            </CardTitle>
+            {reply.isRefining && <RefiningLoader />}
+          </div>
+        </CardHeader>
+        
+        <CardContent className="space-y-4">
+          {isEditing ? (
+            <div className="space-y-3">
+              <Textarea
+                value={editText}
+                onChange={(e) => onEditTextChange(e.target.value)}
+                className="min-h-[100px] bg-zinc-900 border-zinc-700 text-white focus:border-orange-500"
+                placeholder="Edit your reply..."
+              />
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={onSaveEdit}
+                  size="sm"
+                  className="bg-orange-500 hover:bg-orange-600 text-white"
+                >
+                  <span className={inter.className}>Save Changes</span>
+                </Button>
+                <Button
+                  onClick={onCancelEdit}
+                  variant="outline"
+                  size="sm"
+                  className="border-zinc-700 text-gray-300 hover:bg-zinc-800 hover:text-white"
+                >
+                  <span className={inter.className}>Cancel</span>
+                </Button>
+              </div>
             </div>
-            {isEditing ? (
-                <div className="space-y-3">
-                    <textarea
-                        value={editText}
-                        onChange={(e) => onEditTextChange(e.target.value)}
-                        className="w-full p-2 bg-[#1a1a1b] text-white rounded-md border border-[#343536] focus:border-[#ff4500] focus:outline-none"
-                        rows={4}
-                    />
-                    <div className="flex items-center gap-2">
-                        <button
-                        onClick={onSaveEdit}
-                        className="px-3 py-1.5 bg-[#ff4500] text-white text-sm rounded-lg hover:bg-[#ff5722] transition-colors"
-                        >
-                        Save Changes
-                        </button>
-                        <button
-                        onClick={onCancelEdit}
-                        className="px-3 py-1.5 bg-[#343536] text-white text-sm rounded-lg hover:bg-[#404041] transition-colors"
-                        >
-                        Cancel
-                        </button>
-                    </div>
-                </div>
-            ) : (
-                <p className="text-white leading-relaxed mb-4">{reply.text}</p>
-            )}
-            {showRefinement && !isEditing && (
-                <div className="mt-4 p-3 bg-[#1a1a1b] rounded-lg border border-[#343536]">
-                <input
-                    type="text"
-                    value={refinementInstruction}
-                    onChange={(e) => onRefinementChange(e.target.value)}
-                    placeholder="How would you like to refine this reply? (e.g., 'make it shorter', 'be more technical')"
-                    className="w-full p-2 bg-transparent text-white border-b border-[#343536] focus:border-[#ff4500] focus:outline-none"
+          ) : (
+            <p className={`text-white leading-relaxed ${inter.className}`}>
+              {reply.text}
+            </p>
+          )}
+
+          {showRefinement && !isEditing && (
+            <Card className="bg-zinc-900 border-zinc-800">
+              <CardContent className="p-4 space-y-3">
+                <Input
+                  value={refinementInstruction}
+                  onChange={(e) => onRefinementChange(e.target.value)}
+                  placeholder="How would you like to refine this reply? (e.g., 'make it shorter', 'be more technical')"
+                  className="bg-transparent border-zinc-700 text-white focus:border-orange-500"
                 />
-                <div className="flex items-center gap-2 mt-3">
-                    <button
+                <div className="flex items-center gap-2">
+                  <Button
                     onClick={() => {
-                        onRefine(reply.id, refinementInstruction);
-                        setShowRefinement(false);
+                      onRefine(reply.id, refinementInstruction);
+                      setShowRefinement(false);
                     }}
                     disabled={!refinementInstruction.trim() || reply.isRefining}
-                    className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                    >
-                    Apply Refinement
-                    </button>
-                    <button
+                    size="sm"
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <span className={inter.className}>Apply Refinement</span>
+                  </Button>
+                  <Button
                     onClick={() => setShowRefinement(false)}
-                    className="px-3 py-1.5 text-gray-400 text-sm hover:text-white transition-colors"
-                    >
-                    Cancel
-                    </button>
+                    variant="ghost"
+                    size="sm"
+                    className="text-gray-400 hover:text-white"
+                  >
+                    <span className={inter.className}>Cancel</span>
+                  </Button>
                 </div>
-                </div>
-            )}
-            {!isEditing && (
-                <div className="flex items-center gap-2 pt-3 border-t border-[#343536]">
-                    <button
-                        onClick={() => onCopy(reply.id, reply.text)}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors text-sm ${
-                        isCopied 
-                            ? 'bg-green-600 text-white' 
-                            : 'bg-gray-600 text-white hover:bg-gray-700'
-                        }`}
-                    >
-                        {isCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                        {isCopied ? 'Copied!' : 'Copy'}
-                    </button>
-                    <button
-                        onClick={() => onReply(reply.text)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#ff4500] text-white rounded-lg hover:bg-[#ff5722] transition-colors text-sm"
-                    >
-                        <ExternalLink className="w-4 h-4" />
-                        Reply on Reddit
-                    </button>
-                    <button
-                        onClick={() => onStartEdit(reply.id, reply.text)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-gray-400 hover:text-white hover:bg-[#343536] rounded-lg transition-colors text-sm"
-                    >
-                        <Edit3 className="w-4 h-4" />
-                        Edit
-                    </button>
-                    <button
-                        onClick={() => setShowRefinement(!showRefinement)}
-                        disabled={reply.isRefining}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-gray-400 hover:text-white hover:bg-[#343536] rounded-lg transition-colors text-sm disabled:opacity-50"
-                    >
-                        <RefreshCw className="w-4 h-4" />
-                        Refine
-                    </button>
-                </div>
-            )}
-        </motion.div>
-    );
+              </CardContent>
+            </Card>
+          )}
+
+          {!isEditing && (
+            <div className="flex items-center gap-2 pt-3 border-t border-zinc-800">
+              <Button
+                onClick={() => onCopy(reply.id, reply.text)}
+                variant="outline"
+                size="sm"
+                className={`${
+                  isCopied 
+                    ? 'bg-green-500/10 text-green-400 border-green-500/20' 
+                    : 'border-zinc-700 text-gray-300 hover:bg-zinc-800 hover:text-white'
+                }`}
+              >
+                {isCopied ? <CheckIcon className="w-4 h-4 mr-1" /> : <DocumentDuplicateIcon className="w-4 h-4 mr-1" />}
+                <span className={inter.className}>
+                  {isCopied ? 'Copied!' : 'Copy'}
+                </span>
+              </Button>
+              
+              <Button
+                onClick={() => onReply(reply.text)}
+                size="sm"
+                className="bg-orange-500 hover:bg-orange-600 text-white"
+              >
+                <ArrowTopRightOnSquareIcon className="w-4 h-4 mr-1" />
+                <span className={inter.className}>Reply on Reddit</span>
+              </Button>
+              
+              <Button
+                onClick={() => onStartEdit(reply.id, reply.text)}
+                variant="ghost"
+                size="sm"
+                className="text-gray-400 hover:text-white hover:bg-zinc-800"
+              >
+                <PencilSquareIcon className="w-4 h-4 mr-1" />
+                <span className={inter.className}>Edit</span>
+              </Button>
+              
+              <Button
+                onClick={() => setShowRefinement(!showRefinement)}
+                disabled={reply.isRefining}
+                variant="ghost"
+                size="sm"
+                className="text-gray-400 hover:text-white hover:bg-zinc-800 disabled:opacity-50"
+              >
+                <ArrowPathIcon className="w-4 h-4 mr-1" />
+                <span className={inter.className}>Refine</span>
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
 };

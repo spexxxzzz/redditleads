@@ -231,4 +231,43 @@ export const api = {
     if (!response.ok) throw new Error('Failed to delete account');
     return response.json();
   },
+  getLeadTrends: async (campaignId: string, token: string | null) => {
+    const response = await fetch(`${API_BASE_URL}/api/analytics/trends/${campaignId}`, {
+      headers: getAuthHeaders(token)
+    });
+    if (!response.ok) throw new Error('Failed to fetch lead trends');
+    return response.json();
+  },
+
+  getSubredditPerformance: async (campaignId: string, token: string | null) => {
+    const response = await fetch(`${API_BASE_URL}/api/analytics/subreddit-performance/${campaignId}`, {
+      headers: getAuthHeaders(token)
+    });
+    if (!response.ok) throw new Error('Failed to fetch subreddit performance');
+    return response.json();
+  },
+
+  getAnalyticsMetrics: async (campaignId: string, token: string | null) => {
+    const response = await fetch(`${API_BASE_URL}/api/analytics/metrics/${campaignId}`, {
+      headers: getAuthHeaders(token)
+    });
+    if (!response.ok) throw new Error('Failed to fetch analytics metrics');
+    return response.json();
+  },
+
+  getWeeklyActivity: async (campaignId: string, token: string | null) => {
+    const response = await fetch(`${API_BASE_URL}/api/analytics/weekly-activity/${campaignId}`, {
+      headers: getAuthHeaders(token)
+    });
+    if (!response.ok) throw new Error('Failed to fetch weekly activity');
+    return response.json();
+  },
+
+  getOpportunityDistribution: async (campaignId: string, token: string | null) => {
+    const response = await fetch(`${API_BASE_URL}/api/analytics/opportunity-distribution/${campaignId}`, {
+      headers: getAuthHeaders(token)
+    });
+    if (!response.ok) throw new Error('Failed to fetch opportunity distribution');
+    return response.json();
+  }
 };

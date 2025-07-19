@@ -2,7 +2,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LeadCard } from './LeadCard';
-import { RefreshCw, Inbox } from 'lucide-react';
+import { RefreshCw, Inbox, Send, Bookmark } from 'lucide-react';
 import { Inter, Poppins } from 'next/font/google';
 import LoadingLeads from '../loading/LoadingLeads';
 
@@ -34,6 +34,7 @@ interface LeadFeedProps {
   isRunningDiscovery: boolean;
   onLeadUpdate: (leadId: string, status: Lead['status']) => void;
   isLoading?: boolean;
+  activeFilter: string; // Add this prop
 }
 
 const containerVariants = {
@@ -46,12 +47,37 @@ const containerVariants = {
   }
 };
 
+const emptyStateMessages = {
+  new: {
+    icon: Inbox,
+    title: "No new leads",
+    message: "Your inbox is clear. Run a discovery to find new leads.",
+  },
+  replied: {
+    icon: Send,
+    title: "No replied leads",
+    message: "You haven't replied to any leads yet. Engage with a new lead!",
+  },
+  saved: {
+    icon: Bookmark,
+    title: "No saved leads",
+    message: "You haven't saved any leads. Save interesting leads for later.",
+  },
+  all: {
+    icon: Inbox,
+    title: "No leads found",
+    message: "Run a discovery to start finding leads for your campaign.",
+  },
+};
+
+
 export const LeadFeed: React.FC<LeadFeedProps> = ({ 
   leads, 
   onManualDiscovery, 
   isRunningDiscovery,
   onLeadUpdate,
-  isLoading = false
+  isLoading = false,
+  activeFilter 
 }) => {
   if (isLoading) {
     return <LoadingLeads />;
@@ -59,15 +85,17 @@ export const LeadFeed: React.FC<LeadFeedProps> = ({
 
   // Show empty state
   if (leads.length === 0) {
+    const { icon: Icon, title, message } = emptyStateMessages[activeFilter as keyof typeof emptyStateMessages] || emptyStateMessages.all;
+
     return (
       <div className="min-h-screen bg-black">
         <div className="text-center py-20">
-          <Inbox className="w-16 h-16 text-gray-500 mx-auto mb-4" />
+          <Icon className="w-16 h-16 text-gray-500 mx-auto mb-4" />
           <h3 className={`text-xl font-semibold text-white ${poppins.className}`}>
-            No leads in this view
+            {title}
           </h3>
           <p className={`text-gray-400 mt-2 ${inter.className}`}>
-            Try adjusting your filters or run a new discovery.
+            {message}
           </p>
           <button
             onClick={onManualDiscovery}

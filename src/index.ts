@@ -18,6 +18,7 @@ import { getUserUsage } from './controllers/aiusage.controller';
 import { RequestHandler } from 'express';
 import userRouter from './routes/user';
 import clerkWebhookRouter from './routes/clerk.webhook';
+import analyticsRouter from './routes/analytics';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -46,6 +47,8 @@ app.use('/api/reddit', redditRouter);
 app.get('/api/users/:userId/usage', getUserUsage as RequestHandler);
 app.use('/api/webhook', webhookRouter);
 app.use('/api/user', userRouter); // Add the new user router
+app.use('/api/analytics', analyticsRouter); // Add this line
+
 
 
 app.use((err: any, req: any, res: any, next: any) => {
@@ -58,5 +61,5 @@ app.use((err: any, req: any, res: any, next: any) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
-  // initializeScheduler();
+  initializeScheduler();
 });

@@ -82,6 +82,15 @@ export const handleRedditCallback: RequestHandler = async (req, res, next) => {
                 redditUsername: me.name,
             }
         });
+        const metadataPayload = {
+            publicMetadata: {
+                hasConnectedReddit: true,
+                redditUsername: me.name,
+            }
+        };
+
+        console.log(`[LOG] Backend: Attempting to update Clerk metadata for user ${user.id} with payload:`, metadataPayload);
+
 
         
         // Also update Clerk's public metadata for easy frontend access
@@ -90,6 +99,9 @@ export const handleRedditCallback: RequestHandler = async (req, res, next) => {
                 redditUsername: me.name,
             }
         });
+
+        console.log(`[LOG] Backend: Successfully called clerkClient.users.updateUser for user ${user.id}.`);
+        
 
         console.log(`✅ Reddit account connected for user ${user.id}: u/${me.name}`);
         res.redirect(`${process.env.FRONTEND_URL}/connect-reddit?status=success`);
