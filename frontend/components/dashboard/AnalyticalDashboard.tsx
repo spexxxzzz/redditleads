@@ -15,11 +15,9 @@ import {
   ChartBarIcon,
   TrophyIcon,
   FireIcon,
-  XMarkIcon
+  XMarkIcon,
+  ArrowTrendingUpIcon
 } from '@heroicons/react/24/outline';
-import { 
-  TrendingUpIcon
-} from 'lucide-react';
 import { 
   LineChart, 
   Line, 
@@ -41,6 +39,7 @@ import { Inter, Poppins } from 'next/font/google';
 import { api } from '@/lib/api';
 import { useAuth } from '@clerk/nextjs';
 import LoadingLeads from '../loading/LoadingLeads';
+import PulsatingDotsLoaderDashboard from '../loading/LoadingDashboard';
 
 const inter = Inter({ subsets: ['latin'] });
 const poppins = Poppins({
@@ -176,16 +175,17 @@ export const AnalyticalDashboard = ({ campaigns, activeCampaign, leadStats, allL
             opportunityDescription: "No data available",
             opportunityTrend: "steady"
           },
+          // 🎨 UPDATED: Orange tinted pie chart colors
           opportunityDistribution: opportunityResponse.data || [
-            { name: 'High', value: 0, color: '#22c55e' },
-            { name: 'Medium', value: 0, color: '#f59e0b' },
-            { name: 'Low', value: 0, color: '#ef4444' }
+            { name: 'High', value: 0, color: '#ff4500' },    // Bright Reddit orange
+            { name: 'Medium', value: 0, color: '#ff6a00' },  // Medium orange
+            { name: 'Low', value: 0, color: '#cc3700' }      // Darker orange
           ],
           weeklyActivity: activityResponse.data || []
         });
       } catch (error) {
         console.error('❌ Failed to fetch analytics:', error);
-        // Set fallback data on error
+        // Set fallback data on error with orange theme
         setAnalyticsData({
           trends: [],
           subredditPerformance: [],
@@ -203,10 +203,11 @@ export const AnalyticalDashboard = ({ campaigns, activeCampaign, leadStats, allL
             opportunityDescription: "Unable to load data",
             opportunityTrend: "steady"
           },
+          // 🎨 UPDATED: Orange tinted fallback colors
           opportunityDistribution: [
-            { name: 'High', value: 0, color: '#22c55e' },
-            { name: 'Medium', value: 0, color: '#f59e0b' },
-            { name: 'Low', value: 0, color: '#ef4444' }
+            { name: 'High', value: 0, color: '#ff4500' },    // Bright Reddit orange
+            { name: 'Medium', value: 0, color: '#ff6a00' },  // Medium orange
+            { name: 'Low', value: 0, color: '#cc3700' }      // Darker orange
           ],
           weeklyActivity: []
         });
@@ -404,9 +405,9 @@ export const AnalyticalDashboard = ({ campaigns, activeCampaign, leadStats, allL
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="flex flex-col items-center space-y-4">
-          <LoadingLeads />
+         <PulsatingDotsLoaderDashboard/>
           <p className={`text-gray-400 text-sm ${inter.className}`}>
-            Loading analytics...
+            Hang on! We're fetching your dashboard data...
           </p>
         </div>
       </div>
@@ -468,7 +469,7 @@ export const AnalyticalDashboard = ({ campaigns, activeCampaign, leadStats, allL
               value={`${conversionRate}%`}
               change={analyticsData?.metrics?.conversionChange || "+0%"}
               description={analyticsData?.metrics?.conversionDescription || "No data"}
-              icon={TrendingUpIcon}
+              icon={ArrowTrendingUpIcon}
               trend={analyticsData?.metrics?.conversionTrend || "steady"}
             />
             

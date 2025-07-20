@@ -151,10 +151,7 @@ const PricingComponent: React.FC = () => {
     <section className="relative py-20 sm:py-32 overflow-hidden bg-black">
       {/* Background Elements */}
       <div className="absolute inset-0">
-        {/* Dark gradient background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-black"></div>
-        
-        {/* Animated background orbs */}
+        {/* Animated background orbs - Orange only, no blue */}
         <motion.div
           animate={{ 
             x: [0, 30, 0],
@@ -181,7 +178,7 @@ const PricingComponent: React.FC = () => {
             ease: "easeInOut",
             delay: 5
           }}
-          className="absolute bottom-1/3 right-1/4 w-40 h-40 sm:w-80 sm:h-80 bg-gradient-to-tl from-blue-500/8 to-blue-400/4 rounded-full blur-3xl opacity-30"
+          className="absolute bottom-1/3 right-1/4 w-40 h-40 sm:w-80 sm:h-80 bg-gradient-to-tl from-orange-500/8 to-orange-400/4 rounded-full blur-3xl opacity-30"
         />
       </div>
 
@@ -249,8 +246,6 @@ const PricingComponent: React.FC = () => {
                       : 'border-gray-700 bg-gray-900/30 hover:border-gray-600 backdrop-blur-sm'
                   }`}
                 >
-                  {/* Removed Popular Badge - No more "Most Popular" text */}
-
                   <div className="relative flex h-full flex-col justify-between p-6">
                     {/* Plan Header */}
                     <div className="flex flex-col gap-4">
@@ -330,8 +325,6 @@ const PricingComponent: React.FC = () => {
             <p className={`text-sm text-gray-400 ${inter.className}`}>
               All plans include 7-day free trial. No credit card required.
             </p>
-            
-            
           </motion.div>
         </motion.div>
       </div>

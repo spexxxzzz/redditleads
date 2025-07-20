@@ -1,177 +1,81 @@
 "use client";
-import React, { useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import React from "react";
+import { motion, Variants } from "framer-motion";
 import {
   LinkIcon,
   MagnifyingGlassIcon,
   ChatBubbleLeftRightIcon,
 } from "@heroicons/react/24/outline";
-import { CardSpotlight } from "@/components/ui/card-spotlight";
-import { Poppins } from "next/font/google";
+import { Inter, Poppins } from 'next/font/google';
 
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "600", "700", "800", "900"],
+const inter = Inter({ subsets: ['latin'] });
+const poppins = Poppins({ 
+  subsets: ['latin'], 
+  weight: ['400', '600', '700', '800', '900'] 
 });
 
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { 
-    opacity: 1, 
-    y: 0,
-    transition: { duration: 0.5 }
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.2
+    }
   }
 };
 
-const REDDIT_ORANGE = "#FF4500";
-const REDDIT_DEEP_ORANGE = "#FF6B00";
-const REDDIT_LIGHT_ORANGE = "#FF7A00";
+const itemVariants: Variants = {
+  hidden: { opacity: 0, y: 30 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.6, ease: [0.42, 0, 0.58, 1] }
+  }
+};
 
 const steps = [
   {
     title: "Connect Your Business",
-    description:
-      "Paste your website URL. Our AI instantly analyzes your business and identifies your ideal customers.",
+    description: "Paste your website URL. Our AI instantly analyzes your business and identifies your ideal customers.",
     icon: LinkIcon,
-    color: REDDIT_ORANGE,
+    features: [
+      "Instant business analysis",
+      "Customer persona detection",
+      "Market opportunity mapping",
+      "Competitive landscape scan"
+    ]
   },
   {
-    title: "AI Finds Your Leads",
-    description:
-      "Our intelligent system scans Reddit 24/7, identifying warm prospects who are actively seeking solutions like yours.",
+    title: "AI Finds Your Leads", 
+    description: "Our intelligent system scans Reddit 24/7, identifying warm prospects who are actively seeking solutions like yours.",
     icon: MagnifyingGlassIcon,
-    color: REDDIT_DEEP_ORANGE,
+    features: [
+      "24/7 Reddit monitoring",
+      "Intent-based lead detection",
+      "Real-time opportunity alerts",
+      "Qualified prospect scoring"
+    ]
   },
   {
     title: "Start Converting",
-    description:
-      "Get qualified leads delivered to your inbox with AI-generated responses ready to send. No manual work required.",
+    description: "Get qualified leads delivered to your inbox with AI-generated responses ready to send. No manual work required.",
     icon: ChatBubbleLeftRightIcon,
-    color: REDDIT_LIGHT_ORANGE,
+    features: [
+      "AI-generated responses",
+      "Ready-to-send messages",
+      "Automated lead delivery",
+      "Conversion tracking"
+    ]
   },
 ];
 
-/* ────────────────────────────────────────────────────────────────── */
-/* Card that can be expanded into a full-screen modal                */
-/* ────────────────────────────────────────────────────────────────── */
-const ExpandableStepCard = ({
-  step,
-  onExpand,
-}: {
-  step: (typeof steps)[number];
-  onExpand: () => void;
-}) => (
-  <CardSpotlight
-    onClick={onExpand}
-    color={step.color}
-    radius={350}
-    className="cursor-pointer h-[340px] flex flex-col justify-between transition-all duration-300 hover:scale-[1.03] border-white/10 bg-gray-900/50 backdrop-blur-xl"
-  >
-    <div className="relative z-20 flex flex-col items-center text-center px-6 py-8 space-y-6 overflow-hidden h-full">
-      <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-white/[0.06] shadow-lg">
-        <step.icon className="w-8 h-8 text-gray-300" />
-      </div>
-      <h3 className={`text-2xl font-semibold text-white ${poppins.className}`}>
-        {step.title}
-      </h3>
-      <p
-        className={`text-gray-400 text-base leading-relaxed line-clamp-3 flex-1 ${poppins.className}`}
-      >
-        {step.description}
-      </p>
-      <span className="text-sm text-orange-400 mt-auto">Click for details →</span>
-    </div>
-  </CardSpotlight>
-);
-
-/* ────────────────────────────────────────────────────────────────── */
-/* Full-screen modal shown when a card is expanded                   */
-/* ────────────────────────────────────────────────────────────────── */
-const ModalStep = ({
-  step,
-  onClose,
-}: {
-  step: (typeof steps)[number];
-  onClose: () => void;
-}) => (
-  <motion.div
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    exit={{ opacity: 0 }}
-    className="fixed inset-0 z-50 flex items-center justify-center p-4"
-    onClick={onClose}
-  >
-    <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
-    <motion.div
-      onClick={(e) => e.stopPropagation()}
-      initial={{ scale: 0.8, y: 50 }}
-      animate={{ scale: 1, y: 0 }}
-      exit={{ scale: 0.8, y: 50 }}
-      transition={{ duration: 0.35 }}
-      className="relative z-10 w-full max-w-xl"
-    >
-      <CardSpotlight
-        color={step.color}
-        radius={400}
-        className="p-10 border-white/20 bg-gray-900/80 backdrop-blur-xl"
-      >
-        <div className="relative z-20">
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 text-orange-300 hover:text-white text-xl"
-          >
-            ✕
-          </button>
-
-          <div className="flex flex-col items-center text-center space-y-6">
-            <div className="flex items-center justify-center w-20 h-20 rounded-3xl bg-white/[0.06] shadow-lg">
-              <step.icon className="w-10 h-10 text-gray-200" />
-            </div>
-
-            <h3 className={`text-3xl font-bold text-white ${poppins.className}`}>
-              {step.title}
-            </h3>
-
-            <p className={`text-gray-300 text-lg ${poppins.className}`}>
-              {step.description}
-            </p>
-
-            <div className="pt-6">
-              <button
-                onClick={onClose}
-                className="px-8 py-4 bg-gray-800/70 rounded-2xl font-semibold text-white hover:bg-gray-700/80 transition-colors border border-gray-600/50"
-              >
-                Got it!
-              </button>
-            </div>
-          </div>
-        </div>
-      </CardSpotlight>
-    </motion.div>
-  </motion.div>
-);
-
-/* ────────────────────────────────────────────────────────────────── */
-/* Main exported section                                             */
-/* ────────────────────────────────────────────────────────────────── */
 export function HowToDo() {
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
-
   return (
-    <section className="relative py-24 sm:py-32 overflow-hidden">
-      {/* Black Background - Matching Hero Component */}
-      <div className="absolute inset-0 z-10">
-        {/* Primary Black Base */}
-        <div className="absolute inset-0 bg-black"></div>
-        
-        {/* Subtle Dark Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-black/40 to-black/20 opacity-70"></div>
-       
-        {/* Minimal Radial Gradients */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.03),transparent_70%)] opacity-50"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(255,255,255,0.02),transparent_70%)] opacity-40"></div>
-    
-        {/* Subtle Floating Orbs */}
+    <section className="relative py-20 sm:py-32 overflow-hidden bg-black">
+      {/* Background Elements */}
+      <div className="absolute inset-0">
+        {/* Animated background orbs - Orange only, no blue */}
         <motion.div
           animate={{ 
             x: [0, 30, 0],
@@ -183,7 +87,7 @@ export function HowToDo() {
             repeat: Infinity, 
             ease: "easeInOut" 
           }}
-          className="absolute top-1/4 left-1/3 w-48 h-48 sm:w-96 sm:h-96 bg-gradient-to-br from-white/5 to-white/2 rounded-full blur-3xl opacity-30"
+          className="absolute top-1/4 left-1/3 w-48 h-48 sm:w-96 sm:h-96 bg-gradient-to-br from-orange-500/10 to-orange-400/5 rounded-full blur-3xl opacity-50"
         />
         
         <motion.div
@@ -198,92 +102,108 @@ export function HowToDo() {
             ease: "easeInOut",
             delay: 5
           }}
-          className="absolute bottom-1/3 right-1/4 w-40 h-40 sm:w-80 sm:h-80 bg-gradient-to-tl from-white/3 to-white/1 rounded-full blur-3xl opacity-20"
+          className="absolute bottom-1/3 right-1/4 w-40 h-40 sm:w-80 sm:h-80 bg-gradient-to-tl from-orange-500/8 to-orange-400/4 rounded-full blur-3xl opacity-30"
         />
       </div>
-      
-      {/* Enhanced Spotlight Beam */}
-      <div className="absolute inset-0 pointer-events-none z-5">
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-          {/* Main spotlight */}
-          <div className="w-[800px] h-[800px] bg-gradient-radial from-orange-400/20 via-orange-300/10 to-transparent rounded-full blur-2xl"></div>
-          {/* Inner glow */}
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-gradient-radial from-orange-300/30 via-orange-200/15 to-transparent rounded-full blur-xl"></div>
-          {/* Core light */}
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[200px] h-[200px] bg-gradient-radial from-orange-200/40 to-transparent rounded-full blur-lg"></div>
-        </div>
+
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-100px" }}
+          className="space-y-12"
+        >
+          {/* Header */}
+          <motion.div variants={itemVariants} className="text-center">
+            <h2 className={`text-4xl sm:text-5xl lg:text-6xl font-black text-white mb-6 leading-tight ${poppins.className}`}>
+              Get Started in{" "}
+              <span className="text-orange-500">
+                3 Simple Steps
+              </span>
+            </h2>
+            <p className={`text-lg text-gray-300 max-w-2xl mx-auto leading-relaxed ${inter.className}`}>
+              From setup to your first qualified lead in under 5 minutes
+            </p>
+          </motion.div>
+
+          {/* Steps Cards */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {steps.map((step, index) => {
+              const IconComponent = step.icon;
+              
+              return (
+                <motion.div
+                  key={index}
+                  variants={itemVariants}
+                  className="relative h-full rounded-2xl border border-gray-700 bg-gray-900/30 hover:border-gray-600 backdrop-blur-sm transition-all duration-300 hover:shadow-xl"
+                >
+                  <div className="relative flex h-full flex-col justify-between p-6">
+                    {/* Step Number Badge */}
+                    <div className="absolute -top-3 left-6">
+                      <div className="flex items-center justify-center w-6 h-6 bg-orange-500 text-white text-xs font-bold rounded-full">
+                        {index + 1}
+                      </div>
+                    </div>
+
+                    {/* Step Header */}
+                    <div className="flex flex-col gap-4 mt-2">
+                      <div className="flex flex-col gap-3">
+                        {/* Icon */}
+                        <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gray-800/50 border border-gray-700">
+                          <IconComponent className="w-6 h-6 text-orange-400" />
+                        </div>
+                        
+                        <h3 className={`text-xl font-semibold text-white ${poppins.className}`}>
+                          {step.title}
+                        </h3>
+                        
+                        <p className={`text-gray-400 text-sm leading-relaxed ${inter.className}`}>
+                          {step.description}
+                        </p>
+                      </div>
+
+                      <hr className="border-gray-700" />
+
+                      {/* Features */}
+                      <div className="flex flex-col gap-3">
+                        <p className={`text-xs font-semibold text-gray-500 uppercase tracking-wider ${inter.className}`}>
+                          What you get
+                        </p>
+                        
+                        <div className="flex flex-col gap-2">
+                          {step.features.map((feature, featureIndex) => (
+                            <div key={featureIndex} className="flex items-center gap-2">
+                              <div className="w-1.5 h-1.5 bg-orange-400 rounded-full flex-shrink-0" />
+                              <span className={`text-sm text-gray-300 ${inter.className}`}>
+                                {feature}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+
+          {/* Bottom CTA */}
+          <motion.div variants={itemVariants} className="text-center">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className={`bg-gradient-to-r from-orange-600 via-orange-500 to-orange-400 text-white hover:from-orange-700 hover:via-orange-600 hover:to-orange-500 px-8 py-4 rounded-lg font-semibold transition-all duration-300 shadow-lg shadow-orange-500/25 ${poppins.className}`}
+            >
+              Start Your 7-Day Free Trial
+            </motion.button>
+            <p className={`text-sm text-gray-400 mt-4 ${inter.className}`}>
+              No credit card required • Get started in seconds
+            </p>
+          </motion.div>
+        </motion.div>
       </div>
-
-      <div className="relative z-20 mx-auto max-w-7xl px-6 lg:px-8">
-        {/* Header */}
-        <div className="text-center mb-16">
-          <h2
-            className={`text-4xl sm:text-5xl font-bold text-white tracking-tight ${poppins.className}`}
-          >
-            Onboard in{" "}
-            <span className="bg-gradient-to-r from-[#FF4500] via-[#FF6B00] to-[#FF7A00] bg-clip-text text-transparent">
-              3 Simple Steps
-            </span>
-          </h2>
-          <p
-            className={`mt-4 text-lg text-gray-400 max-w-2xl mx-auto ${poppins.className}`}
-          >
-            Start generating leads from Reddit in under two minutes with our
-            seamless onboarding experience.
-          </p>
-        </div>
-
-        {/* Steps */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-          {steps.map((step, idx) => (
-            <motion.div key={step.title} variants={itemVariants}>
-              <ExpandableStepCard
-                step={step}
-                onExpand={() => setOpenIndex(idx)}
-              />
-            </motion.div>
-          ))}
-        </div>
-      </div>
-
-      {/* Modal */}
-      <AnimatePresence>
-        {openIndex !== null && (
-          <ModalStep
-            step={steps[openIndex]}
-            onClose={() => setOpenIndex(null)}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Minimal Floating Elements - From Hero */}
-      <motion.div
-        animate={{ 
-          y: [0, -15, 0],
-          opacity: [0.1, 0.3, 0.1]
-        }}
-        transition={{ 
-          duration: 12, 
-          repeat: Infinity, 
-          ease: "easeInOut" 
-        }}
-        className="absolute top-20 right-20 size-1 bg-white/20 rounded-full z-20"
-      />
-      
-      <motion.div
-        animate={{ 
-          y: [0, 20, 0],
-          x: [0, 10, 0],
-          opacity: [0.1, 0.2, 0.1]
-        }}
-        transition={{ 
-          duration: 16, 
-          repeat: Infinity, 
-          ease: "easeInOut",
-          delay: 3
-        }}
-        className="absolute bottom-32 left-16 size-1 bg-white/15 rounded-full z-20"
-      />
     </section>
   );
 }
