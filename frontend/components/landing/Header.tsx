@@ -40,7 +40,7 @@ export const Header = () => {
       <div className="relative max-w-7xl mx-auto px-8 py-6">
         <nav className="flex items-center justify-between relative">
           
-          {/* Logo - Forced Poppins with Inline Style */}
+          {/* Logo */}
           <div className="flex items-center">
             <Link className="flex items-center gap-3 hover:opacity-80 transition-opacity" href="/">
               <span 
@@ -55,7 +55,7 @@ export const Header = () => {
             </Link>
           </div>
 
-          {/* Navigation - Forced Poppins */}
+          {/* Navigation */}
           <nav className="hidden md:flex items-center gap-8 text-[16px] text-white/80 absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
             {navLinks.map((link) => (
               <Link
@@ -72,7 +72,7 @@ export const Header = () => {
             ))}
           </nav>
 
-          {/* CTA Buttons - Forced Poppins */}
+          {/* CTA Buttons */}
           <div className="hidden md:flex items-center gap-4">
             <SignedOut>
               <div className="flex items-center gap-3">
@@ -120,107 +120,87 @@ export const Header = () => {
           {/* Mobile Menu Button */}
           <div className="md:hidden">
             <button
-              onClick={() => setIsMenuOpen(true)}
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
               className="p-2 rounded-md text-white/70 hover:text-white transition-colors"
-              aria-label="Open menu"
+              aria-label="Toggle menu"
             >
-              <Menu className="size-6" />
+              {isMenuOpen ? <X className="size-6" /> : <Menu className="size-6" />}
             </button>
           </div>
         </nav>
       </div>
 
-      {/* Mobile Menu - Forced Poppins */}
+      {/* Mobile Menu - Dropdown Panel */}
       {isMenuOpen && (
-        <div className="md:hidden fixed inset-0 z-50 flex flex-col">
-          <div className="absolute inset-0 bg-black"></div>
-          
-          <div className="relative p-6">
-            <div className="flex justify-between items-center mb-8">
-              <Link className="flex items-center gap-3" href="/">
-                <span 
-                  className={`text-[24px] font-black bg-gradient-to-r from-orange-500 to-orange-400 bg-clip-text text-transparent ${poppins.className}`}
-                  style={{ 
-                    fontFamily: '"Poppins", sans-serif',
-                    fontWeight: '900'
-                  }}
-                >
-                  RedLead
-                </span>
-              </Link>
-              
-              <button
-                onClick={() => setIsMenuOpen(false)}
-                className="p-2 rounded-md text-white/70 hover:text-white transition-colors"
-                aria-label="Close menu"
-              >
-                <X className="size-6" />
-              </button>
-            </div>
+        <div className="md:hidden bg-black">
+          <div className="pt-4 pb-8 px-8 flex flex-col items-center gap-6 text-center">
             
-            <div className="flex flex-col items-center gap-6 text-center">
-              {navLinks.map((link) => (
+            {/* Navigation Links */}
+            {navLinks.map((link) => (
+              <Link
+                key={link.label}
+                href={link.href}
+                className={`text-xl text-white hover:text-orange-500 transition-colors font-semibold ${poppins.className}`}
+                style={{ 
+                  fontFamily: '"Poppins", sans-serif',
+                  fontWeight: '600'
+                }}
+                onClick={() => setIsMenuOpen(false)}
+              >
+                {link.label}
+              </Link>
+            ))}
+            
+            {/* Divider */}
+            <div className="w-full max-w-xs border-t border-white/20 my-4"></div>
+            
+            {/* Auth Buttons */}
+            <SignedOut>
+              <div className="flex flex-col gap-4 w-full max-w-xs">
                 <Link
-                  key={link.label}
-                  href={link.href}
-                  className={`text-[16px] text-white/80 hover:text-white transition-colors font-semibold ${poppins.className}`}
+                  href="/sign-in"
+                  className={`px-6 py-3 rounded-lg text-base font-semibold text-white bg-gray-800 hover:bg-gray-700 border border-gray-700 transition-all duration-200 text-center ${poppins.className}`}
                   style={{ 
                     fontFamily: '"Poppins", sans-serif',
                     fontWeight: '600'
                   }}
                   onClick={() => setIsMenuOpen(false)}
                 >
-                  {link.label}
+                  Sign in
                 </Link>
-              ))}
-              
-              <div className="w-full border-t border-white/10 my-6"></div>
-              
-              <SignedOut>
-                <div className="flex flex-col gap-4 w-full max-w-xs">
-                  <Link
-                    href="/sign-in"
-                    className={`px-4 py-2 rounded-lg text-sm font-semibold text-white/90 bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/30 transition-all duration-200 text-center ${poppins.className}`}
-                    style={{ 
-                      fontFamily: '"Poppins", sans-serif',
-                      fontWeight: '600'
-                    }}
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Sign in
-                  </Link>
-                  
-                  <Link
-                    href="/sign-up"
-                    className={`inline-flex items-center justify-center gap-2 bg-white text-black px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-100 transition-colors ${poppins.className}`}
-                    style={{ 
-                      fontFamily: '"Poppins", sans-serif',
-                      fontWeight: '700'
-                    }}
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Get started
-                  </Link>
-                </div>
-              </SignedOut>
+                
+                <Link
+                  href="/sign-up"
+                  className={`bg-white text-black px-6 py-3 rounded-lg text-base font-bold hover:bg-gray-100 transition-colors text-center ${poppins.className}`}
+                  style={{ 
+                    fontFamily: '"Poppins", sans-serif',
+                    fontWeight: '700'
+                  }}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Get started
+                </Link>
+              </div>
+            </SignedOut>
 
-              <SignedIn>
-                <div className="flex flex-col gap-4 w-full max-w-xs items-center">
-                  <Link
-                    href="/dashboard"
-                    className={`px-4 py-2 rounded-lg text-sm font-semibold text-white/90 bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/30 transition-all duration-200 w-full text-center ${poppins.className}`}
-                    style={{ 
-                      fontFamily: '"Poppins", sans-serif',
-                      fontWeight: '600'
-                    }}
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Go to Dashboard
-                  </Link>
+            <SignedIn>
+              <div className="flex flex-col gap-4 w-full max-w-xs items-center">
+                <Link
+                  href="/dashboard"
+                  className={`px-6 py-3 rounded-lg text-base font-semibold text-white bg-gray-800 hover:bg-gray-700 border border-gray-700 transition-all duration-200 w-full text-center ${poppins.className}`}
+                  style={{ 
+                    fontFamily: '"Poppins", sans-serif',
+                    fontWeight: '600'
+                  }}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Go to Dashboard
+                </Link>
+                <div className="pt-4">
                   <UserButton afterSignOutUrl="/" />
                 </div>
-              </SignedIn>
-            </div>
+              </div>
+            </SignedIn>
           </div>
         </div>
       )}

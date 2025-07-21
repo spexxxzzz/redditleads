@@ -5,7 +5,7 @@ import { Hero } from "@/components/landing/Hero";
 
 import { HowToDo } from "@/components/landing/HowToDo";
 import { WhyReddit } from "@/components/landing/WhyReddit";
-import { WhyUs } from "@/components/landing/WhyUs";
+ 
 import { AdvantageComponent } from "@/components/landing/RedReach";
 import PricingComponent from "@/components/landing/Pricing";
 import Footer from "@/components/landing/Footer";
@@ -21,11 +21,7 @@ export default function Home() {
          <Hero />
          <IntegrationsMarquee/>
          <FeaturesStart />
-          <WhyReddit />
-      
-          <WhyUs />
-        
-     
+          <WhyReddit />    
           <HowToDo/>
          
           <PricingComponent/>

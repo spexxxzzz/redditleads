@@ -1,318 +1,314 @@
 /* components/FeaturesSection.tsx */
 "use client";
 import Image from "next/image";
-import Link from "next/link";
 import { motion } from "framer-motion";
 import { Poppins, Inter } from "next/font/google";
-import { Play } from "lucide-react";
 
-const poppins = Poppins({ subsets: ["latin"], weight: ["600", "700", "800"] });
-const inter = Inter({ subsets: ["latin"], weight: ["400", "500"] });
+const inter = Inter({ subsets: ['latin'] });
+const poppins = Poppins({ 
+  subsets: ['latin'], 
+  weight: ['400', '600', '700', '800', '900'] 
+});
 
-export  function FeaturesStart() {
+export function FeaturesStart() {
   return (
-    <section id="features" className="relative py-24 px-8 bg-black">
-      <div className="max-w-7xl mx-auto">
-        
+    <section id="features" className="relative py-32 px-8 bg-black overflow-hidden">
+      {/* Background decoration */}
+      <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 via-transparent to-orange-600/5" />
+      <div className="absolute top-1/4 right-0 w-96 h-96 bg-orange-500/10 rounded-full blur-3xl" />
+      <div className="absolute bottom-1/4 left-0 w-80 h-80 bg-orange-400/8 rounded-full blur-3xl" />
+      
+      <div className="relative max-w-8xl mx-auto">
         {/* Section Header */}
         <motion.header
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
           viewport={{ once: true }}
-          className="text-center mb-20"
+          className="text-center mb-24"
         >
           <span className={`inline-block text-sm font-semibold tracking-wide uppercase text-orange-400 mb-4 ${inter.className}`}>
-            Features
+            Powerful Features
           </span>
-          <h2 className={`text-5xl md:text-6xl font-bold text-white tracking-tight ${poppins.className}`}>
-            Generate leads like a boss
+          <h2 className={`text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-black tracking-tighter leading-[0.9] text-white ${poppins.className}`}>
+            Turn Reddit into your <br />
+            <span className="bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 bg-clip-text text-transparent">
+              lead generation machine
+            </span>
           </h2>
         </motion.header>
 
-        {/* Main River Breakout Section */}
-        <motion.section
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
-          viewport={{ once: true }}
-          className="mb-32 bg-gradient-to-br from-orange-900/10 via-gray-900/50 to-black rounded-3xl p-8 lg:p-12"
-        >
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
-            
-            {/* Large Media Section */}
-            <div className="relative overflow-hidden rounded-2xl shadow-2xl">
-              {/* Orange glow behind image */}
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-500/30 via-transparent to-orange-600/10 blur-2xl" />
+        {/* Main Hero Feature */}
+        <section className="relative flex flex-col items-center gap-16 py-32 px-8 max-w-8xl mx-auto mb-32">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: .6 }}
+            viewport={{ once: true }}
+            className="w-full max-w-4xl text-center space-y-8"
+          >
+            <h3 className={`text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-black tracking-tighter leading-[0.9] text-white ${poppins.className}`}>
+              Stop scrolling. Start <span className="bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 bg-clip-text text-transparent">selling.</span>
+            </h3>
+
+            <p className={`text-base font-medium text-white/80 leading-relaxed max-w-3xl mx-auto ${inter.className}`}>
+              While you waste hours manually searching Reddit for prospects, RedLead works 24/7 to discover and organize high-intent leads who are actively asking for solutions like yours.
+            </p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: .6, delay: .2 }}
+            viewport={{ once: true }}
+            className="w-full max-w-6xl"
+          >
+            <div className="relative group">
+              {/* Enhanced glow effects without border */}
+              <div className="absolute -inset-16 bg-gradient-radial from-orange-500/50 via-orange-400/25 to-transparent rounded-full blur-3xl opacity-70 group-hover:opacity-100 animate-pulse transition-opacity duration-1000" />
+              <div className="absolute -inset-12 bg-gradient-radial from-orange-500/40 via-orange-400/20 to-transparent rounded-full blur-2xl opacity-80 group-hover:opacity-100 transition-opacity duration-700" />
+              <div className="absolute -inset-8 bg-gradient-radial from-orange-400/30 via-orange-300/15 to-transparent rounded-3xl blur-xl group-hover:scale-105 transition-transform duration-500" />
               
-              {/* Demo Image Container */}
-              <div className="relative aspect-video bg-gradient-to-br from-gray-900 to-black flex items-center justify-center">
+              {/* Subtle shadow effect */}
+              <div className="relative overflow-hidden rounded-3xl shadow-[0_35px_100px_rgba(251,146,60,0.15)] backdrop-blur-sm group-hover:shadow-[0_50px_150px_rgba(251,146,60,0.25)] transition-all duration-700">
+                <Image
+                  src="/LeadDisplay.png"
+                  alt="RedLead Dashboard - Automated Reddit lead discovery and management"
+                  width={2000}
+                  height={1250}
+                  quality={100}
+                  priority
+                  className="relative z-10 w-full h-auto transform group-hover:scale-[1.01] transition-transform duration-700"
+                  style={{
+                    imageRendering: 'crisp-edges',
+                    backfaceVisibility: 'hidden',
+                    filter: 'contrast(1.2) brightness(1.1) saturate(1.25)',
+                    WebkitBackfaceVisibility: 'hidden',
+                    WebkitTransform: 'translate3d(0, 0, 0)',
+                    transform: 'translate3d(0, 0, 0)'
+                  }}
+                />
+              </div>
+            </div>
+          </motion.div>
+        </section>
+
+        {/* AI-Generated Replies */}
+        <section className="relative flex flex-col items-center gap-16 py-24 px-8 max-w-8xl mx-auto mb-32">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: .6 }}
+            viewport={{ once: true }}
+            className="w-full max-w-4xl text-center space-y-8"
+          >
+            <h3 className={`text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-black tracking-tighter leading-[0.9] text-white ${poppins.className}`}>
+              Every reply feels <span className="bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 bg-clip-text text-transparent">authentically human</span>
+            </h3>
+
+            <p className={`text-base font-medium text-white/80 leading-relaxed max-w-3xl mx-auto ${inter.className}`}>
+              Smart AI that understands context and community vibes to craft replies that actually help people—not spammy sales pitches that get you banned from every subreddit.
+            </p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: .6, delay: .2 }}
+            viewport={{ once: true }}
+            className="w-full max-w-6xl"
+          >
+            <div className="relative group">
+              {/* Enhanced glow effects without border */}
+              <div className="absolute -inset-16 bg-gradient-radial from-orange-500/45 via-orange-400/22 to-transparent rounded-full blur-3xl opacity-70 group-hover:opacity-95 animate-pulse transition-opacity duration-1000" />
+              <div className="absolute -inset-12 bg-gradient-radial from-orange-500/35 via-orange-400/18 to-transparent rounded-full blur-2xl opacity-80 group-hover:opacity-100 transition-opacity duration-700" />
+              <div className="absolute -inset-8 bg-gradient-radial from-orange-400/25 via-orange-300/12 to-transparent rounded-3xl blur-xl group-hover:scale-105 transition-transform duration-500" />
+              
+              {/* Subtle shadow effect */}
+              <div className="relative overflow-hidden rounded-3xl shadow-[0_35px_100px_rgba(251,146,60,0.15)] group-hover:shadow-[0_50px_150px_rgba(251,146,60,0.25)] transition-all duration-700">
+                <Image
+                  src="/AIreply1.png"
+                  alt="AI-powered reply generation interface showing contextual responses"
+                  width={2000}
+                  height={1250}
+                  quality={100}
+                  className="relative z-10 w-full h-auto transform group-hover:scale-[1.01] transition-transform duration-700"
+                  style={{
+                    imageRendering: 'crisp-edges',
+                    backfaceVisibility: 'hidden',
+                    filter: 'contrast(1.2) brightness(1.1) saturate(1.25)',
+                    WebkitBackfaceVisibility: 'hidden',
+                    WebkitTransform: 'translate3d(0, 0, 0)',
+                    transform: 'translate3d(0, 0, 0)'
+                  }}
+                />
+              </div>
+            </div>
+          </motion.div>
+        </section>
+
+        {/* AI Summaries */}
+        <section className="relative flex flex-col items-center gap-16 py-24 px-8 max-w-8xl mx-auto mb-32">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: .6 }}
+            viewport={{ once: true }}
+            className="w-full max-w-4xl text-center space-y-8"
+          >
+            <h3 className={`text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-black tracking-tighter leading-[0.9] text-white ${poppins.className}`}>
+              Skip the noise. Get the <span className="bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 bg-clip-text text-transparent">insights.</span>
+            </h3>
+
+            <p className={`text-base font-medium text-white/80 leading-relaxed max-w-3xl mx-auto ${inter.className}`}>
+              No more scrolling through endless comment threads. Get instant summaries that highlight the pain points, buying signals, and opportunities you actually care about.
+            </p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: .6, delay: .2 }}
+            viewport={{ once: true }}
+            className="w-full max-w-6xl"
+          >
+            <div className="relative group">
+              {/* Enhanced glow effects without border */}
+              <div className="absolute -inset-16 bg-gradient-radial from-orange-500/45 via-orange-400/22 to-transparent rounded-full blur-3xl opacity-70 group-hover:opacity-95 animate-pulse transition-opacity duration-1000" />
+              <div className="absolute -inset-12 bg-gradient-radial from-orange-500/35 via-orange-400/18 to-transparent rounded-full blur-2xl opacity-80 group-hover:opacity-100 transition-opacity duration-700" />
+              <div className="absolute -inset-8 bg-gradient-radial from-orange-400/25 via-orange-300/12 to-transparent rounded-3xl blur-xl group-hover:scale-105 transition-transform duration-500" />
+              
+              {/* Subtle shadow effect */}
+              <div className="relative overflow-hidden rounded-3xl shadow-[0_35px_100px_rgba(251,146,60,0.15)] group-hover:shadow-[0_50px_150px_rgba(251,146,60,0.25)] transition-all duration-700">
+                <Image
+                  src="/AISummary.png"
+                  alt="AI thread summarization showing key insights and sentiment analysis"
+                  width={2000}
+                  height={1250}
+                  quality={100}
+                  className="relative z-10 w-full h-auto transform group-hover:scale-[1.01] transition-transform duration-700"
+                  style={{
+                    imageRendering: 'crisp-edges',
+                    backfaceVisibility: 'hidden',
+                    filter: 'contrast(1.2) brightness(1.1) saturate(1.25)',
+                    WebkitBackfaceVisibility: 'hidden',
+                    WebkitTransform: 'translate3d(0, 0, 0)',
+                    transform: 'translate3d(0, 0, 0)'
+                  }}
+                />
+              </div>
+            </div>
+          </motion.div>
+        </section>
+
+        {/* Simple Integrations */}
+        <section className="relative flex flex-col items-center gap-16 py-24 px-8 max-w-8xl mx-auto mb-32">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: .6 }}
+            viewport={{ once: true }}
+            className="w-full max-w-4xl text-center space-y-8"
+          >
+            <h3 className={`text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-black tracking-tighter leading-[0.9] text-white ${poppins.className}`}>
+              Connect to your favorite <span className="bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 bg-clip-text text-transparent">tools</span>
+            </h3>
+
+            <p className={`text-base font-medium text-white/80 leading-relaxed max-w-3xl mx-auto ${inter.className}`}>
+              Export leads to your CRM, get Slack notifications, or webhook to any service you use. Simple integrations that actually work—no enterprise sales calls required.
+            </p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: .6, delay: .2 }}
+            viewport={{ once: true }}
+            className="w-full max-w-6xl"
+          >
+            <div className="relative group">
+              {/* Enhanced glow effects without border */}
+              <div className="absolute -inset-16 bg-gradient-radial from-orange-500/45 via-orange-400/22 to-transparent rounded-full blur-3xl opacity-70 group-hover:opacity-95 animate-pulse transition-opacity duration-1000" />
+              <div className="absolute -inset-12 bg-gradient-radial from-orange-500/35 via-orange-400/18 to-transparent rounded-full blur-2xl opacity-80 group-hover:opacity-100 transition-opacity duration-700" />
+              <div className="absolute -inset-8 bg-gradient-radial from-orange-400/25 via-orange-300/12 to-transparent rounded-3xl blur-xl group-hover:scale-105 transition-transform duration-500" />
+              
+              {/* Subtle shadow effect */}
+              <div className="relative overflow-hidden rounded-3xl shadow-[0_35px_100px_rgba(251,146,60,0.15)] group-hover:shadow-[0_50px_150px_rgba(251,146,60,0.25)] transition-all duration-700">
                 <Image
                   src="/Dashboard.png"
-                  alt="RedLead Dashboard Demo showing automated lead discovery"
-                  width={1248}
-                  height={647}
-                  className="relative z-10 w-full h-auto rounded-xl"
-                  priority
+                  alt="Integration options for CRM, Slack, and webhook connections"
+                  width={2000}
+                  height={1250}
+                  quality={100}
+                  className="relative z-10 w-full h-auto transform group-hover:scale-[1.01] transition-transform duration-700"
+                  style={{
+                    imageRendering: 'crisp-edges',
+                    backfaceVisibility: 'hidden',
+                    filter: 'contrast(1.2) brightness(1.1) saturate(1.25)',
+                    WebkitBackfaceVisibility: 'hidden',
+                    WebkitTransform: 'translate3d(0, 0, 0)',
+                    transform: 'translate3d(0, 0, 0)'
+                  }}
                 />
-                
-                {/* Play Button Overlay */}
-                <button className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/40 transition-colors group z-20">
-                  <div className="flex items-center justify-center w-16 h-16 bg-white/90 hover:bg-white rounded-full transition-colors">
-                    <Play className="w-6 h-6 text-black ml-1" fill="currentColor" />
-                  </div>
-                </button>
               </div>
             </div>
+          </motion.div>
+        </section>
 
-            {/* Content Section */}
-            <div className="space-y-8">
-              <div className="space-y-6">
-                <p className={`text-lg md:text-xl text-white/80 leading-relaxed ${inter.className}`}>
-                  <em className="text-white">Your manual prospecting days are over.</em> Set your keywords and target subreddits, then let RedLead automatically discover, analyze, and organize warm leads from Reddit conversations in the background.
-                </p>
-                
-                <Link
-                  href="/demo"
-                  className="group inline-flex items-center gap-2 text-orange-400 hover:text-orange-300 font-semibold transition-colors text-lg"
-                >
-                  Watch RedLead in action
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    className="transition-transform group-hover:translate-x-1"
-                  >
-                    <path
-                      d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06L7.28 12.78a.75.75 0 0 1-1.06-1.06L9.44 8 6.22 4.78a.75.75 0 0 1 0-1.06z"
-                      fill="currentColor"
-                    />
-                    <path
-                      d="M1.75 8h7.69"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      className="origin-left group-hover:scale-x-110 transition-transform"
-                    />
-                  </svg>
-                </Link>
+        {/* Lead Analytics */}
+        <section className="relative flex flex-col items-center gap-16 py-24 px-8 max-w-8xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: .6 }}
+            viewport={{ once: true }}
+            className="w-full max-w-4xl text-center space-y-8"
+          >
+            <h3 className={`text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-black tracking-tighter leading-[0.9] text-white ${poppins.className}`}>
+              Track what actually <span className="bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 bg-clip-text text-transparent">converts</span>
+            </h3>
+
+            <p className={`text-base font-medium text-white/80 leading-relaxed max-w-3xl mx-auto ${inter.className}`}>
+              See which subreddits and keywords bring you the best leads. Simple analytics that help you double down on what's working and ditch what isn't.
+            </p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: .6, delay: .2 }}
+            viewport={{ once: true }}
+            className="w-full max-w-6xl"
+          >
+            <div className="relative group">
+              {/* Enhanced glow effects without border */}
+              <div className="absolute -inset-16 bg-gradient-radial from-orange-500/45 via-orange-400/22 to-transparent rounded-full blur-3xl opacity-70 group-hover:opacity-95 animate-pulse transition-opacity duration-1000" />
+              <div className="absolute -inset-12 bg-gradient-radial from-orange-500/35 via-orange-400/18 to-transparent rounded-full blur-2xl opacity-80 group-hover:opacity-100 transition-opacity duration-700" />
+              <div className="absolute -inset-8 bg-gradient-radial from-orange-400/25 via-orange-300/12 to-transparent rounded-3xl blur-xl group-hover:scale-105 transition-transform duration-500" />
+              
+              {/* Subtle shadow effect */}
+              <div className="relative overflow-hidden rounded-3xl shadow-[0_35px_100px_rgba(251,146,60,0.15)] group-hover:shadow-[0_50px_150px_rgba(251,146,60,0.25)] transition-all duration-700">
+                <Image
+                  src="/ReplyTracker.png"
+                  alt="Simple analytics dashboard showing lead sources and conversion data"
+                  width={2000}
+                  height={1250}
+                  quality={100}
+                  className="relative z-10 w-full h-auto transform group-hover:scale-[1.01] transition-transform duration-700"
+                  style={{
+                    imageRendering: 'crisp-edges',
+                    backfaceVisibility: 'hidden',
+                    filter: 'contrast(1.2) brightness(1.1) saturate(1.25)',
+                    WebkitBackfaceVisibility: 'hidden',
+                    WebkitTransform: 'translate3d(0, 0, 0)',
+                    transform: 'translate3d(0, 0, 0)'
+                  }}
+                />
               </div>
+            </div>
+          </motion.div>
+        </section>
 
-              {/* Timeline Features */}
-              <ul className="space-y-6 border-l-2 border-orange-500/30 pl-6">
-                <li className={`text-white/70 leading-relaxed ${inter.className}`}>
-                  <em className="text-white">Discovers your prospects.</em> When you set keywords and subreddits, RedLead scans Reddit conversations, identifies solution-seeking posts, and delivers ready-to-engage leads.
-                </li>
-                <li className={`text-white/70 leading-relaxed ${inter.className}`}>
-                  <em className="text-white">Analyzes like an expert.</em> RedLead uses AI to score each lead for opportunity potential, intent analysis, and engagement timing—working like an experienced sales researcher from day one.
-                </li>
-                <li className={`text-white/70 leading-relaxed ${inter.className}`}>
-                  <em className="text-white">Human and AI in the loop.</em> Review AI-generated summaries, reply directly from the dashboard, or mark leads as saved for later follow-up.
-                </li>
-              </ul>
-            </div>
-          </div>
-        </motion.section>
-
-        {/* 50-50 River Sections */}
-        <div className="space-y-24">
-          
-          {/* AI Analysis Feature */}
-          <motion.section
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-            className="grid lg:grid-cols-2 gap-16 items-center"
-          >
-            <div className="space-y-6">
-              <h3 className={`text-3xl md:text-4xl font-bold text-white tracking-tight ${poppins.className}`}>
-                Because AI analysis beats manual scanning
-              </h3>
-              <p className={`text-lg text-white/70 leading-relaxed ${inter.className}`}>
-                Smart analysis helps identify high-potential leads by analyzing post sentiment, engagement levels, solution-seeking intent, and timing across multiple Reddit conversations.
-              </p>
-              <Link
-                href="/features/ai-analysis"
-                className="group inline-flex items-center gap-2 text-orange-400 hover:text-orange-300 font-semibold transition-colors"
-              >
-                Learn about AI analysis
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  className="transition-transform group-hover:translate-x-1"
-                >
-                  <path
-                    d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06L7.28 12.78a.75.75 0 0 1-1.06-1.06L9.44 8 6.22 4.78a.75.75 0 0 1 0-1.06z"
-                    fill="currentColor"
-                  />
-                  <path
-                    d="M1.75 8h7.69"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    className="origin-left group-hover:scale-x-110 transition-transform"
-                  />
-                </svg>
-              </Link>
-            </div>
-            
-            <div className="relative overflow-hidden rounded-2xl shadow-2xl">
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-500/20 via-transparent to-orange-600/10 blur-xl" />
-              <Image
-                src="/Dashboard.png"
-                alt="AI analysis feature showing lead scoring and intent detection"
-                width={708}
-                height={472}
-                className="relative z-10 w-full h-auto rounded-2xl"
-                loading="lazy"
-              />
-            </div>
-          </motion.section>
-
-          {/* Speed vs Depth Feature */}
-          <motion.section
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-            className="grid lg:grid-cols-2 gap-16 items-center"
-          >
-            <div className="relative overflow-hidden rounded-2xl shadow-2xl lg:order-1">
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-500/20 via-transparent to-orange-600/10 blur-xl" />
-              <Image
-                src="/Dashboard.png"
-                alt="Campaign settings showing keyword and subreddit targeting options"
-                width={708}
-                height={472}
-                className="relative z-10 w-full h-auto rounded-2xl"
-                loading="lazy"
-              />
-            </div>
-            
-            <div className="space-y-6 lg:order-2">
-              <h3 className={`text-3xl md:text-4xl font-bold text-white tracking-tight ${poppins.className}`}>
-                Get volume when you need it. Precision when you don't.
-              </h3>
-              <p className={`text-lg text-white/70 leading-relaxed ${inter.className}`}>
-                Switch between broad keyword discovery and precise subreddit targeting. Cast a wide net for maximum lead volume or focus on specific communities where your ideal customers gather.
-              </p>
-            </div>
-          </motion.section>
-
-          {/* Pipeline Management Feature */}
-          <motion.section
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-            className="grid lg:grid-cols-2 gap-16 items-center"
-          >
-            <div className="space-y-6">
-              <h3 className={`text-3xl md:text-4xl font-bold text-white tracking-tight ${poppins.className}`}>
-                Set one campaign. RedLead handles the pipeline.
-              </h3>
-              <p className={`text-lg text-white/70 leading-relaxed ${inter.className}`}>
-                Pipeline management tracks every lead from discovery to conversion. Reply, save, ignore, or request AI summaries—keeping your entire lead workflow organized and actionable.
-              </p>
-              <Link
-                href="/features/pipeline"
-                className="group inline-flex items-center gap-2 text-orange-400 hover:text-orange-300 font-semibold transition-colors"
-              >
-                Explore pipeline features
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  className="transition-transform group-hover:translate-x-1"
-                >
-                  <path
-                    d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06L7.28 12.78a.75.75 0 0 1-1.06-1.06L9.44 8 6.22 4.78a.75.75 0 0 1 0-1.06z"
-                    fill="currentColor"
-                  />
-                  <path
-                    d="M1.75 8h7.69"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    className="origin-left group-hover:scale-x-110 transition-transform"
-                  />
-                </svg>
-              </Link>
-            </div>
-            
-            <div className="relative overflow-hidden rounded-2xl shadow-2xl">
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-500/20 via-transparent to-orange-600/10 blur-xl" />
-              <Image
-                src="/Dashboard.png"
-                alt="Lead pipeline management interface showing status filters and action buttons"
-                width={708}
-                height={472}
-                className="relative z-10 w-full h-auto rounded-2xl"
-                loading="lazy"
-              />
-            </div>
-          </motion.section>
-
-          {/* Security & Privacy Feature */}
-          <motion.section
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-            className="grid lg:grid-cols-2 gap-16 items-center"
-          >
-            <div className="relative overflow-hidden rounded-2xl shadow-2xl lg:order-1">
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-500/20 via-transparent to-orange-600/10 blur-xl" />
-              <Image
-                src="/Dashboard.png"
-                alt="User dashboard showing secure, private lead data and analytics"
-                width={708}
-                height={472}
-                className="relative z-10 w-full h-auto rounded-2xl"
-                loading="lazy"
-              />
-            </div>
-            
-            <div className="space-y-6 lg:order-2">
-              <h3 className={`text-3xl md:text-4xl font-bold text-white tracking-tight ${poppins.className}`}>
-                Your lead data's guardian
-              </h3>
-              <p className={`text-lg text-white/70 leading-relaxed ${inter.className}`}>
-                Secure authentication protects your campaigns and lead data. Each user's leads are completely isolated and private—ensuring your competitive advantages stay yours alone.
-              </p>
-              <Link
-                href="/security"
-                className="group inline-flex items-center gap-2 text-orange-400 hover:text-orange-300 font-semibold transition-colors"
-              >
-                Learn about security
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  className="transition-transform group-hover:translate-x-1"
-                >
-                  <path
-                    d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06L7.28 12.78a.75.75 0 0 1-1.06-1.06L9.44 8 6.22 4.78a.75.75 0 0 1 0-1.06z"
-                    fill="currentColor"
-                  />
-                  <path
-                    d="M1.75 8h7.69"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    className="origin-left group-hover:scale-x-110 transition-transform"
-                  />
-                </svg>
-              </Link>
-            </div>
-          </motion.section>
-        </div>
       </div>
     </section>
   );

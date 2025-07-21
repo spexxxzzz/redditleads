@@ -1,10 +1,8 @@
 "use client";
-import React, { useRef, useState } from "react";
-import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
+import React, { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Inter, Poppins } from "next/font/google";
-import { ArrowRight, X } from "lucide-react";
-import { Particles } from "./Particles"; // Assuming this is your particles component
-import { BoxReveal } from "@/components/magicui/box-reveal"; // Assuming this is your BoxReveal component
+import { X } from "lucide-react";
 
 const inter = Inter({ subsets: ['latin'] });
 const poppins = Poppins({
@@ -13,218 +11,158 @@ const poppins = Poppins({
 });
 
 export function WhyReddit() {
-  const containerRef = useRef<HTMLElement>(null);
   const [isLightboxOpen, setLightboxOpen] = useState(false);
-
-  const { scrollYProgress } = useScroll({
-    target: containerRef,
-    offset: ["start start", "end start"]
-  });
-
-  const y = useTransform(scrollYProgress, [0, 1], ["0%", "50%"]);
-  const opacity = useTransform(scrollYProgress, [0, 1], [1, 0]);
 
   return (
     <>
-      <section ref={containerRef} className="relative py-24 sm:py-32 overflow-hidden">
-        {/* Particles Background */}
-        <Particles quantity={80} staticity={40} ease={60} size={0.8} vx={0} vy={0} />
+      <section className="relative py-24 px-8 bg-black overflow-hidden">
+        {/* Background decoration - matching hero/features */}
+        <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 via-transparent to-orange-600/5" />
+        <div className="absolute top-1/4 right-0 w-96 h-96 bg-orange-500/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 left-0 w-80 h-80 bg-orange-400/8 rounded-full blur-3xl" />
 
-        {/* Black Background - Matching Hero Component */}
-        <motion.div
-          style={{ y, opacity }}
-          className="absolute inset-0 z-10"
-        >
-          {/* Primary Black Base */}
-          <div className="absolute inset-0 bg-black"></div>
-          
-          {/* Subtle Dark Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-black/40 to-black/20 opacity-70"></div>
-         
-          {/* Minimal Radial Gradients */}
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.03),transparent_70%)] opacity-50"></div>
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(255,255,255,0.02),transparent_70%)] opacity-40"></div>
-      
-          {/* Subtle Floating Orbs */}
-          <motion.div
-            animate={{ 
-              x: [0, 30, 0],
-              y: [0, -20, 0],
-              scale: [1, 1.1, 1]
-            }}
-            transition={{ 
-              duration: 20, 
-              repeat: Infinity, 
-              ease: "easeInOut" 
-            }}
-            className="absolute top-1/4 left-1/3 w-48 h-48 sm:w-96 sm:h-96 bg-gradient-to-br from-white/5 to-white/2 rounded-full blur-3xl opacity-30"
-          />
-          
-          <motion.div
-            animate={{ 
-              x: [0, -40, 0],
-              y: [0, 25, 0],
-              scale: [1, 0.9, 1]
-            }}
-            transition={{ 
-              duration: 25, 
-              repeat: Infinity, 
-              ease: "easeInOut",
-              delay: 5
-            }}
-            className="absolute bottom-1/3 right-1/4 w-40 h-40 sm:w-80 sm:h-80 bg-gradient-to-tl from-white/3 to-white/1 rounded-full blur-3xl opacity-20"
-          />
-        </motion.div>
-
-        {/* Enhanced Spotlight Beam */}
-        <div className="absolute inset-0 pointer-events-none z-5">
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-            {/* Main spotlight */}
-            <div className="w-[800px] h-[800px] bg-gradient-radial from-orange-400/20 via-orange-300/10 to-transparent rounded-full blur-2xl"></div>
-            {/* Inner glow */}
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-gradient-radial from-orange-300/30 via-orange-200/15 to-transparent rounded-full blur-xl"></div>
-            {/* Core light */}
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[200px] h-[200px] bg-gradient-radial from-orange-200/40 to-transparent rounded-full blur-lg"></div>
-          </div>
+        {/* Enhanced Spotlight Beam - matching hero */}
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+          <div className="w-[600px] h-[600px] bg-gradient-radial from-orange-400/15 via-orange-300/8 to-transparent rounded-full blur-2xl"></div>
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-gradient-radial from-orange-300/20 via-orange-200/10 to-transparent rounded-full blur-xl"></div>
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[150px] h-[150px] bg-gradient-radial from-orange-200/25 to-transparent rounded-full blur-lg"></div>
         </div>
 
-        <div className="relative z-20 mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="grid md:grid-cols-5 gap-12 items-center">
-            {/* Left Text Section (Takes 2/5 columns) */}
-            <div className="md:col-span-2 space-y-6">
-              <BoxReveal boxColor="#FF4500" duration={0.5}>
-                <h2 className={`text-4xl lg:text-5xl font-black text-white ${poppins.className}`}>
-                  Why <span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">Reddit</span> Wins the AI Era
-                </h2>
-              </BoxReveal>
+        <div className="relative z-20 mx-auto max-w-7xl">
+          <div className="grid md:grid-cols-5 gap-16 items-center">
+            {/* Left Text Section */}
+            <motion.div
+              initial={{ opacity: 0, x: -40 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6 }}
+              viewport={{ once: true }}
+              className="md:col-span-2 space-y-8"
+            >
+              {/* Small label - increased size */}
+              <span className={`inline-block text-sm font-semibold tracking-wide uppercase text-orange-400 mb-4 ${inter.className}`}>
+                The New Lead Gen Goldmine
+              </span>
 
-              <BoxReveal boxColor="#FF4500" duration={0.5}>
-                <p className={`text-lg lg:text-xl text-white/70 ${inter.className}`}>
-                  AI and search engines now favor authentic, human-centric conversations—making <span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">Reddit</span> the new goldmine for high-intent leads.
-                </p>
-              </BoxReveal>
+              {/* Main heading - significantly increased */}
+              <h2 className={`text-3xl sm:text-4xl lg:text-5xl xl:text-5xl font-black tracking-tighter leading-[0.9] text-white ${poppins.className}`}>
+                Why <span className="bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 bg-clip-text text-transparent">Reddit</span> Wins the AI Era
+              </h2>
 
+              {/* Body text - increased size */}
+              <p className={`text-base font-medium text-white/80 leading-relaxed ${inter.className}`}>
+                AI and search engines now favor authentic, human conversations—making Reddit the new goldmine for high-intent leads who are actively seeking solutions.
+              </p>
+
+              {/* Stats list - increased text and bullet size */}
               <div className="space-y-4 pt-4">
-                <BoxReveal boxColor="#FF4500" duration={0.5}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full bg-orange-500"></div>
-                    <p className={`text-base lg:text-lg text-white/80 ${inter.className}`}>
-                      <span className="font-bold text-white">73%</span> of Google's first-page results feature <span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">Reddit</span>.
-                    </p>
-                  </div>
-                </BoxReveal>
-                <BoxReveal boxColor="#FF4500" duration={0.5}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full bg-orange-500"></div>
-                    <p className={`text-base lg:text-lg text-white/80 ${inter.className}`}>
-                      <span className="font-bold text-white">90%</span> of users add '<span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">reddit</span>' for trusted answers.
-                    </p>
-                  </div>
-                </BoxReveal>
-                <BoxReveal boxColor="#FF4500" duration={0.5}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full bg-orange-500"></div>
-                    <p className={`text-base lg:text-lg text-white/80 ${inter.className}`}>
-                      <span className="font-bold text-white">#1</span> source for solution-seeking AI queries.
-                    </p>
-                  </div>
-                </BoxReveal>
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full bg-orange-500"></div>
+                  <p className={`text-base font-medium text-white/80 ${inter.className}`}>
+                    <span className="font-bold text-white">73%</span> of Google's first-page results feature Reddit threads
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full bg-orange-500"></div>
+                  <p className={`text-base font-medium text-white/80 ${inter.className}`}>
+                    <span className="font-bold text-white">90%</span> of users add 'reddit' to searches for trusted answers
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full bg-orange-500"></div>
+                  <p className={`text-base font-medium text-white/80 ${inter.className}`}>
+                    <span className="font-bold text-white">#1</span> source for solution-seeking AI queries and recommendations
+                  </p>
+                </div>
               </div>
 
-              <BoxReveal boxColor="#FF4500" duration={0.5}>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="group mt-6 inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl font-semibold text-lg shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:shadow-xl transition-all duration-300"
-                >
-                  <span className={poppins.className}>Tap into Reddit Leads</span>
-                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-300" />
-                </motion.button>
-              </BoxReveal>
-            </div>
+              {/* CTA Button - matching hero button style */}
+              <div className="pt-8">
+                <button className="inline-flex items-center gap-2 bg-white text-black px-6 py-3 rounded-lg text-base font-semibold hover:bg-gray-100 transition-colors">
+                  <span className={`${inter.className} font-semibold`}>Start finding Reddit leads</span>
+                  <svg width="20" height="20" viewBox="0 0 16 16" fill="none" className="transition-transform group-hover:translate-x-1">
+                    <path d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06L7.28 12.78a.75.75 0 0 1-1.06-1.06L9.44 8 6.22 4.78a.75.75 0 0 1 0-1.06z" fill="currentColor" />
+                  </svg>
+                </button>
+              </div>
+            </motion.div>
 
-            {/* Right Infographic Image Section (Takes 3/5 columns) */}
+            {/* Right Image Section - Slightly larger container */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              whileInView={{ opacity: 1, scale: 1 }}
+              initial={{ opacity: 0, x: 40 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.8, ease: "easeOut" }}
-              className="relative md:col-span-3 cursor-pointer"
+              className="relative md:col-span-3 cursor-pointer group max-w-3xl"
               onClick={() => setLightboxOpen(true)}
             >
-              {/* Glowing Border Effect */}
-              <div className="absolute -inset-2 bg-gradient-to-r from-orange-500/50 via-orange-400/60 to-orange-500/50 rounded-2xl blur-lg opacity-75 transition duration-500 hover:opacity-100"></div>
+              {/* Enhanced glowing border frame effect */}
+              <div className="absolute -inset-3 bg-gradient-to-r from-orange-500/50 via-orange-400/60 to-orange-500/50 rounded-xl blur-lg opacity-70 group-hover:opacity-90 transition-all duration-500"></div>
               
-              <div className="relative rounded-2xl overflow-hidden border-2 border-orange-500/40 shadow-2xl shadow-orange-500/20 bg-gray-900/50 p-4">
+              {/* Secondary glow layer */}
+              <div className="absolute -inset-6 bg-gradient-radial from-orange-500/25 via-orange-400/15 to-transparent rounded-full blur-xl opacity-50 group-hover:opacity-70 transition-opacity duration-700" />
+              
+              {/* Frame container */}
+              <div className="relative rounded-xl overflow-hidden border border-orange-500/40 shadow-xl shadow-orange-500/20 bg-gray-900/50 p-4 group-hover:border-orange-400/60 group-hover:shadow-orange-500/30 transition-all duration-500 backdrop-blur-sm">
                 <img
-                  src="/redd.png" // Assumes image is in public folder
+                  src="/redd.png"
                   alt="Infographic showing Reddit's dominance in AI and Search"
-                  className="w-full h-auto object-contain rounded-lg"
+                  className="relative z-10 w-full h-auto object-contain rounded-lg transform group-hover:scale-[1.01] transition-transform duration-700"
+                  style={{
+                    imageRendering: 'crisp-edges',
+                    backfaceVisibility: 'hidden',
+                    filter: 'contrast(1.1) brightness(1.05) saturate(1.1)',
+                    WebkitBackfaceVisibility: 'hidden',
+                    WebkitTransform: 'translate3d(0, 0, 0)',
+                    transform: 'translate3d(0, 0, 0)'
+                  }}
                 />
+              </div>
+
+              {/* Click hint */}
+              <div className="absolute top-6 right-6 bg-black/60 text-white/70 px-3 py-2 rounded text-sm backdrop-blur-sm border border-orange-400/20">
+                Click to expand
               </div>
             </motion.div>
           </div>
         </div>
-
-        {/* Minimal Floating Elements - From Hero */}
-        <motion.div
-          animate={{ 
-            y: [0, -15, 0],
-            opacity: [0.1, 0.3, 0.1]
-          }}
-          transition={{ 
-            duration: 12, 
-            repeat: Infinity, 
-            ease: "easeInOut" 
-          }}
-          className="absolute top-20 right-20 size-1 bg-white/20 rounded-full z-20"
-        />
-        
-        <motion.div
-          animate={{ 
-            y: [0, 20, 0],
-            x: [0, 10, 0],
-            opacity: [0.1, 0.2, 0.1]
-          }}
-          transition={{ 
-            duration: 16, 
-            repeat: Infinity, 
-            ease: "easeInOut",
-            delay: 3
-          }}
-          className="absolute bottom-32 left-16 size-1 bg-white/15 rounded-full z-20"
-        />
       </section>
 
-      {/* Lightbox Modal */}
+      {/* Simplified Lightbox Modal */}
       <AnimatePresence>
         {isLightboxOpen && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50"
+            className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4"
             onClick={() => setLightboxOpen(false)}
           >
             <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
+              initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="relative max-w-4xl w-full p-4"
-              onClick={(e) => e.stopPropagation()} // Prevent closing when clicking on the image
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="relative max-w-6xl w-full"
+              onClick={(e) => e.stopPropagation()}
             >
               <button
                 onClick={() => setLightboxOpen(false)}
-                className="absolute -top-4 -right-4 bg-white text-black rounded-full p-2 z-10"
+                className="absolute -top-12 right-0 text-white/70 hover:text-white transition-colors"
               >
-                <X size={24} />
+                <X size={32} />
               </button>
-              <img
-                src="/redd.png"
-                alt="Infographic showing Reddit's dominance in AI and Search - Full screen view"
-                className="w-full h-auto object-contain rounded-lg"
-              />
+              
+              <div className="relative overflow-hidden rounded-xl border border-orange-400/30">
+                <img
+                  src="/redd.png"
+                  alt="Reddit dominance infographic - Full view"
+                  className="w-full h-auto"
+                  style={{
+                    imageRendering: 'crisp-edges',
+                    backfaceVisibility: 'hidden'
+                  }}
+                />
+              </div>
             </motion.div>
           </motion.div>
         )}

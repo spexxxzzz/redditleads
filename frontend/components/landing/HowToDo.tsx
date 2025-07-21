@@ -1,12 +1,13 @@
 "use client";
 import React from "react";
-import { motion, Variants } from "framer-motion";
 import {
   LinkIcon,
   MagnifyingGlassIcon,
   ChatBubbleLeftRightIcon,
 } from "@heroicons/react/24/outline";
 import { Inter, Poppins } from 'next/font/google';
+import { FaReddit, FaArrowRight } from "react-icons/fa";
+import Link from "next/link";
 
 const inter = Inter({ subsets: ['latin'] });
 const poppins = Poppins({ 
@@ -14,195 +15,124 @@ const poppins = Poppins({
   weight: ['400', '600', '700', '800', '900'] 
 });
 
-const containerVariants: Variants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-      delayChildren: 0.2
-    }
-  }
-};
-
-const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 30 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.6, ease: [0.42, 0, 0.58, 1] }
-  }
-};
-
 const steps = [
   {
     title: "Connect Your Business",
-    description: "Paste your website URL. Our AI instantly analyzes your business and identifies your ideal customers.",
+    description: "Paste your website URL. AI analyzes your business and finds ideal customers.",
     icon: LinkIcon,
-    features: [
-      "Instant business analysis",
-      "Customer persona detection",
-      "Market opportunity mapping",
-      "Competitive landscape scan"
-    ]
+    action: "Start Setup",
+    href: "/setup"
   },
   {
     title: "AI Finds Your Leads", 
-    description: "Our intelligent system scans Reddit 24/7, identifying warm prospects who are actively seeking solutions like yours.",
+    description: "Our system scans Reddit 24/7, finding prospects actively seeking your solutions.",
     icon: MagnifyingGlassIcon,
-    features: [
-      "24/7 Reddit monitoring",
-      "Intent-based lead detection",
-      "Real-time opportunity alerts",
-      "Qualified prospect scoring"
-    ]
+    action: "See How It Works",
+    href: "/how-it-works"
   },
   {
     title: "Start Converting",
-    description: "Get qualified leads delivered to your inbox with AI-generated responses ready to send. No manual work required.",
+    description: "Get qualified leads with AI-generated responses ready to send.",
     icon: ChatBubbleLeftRightIcon,
-    features: [
-      "AI-generated responses",
-      "Ready-to-send messages",
-      "Automated lead delivery",
-      "Conversion tracking"
-    ]
+    action: "View Examples",
+    href: "/examples"
   },
 ];
 
 export function HowToDo() {
   return (
-    <section className="relative py-20 sm:py-32 overflow-hidden bg-black">
-      {/* Background Elements */}
+    <section className="relative bg-black py-16 md:py-24">
+      {/* Background Effects */}
       <div className="absolute inset-0">
-        {/* Animated background orbs - Orange only, no blue */}
-        <motion.div
-          animate={{ 
-            x: [0, 30, 0],
-            y: [0, -20, 0],
-            scale: [1, 1.1, 1]
-          }}
-          transition={{ 
-            duration: 20, 
-            repeat: Infinity, 
-            ease: "easeInOut" 
-          }}
-          className="absolute top-1/4 left-1/3 w-48 h-48 sm:w-96 sm:h-96 bg-gradient-to-br from-orange-500/10 to-orange-400/5 rounded-full blur-3xl opacity-50"
-        />
-        
-        <motion.div
-          animate={{ 
-            x: [0, -40, 0],
-            y: [0, 25, 0],
-            scale: [1, 0.9, 1]
-          }}
-          transition={{ 
-            duration: 25, 
-            repeat: Infinity, 
-            ease: "easeInOut",
-            delay: 5
-          }}
-          className="absolute bottom-1/3 right-1/4 w-40 h-40 sm:w-80 sm:h-80 bg-gradient-to-tl from-orange-500/8 to-orange-400/4 rounded-full blur-3xl opacity-30"
-        />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-black/40 to-black/20 opacity-70"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,165,0,0.05),transparent_70%)]"></div>
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-100px" }}
-          className="space-y-12"
-        >
-          {/* Header */}
-          <motion.div variants={itemVariants} className="text-center">
-            <h2 className={`text-4xl sm:text-5xl lg:text-6xl font-black text-white mb-6 leading-tight ${poppins.className}`}>
-              Get Started in{" "}
-              <span className="text-orange-500">
-                3 Simple Steps
-              </span>
-            </h2>
-            <p className={`text-lg text-gray-300 max-w-2xl mx-auto leading-relaxed ${inter.className}`}>
-              From setup to your first qualified lead in under 5 minutes
-            </p>
-          </motion.div>
+      <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8">
+        {/* Header */}
+        <header className="text-center mb-16">
+          <h2 className={`text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-white mb-4 ${poppins.className}`}>
+            Get Started in{" "}
+            <span className="bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 bg-clip-text text-transparent">
+              3 Simple Steps
+            </span>
+          </h2>
+          <p className={`text-xl text-gray-400 max-w-2xl mx-auto ${inter.className}`}>
+            From setup to your first qualified lead in under 5 minutes
+          </p>
+        </header>
 
-          {/* Steps Cards */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {steps.map((step, index) => {
-              const IconComponent = step.icon;
-              
-              return (
-                <motion.div
-                  key={index}
-                  variants={itemVariants}
-                  className="relative h-full rounded-2xl border border-gray-700 bg-gray-900/30 hover:border-gray-600 backdrop-blur-sm transition-all duration-300 hover:shadow-xl"
-                >
-                  <div className="relative flex h-full flex-col justify-between p-6">
-                    {/* Step Number Badge */}
-                    <div className="absolute -top-3 left-6">
-                      <div className="flex items-center justify-center w-6 h-6 bg-orange-500 text-white text-xs font-bold rounded-full">
+        {/* Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
+          {steps.map((step, index) => {
+            const IconComponent = step.icon;
+            
+            return (
+              <div key={index} className="h-full">
+                <div className="h-full bg-zinc-900/70 border border-zinc-800 rounded-xl p-8 hover:border-orange-500/50 hover:bg-zinc-900/90 transition-all duration-300 group backdrop-blur-sm">
+                  {/* Step Number */}
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-orange-600 rounded-full flex items-center justify-center shadow-lg">
+                      <span className={`text-white text-sm font-bold ${poppins.className}`}>
                         {index + 1}
-                      </div>
+                      </span>
                     </div>
-
-                    {/* Step Header */}
-                    <div className="flex flex-col gap-4 mt-2">
-                      <div className="flex flex-col gap-3">
-                        {/* Icon */}
-                        <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gray-800/50 border border-gray-700">
-                          <IconComponent className="w-6 h-6 text-orange-400" />
-                        </div>
-                        
-                        <h3 className={`text-xl font-semibold text-white ${poppins.className}`}>
-                          {step.title}
-                        </h3>
-                        
-                        <p className={`text-gray-400 text-sm leading-relaxed ${inter.className}`}>
-                          {step.description}
-                        </p>
-                      </div>
-
-                      <hr className="border-gray-700" />
-
-                      {/* Features */}
-                      <div className="flex flex-col gap-3">
-                        <p className={`text-xs font-semibold text-gray-500 uppercase tracking-wider ${inter.className}`}>
-                          What you get
-                        </p>
-                        
-                        <div className="flex flex-col gap-2">
-                          {step.features.map((feature, featureIndex) => (
-                            <div key={featureIndex} className="flex items-center gap-2">
-                              <div className="w-1.5 h-1.5 bg-orange-400 rounded-full flex-shrink-0" />
-                              <span className={`text-sm text-gray-300 ${inter.className}`}>
-                                {feature}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                    
+                    {/* Icon */}
+                    <div className="w-12 h-12 bg-zinc-800/80 border border-zinc-700 rounded-lg flex items-center justify-center group-hover:bg-orange-500/10 group-hover:border-orange-500/30 transition-all duration-300">
+                      <IconComponent className="w-6 h-6 text-orange-400 group-hover:text-orange-300 transition-colors duration-300" />
                     </div>
                   </div>
-                </motion.div>
-              );
-            })}
+
+                  {/* Content */}
+                  <div className="space-y-4 mb-6">
+                    <h3 className={`text-xl font-bold text-white group-hover:text-orange-50 transition-colors ${poppins.className}`}>
+                      <Link href={step.href} className="hover:underline">
+                        {step.title}
+                      </Link>
+                    </h3>
+                    
+                    <p className={`text-zinc-400 group-hover:text-zinc-300 transition-colors leading-relaxed ${inter.className}`}>
+                      {step.description}
+                    </p>
+                  </div>
+
+                  {/* Action */}
+                  <div className="flex items-center text-orange-400 group-hover:text-orange-300 transition-colors">
+                    <Link href={step.href} className="flex items-center space-x-2 text-sm font-medium">
+                      <span className={inter.className}>{step.action}</span>
+                      <FaArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* CTA Section */}
+        <div className="text-center space-y-8">
+          <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
+            <Link 
+              href="/signup"
+              className="group inline-flex items-center gap-3 bg-white text-black px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-100 transition-all duration-300 transform hover:scale-105"
+            >
+              <FaReddit className="w-5 h-5 text-orange-500" />
+              <span className={`${inter.className} font-semibold`}>Get started for free</span>
+            </Link>
+
+            <Link 
+              href="/pricing"
+              className="inline-flex items-center px-8 py-4 rounded-lg text-lg font-semibold text-white bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/30 transition-all duration-300 transform hover:scale-105"
+            >
+              <span className={`${inter.className} font-semibold`}>See plans & pricing</span>
+            </Link>
           </div>
 
-          {/* Bottom CTA */}
-          <motion.div variants={itemVariants} className="text-center">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className={`bg-gradient-to-r from-orange-600 via-orange-500 to-orange-400 text-white hover:from-orange-700 hover:via-orange-600 hover:to-orange-500 px-8 py-4 rounded-lg font-semibold transition-all duration-300 shadow-lg shadow-orange-500/25 ${poppins.className}`}
-            >
-              Start Your 7-Day Free Trial
-            </motion.button>
-            <p className={`text-sm text-gray-400 mt-4 ${inter.className}`}>
-              No credit card required • Get started in seconds
-            </p>
-          </motion.div>
-        </motion.div>
+          <p className={`${inter.className} text-zinc-400 font-medium`}>
+            No credit card required • Get started in seconds
+          </p>
+        </div>
       </div>
     </section>
   );
