@@ -22,9 +22,18 @@ import analyticsRouter from './routes/analytics';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const allowedOrigins = [
+  'https://red-lead.vercel.app', // Your deployed frontend
+  'http://localhost:3000'         // Your local frontend for development
+];
 
-// --- Enable CORS globally ---
-app.use(cors());
+const corsOptions = {
+  origin: allowedOrigins,
+  methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+};
+app.use(cors(corsOptions));
 app.use('/api/clerk-webhooks', clerkWebhookRouter);
 
 app.use(clerkMiddleware());
