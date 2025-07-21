@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import leadRouter from './routes/leads';
-import { initializeScheduler } from '../src/jobs/leadDiscovery';
+import { initializeScheduler } from './jobs/leadDiscovery';
 import onboardingRouter from './routes/onboarding';
 import engagementRouter from './routes/engagement';
 import insightRouter from './routes/insights';
