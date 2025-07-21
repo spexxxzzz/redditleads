@@ -33,7 +33,7 @@ export const OnboardingFlow = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch('http://localhost:5000/api/onboarding/analyze', {
+      const response = await fetch('https://redlead.onrender.com/api/onboarding/analyze', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -62,7 +62,7 @@ export const OnboardingFlow = () => {
     try {
       const token = await getToken();
 
-      const response = await fetch('http://localhost:5000/api/onboarding/complete', {
+      const response = await fetch('https://redlead.onrender.com/api/onboarding/complete', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
