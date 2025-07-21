@@ -1,6 +1,6 @@
 // frontend/lib/api.ts
 
-const API_BASE_URL = 'http://localhost:5000';
+const API_BASE_URL = 'https://redlead.onrender.com/';
 
 /**
  * A helper function to create standardized authentication headers.
