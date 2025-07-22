@@ -1,3 +1,5 @@
+ // /src/workers/lead.worker.ts
+
 import { PrismaClient, LeadType, User, Campaign } from '@prisma/client';
 import { findLeadsGlobally, findLeadsInSubmissions, findLeadsInComments, RawLead } from '../services/reddit.service';
 import { enrichLeadsForUser, EnrichedLead } from '../services/enrichment.service';
@@ -9,6 +11,7 @@ import { AIUsageService } from '../services/aitracking.service';
 const prisma = new PrismaClient();
 const BATCH_SIZE = 50; // Process 50 campaigns at a time
 const MAX_RETRIES = 3;
+const GLOBAL_SEARCH_INTERVAL_HOURS = 30; // Set the desired interval in hours
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -48,12 +51,14 @@ const saveLeadsToDatabase = async (
                 highQualityLeads.push({ ...lead, id: savedLead.id });
             }
         } catch (error: any) {
-            if (error.code !== 'P2002') { // P2002 is the unique constraint violation code
+            // P2002 is the unique constraint violation code, which is expected and can be ignored.
+            if (error.code !== 'P2002') { 
                 console.error(`Failed to save lead ${lead.id}:`, error.message);
             }
         }
     }
 
+    // Broadcast high-quality leads via webhooks
     for (const lead of highQualityLeads) {
         try {
             await webhookService.broadcastEvent('lead.discovered', {
@@ -85,10 +90,10 @@ const getPriorityFromScore = (score: number): 'low' | 'medium' | 'high' | 'urgen
     return 'low';
 };
 
-
 export const runLeadDiscoveryWorker = async (): Promise<void> => {
     console.log('Starting lead discovery worker run...');
     let cursor: string | null = null;
+    const GLOBAL_SEARCH_INTERVAL_MS = GLOBAL_SEARCH_INTERVAL_HOURS * 60 * 60 * 1000;
 
     while (true) {
         const campaigns: (Campaign & { user: User })[] = await prisma.campaign.findMany({
@@ -116,7 +121,7 @@ export const runLeadDiscoveryWorker = async (): Promise<void> => {
                     const user = campaign.user;
                     if (!user) {
                         console.log(`Skipping campaign ${campaign.id} as it has no associated user.`);
-                        break; 
+                        break;
                     }
 
                     const currentLeadCount = await getCurrentMonthLeadCount(user.id);
@@ -128,26 +133,42 @@ export const runLeadDiscoveryWorker = async (): Promise<void> => {
                     }
 
                     console.log(`Processing campaign ${campaign.id} for user ${user.id}`);
+                    const now = new Date();
 
-                    // --- PRIMARY LEAD DISCOVERY: Use Global Search ---
-                    if (campaign.generatedKeywords && campaign.generatedKeywords.length > 0) {
-                        console.log(`[Worker] Running GLOBAL search for campaign ${campaign.id}...`);
-                        const rawLeads = await findLeadsGlobally(
-                            campaign.generatedKeywords,
-                            campaign.negativeKeywords || [],
-                            campaign.subredditBlacklist || []
-                        );
+                    // --- PRIMARY LEAD DISCOVERY: Use Global Search with Time Gate ---
+                    const lastSearch = campaign.lastGlobalSearchAt;
+                    const isDueForGlobalSearch = !lastSearch || (now.getTime() - lastSearch.getTime()) > GLOBAL_SEARCH_INTERVAL_MS;
 
-                        console.log(`[Worker] Found ${rawLeads.length} potential global leads.`);
-                        
-                        if (rawLeads.length > 0) {
-                            const enrichedLeads = await enrichLeadsForUser(rawLeads, user);
-                            const saved = await saveLeadsToDatabase(enrichedLeads, campaign.id, user.id, 'DIRECT_LEAD');
-                            console.log(`  -> Saved ${saved} direct leads for user ${user.id}`);
+                    if (isDueForGlobalSearch) {
+                        if (campaign.generatedKeywords && campaign.generatedKeywords.length > 0) {
+                            console.log(`[Worker] Running GLOBAL search for campaign ${campaign.id}...`);
+                            const rawLeads = await findLeadsGlobally(
+                                campaign.generatedKeywords,
+                                campaign.negativeKeywords || [],
+                                campaign.subredditBlacklist || []
+                            );
+
+                            console.log(`[Worker] Found ${rawLeads.length} potential global leads.`);
+                            
+                            if (rawLeads.length > 0) {
+                                const enrichedLeads = await enrichLeadsForUser(rawLeads, user);
+                                const saved = await saveLeadsToDatabase(enrichedLeads, campaign.id, user.id, 'DIRECT_LEAD');
+                                console.log(`  -> Saved ${saved} direct leads for user ${user.id}`);
+                            }
+
+                            // Update the timestamp after a successful run
+                            await prisma.campaign.update({
+                                where: { id: campaign.id },
+                                data: { lastGlobalSearchAt: now },
+                            });
+                             console.log(`  -> Updated last global search time for campaign ${campaign.id}`);
                         }
+                    } else {
+                        const hoursSinceLastSearch = ((now.getTime() - lastSearch.getTime()) / (1000 * 60 * 60)).toFixed(2);
+                        console.log(`[Worker] Skipping GLOBAL search for campaign ${campaign.id}. Last ran ${hoursSinceLastSearch} hours ago (next run in ~${(GLOBAL_SEARCH_INTERVAL_HOURS - parseFloat(hoursSinceLastSearch)).toFixed(2)} hours).`);
                     }
 
-                    // --- COMPETITOR DISCOVERY: Uses targeted search for precision ---
+                    // --- COMPETITOR DISCOVERY: Uses targeted search for precision (can run more frequently) ---
                     if (user.plan === 'pro' && campaign.competitors && campaign.competitors.length > 0) {
                         const aiUsage = AIUsageService.getInstance();
                         const canUseCompetitorAI = await aiUsage.trackAIUsage(user.id, 'competitor');
@@ -186,7 +207,7 @@ export const runLeadDiscoveryWorker = async (): Promise<void> => {
                     if (retries >= MAX_RETRIES) {
                         console.error(`Failed to process campaign ${campaign.id} after ${MAX_RETRIES} attempts.`);
                     } else {
-                        await delay(1000 * Math.pow(2, retries));
+                        await delay(1000 * Math.pow(2, retries)); // Exponential backoff
                     }
                 }
             }

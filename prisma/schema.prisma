@@ -61,6 +61,7 @@ model Campaign {
   negativeKeywords      String[]        @default([])
   subredditBlacklist    String[]        @default([])
   lastManualDiscoveryAt DateTime?
+  lastGlobalSearchAt    DateTime? 
   user                  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   leads                 Lead[]
   MarketInsight         MarketInsight[]
