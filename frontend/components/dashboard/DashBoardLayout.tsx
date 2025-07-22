@@ -13,6 +13,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import LoadingLeads from '../loading/LoadingLeads';
 import PulsatingDotsLoaderDashboard from '../loading/LoadingDashboard';
+import { DeleteLeadsModal } from "./DeleteLead"
+import { TrashIcon } from '@heroicons/react/24/outline';
 
 const inter = Inter({ subsets: ['latin'] });
 const poppins = Poppins({
@@ -62,6 +64,7 @@ export const DashboardLayout = () => {
   const [activeCampaign, setActiveCampaign] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -341,6 +344,25 @@ export const DashboardLayout = () => {
                       </>
                     )}
                   </Button>
+                  <Button
+  variant="outline"
+  size="sm"
+  onClick={() => setShowDeleteModal(true)}
+  className="text-red-400 border-red-500/20 hover:bg-red-500/10"
+>
+  <TrashIcon className="h-4 w-4 mr-2" />
+  Delete Leads
+</Button>
+<DeleteLeadsModal
+  isOpen={showDeleteModal}
+  onClose={() => setShowDeleteModal(false)}
+  campaignId={activeCampaign ?? ""}
+  leadStats={leadStats}
+  onLeadsDeleted={() => {
+    // Refresh your leads data
+    window.location.reload(); // Simple refresh, or implement proper state update
+  }}
+/>
                 </div>
 
                 {isLoading ? (

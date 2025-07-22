@@ -266,3 +266,115 @@ export const summarizeLead: RequestHandler = async (req: any, res, next) => {
         next(error);
     }
 };
+
+// Add this new endpoint to your existing controller
+export const deleteAllLeads: RequestHandler = async (req: any, res, next) => {
+    try {
+      const { campaignId } = req.params;
+      const userId = req.auth.userId;
+  
+      if (!userId) {
+        res.status(401).json({ message: 'User not authenticated.' });
+        return;
+      }
+  
+      if (!campaignId) {
+        res.status(400).json({ message: 'Campaign ID is required.' });
+        return;
+      }
+  
+      // Verify campaign ownership
+      const campaign = await prisma.campaign.findFirst({
+        where: { 
+          id: campaignId,
+          userId: userId 
+        }
+      });
+  
+      if (!campaign) {
+        res.status(404).json({ message: 'Campaign not found or you do not have permission to access it.' });
+        return;
+      }
+  
+      // Count leads before deletion
+      const leadCount = await prisma.lead.count({
+        where: {
+          campaignId,
+          userId
+        }
+      });
+  
+      // Delete all leads for the campaign
+      const deleteResult = await prisma.lead.deleteMany({
+        where: {
+          campaignId,
+          userId
+        }
+      });
+  
+      console.log(`Deleted ${deleteResult.count} leads for campaign ${campaignId} (user: ${userId})`);
+  
+      res.json({ 
+        success: true, 
+        message: `Successfully deleted ${deleteResult.count} leads`,
+        deletedCount: deleteResult.count
+      });
+  
+    } catch (error) {
+      console.error('Error deleting leads:', error);
+      next(error);
+    }
+  };
+  
+  // Also add a delete by status endpoint
+  export const deleteLeadsByStatus: RequestHandler = async (req: any, res, next) => {
+    try {
+      const { campaignId } = req.params;
+      const { status } = req.body; // 'ignored', 'replied', 'saved', etc.
+      const userId = req.auth.userId;
+  
+      if (!userId) {
+        res.status(401).json({ message: 'User not authenticated.' });
+        return;
+      }
+  
+      if (!campaignId || !status) {
+        res.status(400).json({ message: 'Campaign ID and status are required.' });
+        return;
+      }
+  
+      // Verify campaign ownership
+      const campaign = await prisma.campaign.findFirst({
+        where: { 
+          id: campaignId,
+          userId: userId 
+        }
+      });
+  
+      if (!campaign) {
+        res.status(404).json({ message: 'Campaign not found or you do not have permission to access it.' });
+        return;
+      }
+  
+      // Delete leads by status
+      const deleteResult = await prisma.lead.deleteMany({
+        where: {
+          campaignId,
+          userId,
+          status
+        }
+      });
+  
+      console.log(`Deleted ${deleteResult.count} ${status} leads for campaign ${campaignId}`);
+  
+      res.json({ 
+        success: true, 
+        message: `Successfully deleted ${deleteResult.count} ${status} leads`,
+        deletedCount: deleteResult.count
+      });
+  
+    } catch (error) {
+      console.error('Error deleting leads by status:', error);
+      next(error);
+    }
+  };

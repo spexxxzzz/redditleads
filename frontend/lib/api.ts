@@ -269,5 +269,26 @@ export const api = {
     });
     if (!response.ok) throw new Error('Failed to fetch opportunity distribution');
     return response.json();
-  }
+  },
+  deleteAllLeads: async (campaignId: string, token: string | null) => {
+    const response = await fetch(`${API_BASE_URL}/api/leads/campaign/${campaignId}/all`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(token)
+    });
+    if (!response.ok) throw new Error('Failed to delete all leads');
+    return response.json();
+  },
+
+  deleteLeadsByStatus: async (campaignId: string, status: string, token: string | null) => {
+    const response = await fetch(`${API_BASE_URL}/api/leads/campaign/${campaignId}/status`, {
+      method: 'DELETE',
+      headers: {
+        ...getAuthHeaders(token),
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ status })
+    });
+    if (!response.ok) throw new Error(`Failed to delete ${status} leads`);
+    return response.json();
+  },
 };
