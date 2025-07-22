@@ -1,68 +1,93 @@
 import { RequestHandler } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { findLeadsGlobally } from '../services/reddit.service';
+import { enrichLeadsForUser } from '../services/enrichment.service';
 import { summarizeTextContent } from '../services/summarisation.service';
-import axios from 'axios'; // <-- IMPORT AXIOS
 
 const prisma = new PrismaClient();
 
-// The internal URL for your Python worker service on Render.
-// 'lead-generator' should be the name you give your Python service on Render.
-const PYTHON_WORKER_URL = process.env.PYTHON_WORKER_URL || 'http://lead-generator:10000/trigger-scan';
-
-/**
- * --- MODIFIED FOR PYTHON WORKER ---
- * Triggers the external Python worker to perform a lead discovery scan.
- */
 export const runManualDiscovery: RequestHandler = async (req: any, res, next) => {
+    // Get the authenticated user's ID from Clerk
     const { userId } = req.auth;
     const { campaignId } = req.params;
 
+    // Ensure the user is authenticated
     if (!userId) {
-        return res.status(401).json({ message: 'User not authenticated.' });
+        res.status(401).json({ message: 'User not authenticated.' });
+        return;
     }
+
     if (!campaignId) {
-        return res.status(400).json({ message: 'Campaign ID is required.' });
+         res.status(400).json({ message: 'Campaign ID is required.' });
+         return;
     }
 
     try {
-        console.log(`[Manual Discovery] User ${userId} triggered scan for campaign ${campaignId}. Forwarding to Python worker...`);
-
-        // Call the Python worker's API endpoint
-        // We pass the campaignId so the python worker knows which campaign to scan for.
-        const response = await axios.post(PYTHON_WORKER_URL, {
-            campaignId: campaignId,
+        console.log(`🔍 [Manual Discovery] User ${userId} starting for campaign: ${campaignId}`);
+        
+        // Securely find the campaign, ensuring it belongs to the authenticated user
+        const campaign = await prisma.campaign.findFirst({
+            where: { 
+                id: campaignId,
+                userId: userId 
+            },
+            include: { user: true }
         });
 
-        console.log('[Manual Discovery] Response from Python worker:', response.data);
-
-        // Immediately fetch the latest leads from the database to give the user fresh data.
-        // This is a better user experience than just returning a success message.
-        const leads = await prisma.lead.findMany({
-            where: { campaignId, userId },
-            orderBy: { discoveredAt: 'desc' },
-            take: 50 // Return the 50 most recent leads
-        });
-
-        res.status(200).json({ 
-            message: "Successfully triggered lead discovery.",
-            workerResponse: response.data,
-            updatedLeads: leads // Optionally send back the latest leads
-        });
-
-    } catch (error: any) {
-        console.error("Error triggering manual lead discovery:", error.message);
-        if (axios.isAxiosError(error)) {
-            console.error('Axios error details:', error.response?.data);
+        if (!campaign || !campaign.user) {
+             res.status(404).json({ message: 'Campaign not found or you do not have permission to access it.' });
+             return;
         }
-        return res.status(500).json({ 
-            error: 'Failed to trigger the lead discovery worker.',
-            details: error.message
-        });
+
+        const user = campaign.user;
+        
+        console.log(`[Manual Discovery] Running GLOBAL search for campaign ${campaign.id}...`);
+        const rawLeads = await findLeadsGlobally(
+            campaign.generatedKeywords,
+            campaign.negativeKeywords || [],
+            campaign.subredditBlacklist || []
+        );
+        
+        console.log(`[Manual Discovery] Found ${rawLeads.length} unique raw leads.`);
+
+        const enrichedLeads = await enrichLeadsForUser(rawLeads, user);
+        
+        const savedLeads = [];
+        for (const lead of enrichedLeads) {
+            try {
+                const savedLead = await prisma.lead.upsert({
+                    where: { url: lead.url },
+                    update: {}, 
+                    create: {
+                        redditId: lead.id,
+                        title: lead.title,
+                        author: lead.author,
+                        subreddit: lead.subreddit,
+                        url: lead.url,
+                        body: lead.body || '',
+                        userId: user.id,
+                        campaignId: campaignId,
+                        opportunityScore: lead.opportunityScore,
+                        intent: lead.intent || null,
+                        status: 'new',
+                        postedAt: new Date(lead.createdAt ? lead.createdAt * 1000 : Date.now()),
+                        type: 'DIRECT_LEAD',
+                    }
+                });
+                savedLeads.push(savedLead);
+            } catch (error) {
+                console.error(`❌ [Manual Discovery] Error saving lead "${lead.title}":`, error);
+            }
+        }
+
+        const sortedLeads = savedLeads.sort((a, b) => b.opportunityScore - a.opportunityScore);
+        res.status(200).json(sortedLeads);
+        return;
+         
+    } catch (error) {
+        next(error);
     }
 };
-
-
-// --- UNCHANGED FUNCTIONS ---
 
 export const getLeadsForCampaign: RequestHandler = async (req: any, res, next) => {
     const { userId } = req.auth;
@@ -93,9 +118,10 @@ export const getLeadsForCampaign: RequestHandler = async (req: any, res, next) =
     try {
         console.log(`📋 [Get Leads] User ${userId} fetching leads for campaign: ${campaignId}`);
 
+        // Securely build the where clause
         const where: any = { 
             campaignId,
-            userId: userId
+            userId: userId // Ensure leads belong to the authenticated user
         };
         if (status && status !== 'all') {
             where.status = status as string;
@@ -173,6 +199,7 @@ export const updateLeadStatus: RequestHandler = async (req: any, res, next) => {
     try {
         console.log(`📝 [Update Lead] User ${userId} updating lead ${leadId} status to: ${status}`);
 
+        // Securely update the lead only if it belongs to the authenticated user
         const result = await prisma.lead.updateMany({
             where: { 
                 id: leadId,
@@ -206,6 +233,7 @@ export const summarizeLead: RequestHandler = async (req: any, res, next) => {
     }
 
     try {
+        // Securely find the lead, ensuring it belongs to the authenticated user
         const lead = await prisma.lead.findFirst({
             where: { 
                 id: leadId,
@@ -239,6 +267,7 @@ export const summarizeLead: RequestHandler = async (req: any, res, next) => {
     }
 };
 
+// Add this new endpoint to your existing controller
 export const deleteAllLeads: RequestHandler = async (req: any, res, next) => {
     try {
       const { campaignId } = req.params;
@@ -254,6 +283,7 @@ export const deleteAllLeads: RequestHandler = async (req: any, res, next) => {
         return;
       }
   
+      // Verify campaign ownership
       const campaign = await prisma.campaign.findFirst({
         where: { 
           id: campaignId,
@@ -266,6 +296,15 @@ export const deleteAllLeads: RequestHandler = async (req: any, res, next) => {
         return;
       }
   
+      // Count leads before deletion
+      const leadCount = await prisma.lead.count({
+        where: {
+          campaignId,
+          userId
+        }
+      });
+  
+      // Delete all leads for the campaign
       const deleteResult = await prisma.lead.deleteMany({
         where: {
           campaignId,
@@ -287,10 +326,11 @@ export const deleteAllLeads: RequestHandler = async (req: any, res, next) => {
     }
   };
   
+  // Also add a delete by status endpoint
   export const deleteLeadsByStatus: RequestHandler = async (req: any, res, next) => {
     try {
       const { campaignId } = req.params;
-      const { status } = req.body;
+      const { status } = req.body; // 'ignored', 'replied', 'saved', etc.
       const userId = req.auth.userId;
   
       if (!userId) {
@@ -303,6 +343,7 @@ export const deleteAllLeads: RequestHandler = async (req: any, res, next) => {
         return;
       }
   
+      // Verify campaign ownership
       const campaign = await prisma.campaign.findFirst({
         where: { 
           id: campaignId,
@@ -315,6 +356,7 @@ export const deleteAllLeads: RequestHandler = async (req: any, res, next) => {
         return;
       }
   
+      // Delete leads by status
       const deleteResult = await prisma.lead.deleteMany({
         where: {
           campaignId,
