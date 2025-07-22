@@ -7,6 +7,7 @@ import { analyzeSentiment } from '../services/ai.service';
 import { calculateLeadScore } from '../services/scoring.service';
 import { webhookService } from '../services/webhook.service';
 import { AIUsageService } from '../services/aitracking.service';
+import { calculateContentRelevance } from '../services/relevance.service';
 
 const prisma = new PrismaClient();
 const BATCH_SIZE = 50; // Process 50 campaigns at a time
@@ -139,31 +140,54 @@ export const runLeadDiscoveryWorker = async (): Promise<void> => {
                     const lastSearch = campaign.lastGlobalSearchAt;
                     const isDueForGlobalSearch = !lastSearch || (now.getTime() - lastSearch.getTime()) > GLOBAL_SEARCH_INTERVAL_MS;
 
-                    if (isDueForGlobalSearch) {
-                        if (campaign.generatedKeywords && campaign.generatedKeywords.length > 0) {
-                            console.log(`[Worker] Running GLOBAL search for campaign ${campaign.id}...`);
-                            const rawLeads = await findLeadsGlobally(
-                                campaign.generatedKeywords,
-                                campaign.negativeKeywords || [],
-                                campaign.subredditBlacklist || []
-                            );
 
-                            console.log(`[Worker] Found ${rawLeads.length} potential global leads.`);
-                            
-                            if (rawLeads.length > 0) {
-                                const enrichedLeads = await enrichLeadsForUser(rawLeads, user);
-                                const saved = await saveLeadsToDatabase(enrichedLeads, campaign.id, user.id, 'DIRECT_LEAD');
-                                console.log(`  -> Saved ${saved} direct leads for user ${user.id}`);
-                            }
+// Update the worker logic
+if (isDueForGlobalSearch) {
+    if (campaign.generatedKeywords && campaign.generatedKeywords.length > 0) {
+        console.log(`[Worker] Running GLOBAL search for campaign ${campaign.id}...`);
+        const rawLeads = await findLeadsGlobally(
+            campaign.generatedKeywords,
+            campaign.negativeKeywords || [],
+            campaign.subredditBlacklist || [],
+            campaign.generatedDescription // Pass business context
+        );
 
-                            // Update the timestamp after a successful run
-                            await prisma.campaign.update({
-                                where: { id: campaign.id },
-                                data: { lastGlobalSearchAt: now },
-                            });
-                             console.log(`  -> Updated last global search time for campaign ${campaign.id}`);
-                        }
-                    } else {
+        console.log(`[Worker] Found ${rawLeads.length} potential global leads.`);
+        
+        // 🎯 NEW: Filter for relevance BEFORE enrichment
+        const relevantLeads = rawLeads.filter(lead => {
+            const relevance = calculateContentRelevance(
+                lead, 
+                campaign.generatedKeywords, 
+                campaign.generatedDescription
+            );
+            
+            if (relevance.isRelevant) {
+                console.log(`✅ Relevant lead: "${lead.title.substring(0, 50)}..." (Score: ${relevance.score})`);
+                console.log(`   Reasons: ${relevance.reasons.join('; ')}`);
+                return true;
+            } else {
+                console.log(`❌ Filtered out: "${lead.title.substring(0, 50)}..." (Score: ${relevance.score})`);
+                return false;
+            }
+        });
+
+        console.log(`[Worker] Filtered to ${relevantLeads.length} relevant leads (${((relevantLeads.length / rawLeads.length) * 100).toFixed(1)}% relevance rate)`);
+        
+        if (relevantLeads.length > 0) {
+            const enrichedLeads = await enrichLeadsForUser(relevantLeads, user);
+            const saved = await saveLeadsToDatabase(enrichedLeads, campaign.id, user.id, 'DIRECT_LEAD');
+            console.log(`  -> Saved ${saved} high-relevance leads for user ${user.id}`);
+        }
+
+        // Update the timestamp after a successful run
+        await prisma.campaign.update({
+            where: { id: campaign.id },
+            data: { lastGlobalSearchAt: now },
+        });
+        console.log(`  -> Updated last global search time for campaign ${campaign.id}`);
+    }
+}else {
                         const hoursSinceLastSearch = ((now.getTime() - lastSearch.getTime()) / (1000 * 60 * 60)).toFixed(2);
                         console.log(`[Worker] Skipping GLOBAL search for campaign ${campaign.id}. Last ran ${hoursSinceLastSearch} hours ago (next run in ~${(GLOBAL_SEARCH_INTERVAL_HOURS - parseFloat(hoursSinceLastSearch)).toFixed(2)} hours).`);
                     }
