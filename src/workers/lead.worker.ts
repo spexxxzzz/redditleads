@@ -141,7 +141,7 @@ export const runLeadDiscoveryWorker = async (): Promise<void> => {
                     const isDueForGlobalSearch = !lastSearch || (now.getTime() - lastSearch.getTime()) > GLOBAL_SEARCH_INTERVAL_MS;
 
 
-// Update the worker logic
+// Update the worker logic section
 if (isDueForGlobalSearch) {
     if (campaign.generatedKeywords && campaign.generatedKeywords.length > 0) {
         console.log(`[Worker] Running GLOBAL search for campaign ${campaign.id}...`);
@@ -149,12 +149,12 @@ if (isDueForGlobalSearch) {
             campaign.generatedKeywords,
             campaign.negativeKeywords || [],
             campaign.subredditBlacklist || [],
-            campaign.generatedDescription // Pass business context
+            campaign.generatedDescription
         );
 
         console.log(`[Worker] Found ${rawLeads.length} potential global leads.`);
         
-        // 🎯 NEW: Filter for relevance BEFORE enrichment
+        // 🎯 IMPROVED: Filter for relevance with fallback strategy
         const relevantLeads = rawLeads.filter(lead => {
             const relevance = calculateContentRelevance(
                 lead, 
@@ -172,12 +172,33 @@ if (isDueForGlobalSearch) {
             }
         });
 
-        console.log(`[Worker] Filtered to ${relevantLeads.length} relevant leads (${((relevantLeads.length / rawLeads.length) * 100).toFixed(1)}% relevance rate)`);
+        console.log(`[Worker] Filtered to ${relevantLeads.length} relevant leads (${rawLeads.length > 0 ? ((relevantLeads.length / rawLeads.length) * 100).toFixed(1) : 0}% relevance rate)`);
         
-        if (relevantLeads.length > 0) {
-            const enrichedLeads = await enrichLeadsForUser(relevantLeads, user);
+        // 🎯 NEW: Fallback strategy if we got too few relevant leads
+        let leadsToProcess = relevantLeads;
+        if (relevantLeads.length < 3 && rawLeads.length > 0) {
+            console.log(`[Worker] Too few relevant leads (${relevantLeads.length}). Using fallback strategy...`);
+            
+            // Sort by a simple score and take top ones as fallback
+            const fallbackLeads = rawLeads
+                .sort((a, b) => {
+                    // Simple fallback scoring: comments + keyword matches
+                    const aScore = a.numComments + (a.title.toLowerCase().includes(campaign.generatedKeywords[0]?.toLowerCase() || '') ? 10 : 0);
+                    const bScore = b.numComments + (b.title.toLowerCase().includes(campaign.generatedKeywords[0]?.toLowerCase() || '') ? 10 : 0);
+                    return bScore - aScore;
+                })
+                .slice(0, Math.max(5, Math.floor(rawLeads.length * 0.3))); // Take top 30% or at least 5
+            
+            console.log(`[Worker] Using ${fallbackLeads.length} leads from fallback strategy`);
+            leadsToProcess = fallbackLeads;
+        }
+        
+        if (leadsToProcess.length > 0) {
+            const enrichedLeads = await enrichLeadsForUser(leadsToProcess, user);
             const saved = await saveLeadsToDatabase(enrichedLeads, campaign.id, user.id, 'DIRECT_LEAD');
-            console.log(`  -> Saved ${saved} high-relevance leads for user ${user.id}`);
+            console.log(`  -> Saved ${saved} leads for user ${user.id} (${relevantLeads.length} high-relevance + ${leadsToProcess.length - relevantLeads.length} fallback)`);
+        } else {
+            console.log(`  -> No leads to process for campaign ${campaign.id}`);
         }
 
         // Update the timestamp after a successful run
@@ -187,7 +208,8 @@ if (isDueForGlobalSearch) {
         });
         console.log(`  -> Updated last global search time for campaign ${campaign.id}`);
     }
-}else {
+}
+else {
                         const hoursSinceLastSearch = ((now.getTime() - lastSearch.getTime()) / (1000 * 60 * 60)).toFixed(2);
                         console.log(`[Worker] Skipping GLOBAL search for campaign ${campaign.id}. Last ran ${hoursSinceLastSearch} hours ago (next run in ~${(GLOBAL_SEARCH_INTERVAL_HOURS - parseFloat(hoursSinceLastSearch)).toFixed(2)} hours).`);
                     }

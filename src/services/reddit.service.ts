@@ -125,44 +125,65 @@ export const findLeadsGlobally = async (
     keywords: string[],
     negativeKeywords: string[],
     subredditBlacklist: string[],
-    businessDescription?: string // Add business context
+    businessDescription?: string
 ): Promise<RawLead[]> => {
     try {
         const reddit = await getAppAuthenticatedInstance();
-        console.log(`[Global Search] Starting Reddit-wide search with enhanced relevance filtering.`);
+        console.log(`[Global Search] Starting comprehensive Reddit search.`);
 
-        // 🎯 IMPROVED: Create more targeted search queries
-        const primaryKeywords = keywords.slice(0, 3); // Use top 3 most important keywords
-        const secondaryKeywords = keywords.slice(3);
+        // 🎯 IMPROVED: Cast a wider net with multiple search strategies
+        const primaryKeywords = keywords.slice(0, 5); // Increased from 3 to 5
         
-        // Create multiple focused queries instead of one broad OR query
-        const targetedQueries = primaryKeywords.map(keyword => {
-            const contextualTerms = [
-                `"${keyword}" (help OR recommend OR suggest OR advice OR best OR looking for)`,
-                `"${keyword}" (problem OR issue OR struggling OR need OR want)`,
-                `"${keyword}" (alternative OR better OR comparison OR vs OR versus)`
-            ];
-            return contextualTerms;
-        }).flat();
+        // Strategy 1: Direct keyword searches
+        const directQueries = primaryKeywords.map(keyword => `"${keyword}"`);
+        
+        // Strategy 2: Keyword + intent combinations  
+        const intentQueries = primaryKeywords.slice(0, 3).flatMap(keyword => [
+            `${keyword} (help OR advice OR recommendation)`,
+            `${keyword} (problem OR issue OR struggling)`,
+            `${keyword} (best OR better OR alternative)`
+        ]);
 
-        const negativeKeywordQuery = negativeKeywords.map(kw => `-title:"${kw}" -selftext:"${kw}"`).join(' ');
-        const blacklistQuery = subredditBlacklist.map(sub => `-subreddit:${sub.trim().toLowerCase()}`).join(' ');
+        // Strategy 3: Broader context searches
+        const contextQueries = primaryKeywords.slice(0, 2).map(keyword => 
+            `${keyword} (experience OR thoughts OR opinion OR review)`
+        );
 
-        let allLeads: RawLead[] = [];
+        // Combine all strategies
+        const allQueries = [
+            ...directQueries,
+            ...intentQueries.slice(0, 6), // Limit to prevent too many calls
+            ...contextQueries
+        ];
+
+        const negativeKeywordQuery = negativeKeywords.length > 0 
+            ? negativeKeywords.map(kw => `-"${kw}"`).join(' ')
+            : '';
+        
+        const blacklistQuery = subredditBlacklist.length > 0
+            ? subredditBlacklist.map(sub => `-subreddit:${sub.trim().toLowerCase()}`).join(' ')
+            : '';
+
         const uniqueLeads = new Map<string, RawLead>();
+        let queryCount = 0;
 
-        // 🎯 IMPROVED: Search with multiple targeted queries
-        for (const query of targetedQueries.slice(0, 5)) { // Limit to 5 most relevant queries
+        // 🎯 IMPROVED: Search with multiple strategies
+        for (const query of allQueries.slice(0, 8)) { // Increased limit to 8 queries
             try {
-                const finalQuery = `${query} ${negativeKeywordQuery} ${blacklistQuery}`.trim();
-                console.log(`[Global Search] Targeted query: ${finalQuery}`);
+                const finalQuery = [query, negativeKeywordQuery, blacklistQuery]
+                    .filter(Boolean)
+                    .join(' ');
+                
+                console.log(`[Global Search] Query ${++queryCount}: ${finalQuery}`);
 
                 const searchResults = await reddit.search({
                     query: finalQuery,
-                    sort: 'relevance', // Changed from 'new' to 'relevance'
-                    time: 'week', // Changed from 'month' to 'week' for more recent content
-                    limit: 25, // Reduced from 100 to get higher quality results
+                    sort: 'relevance',
+                    time: 'all', // CHANGED: Search all time instead of just 'week'
+                    limit: 25, 
                 });
+
+                console.log(`[Global Search] Query ${queryCount} returned ${searchResults.length} results`);
 
                 searchResults.forEach((post) => {
                     if (!uniqueLeads.has(post.id)) {
@@ -182,15 +203,15 @@ export const findLeadsGlobally = async (
                     }
                 });
 
-                // Add delay between queries to respect rate limits
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                // Shorter delay between queries
+                await new Promise(resolve => setTimeout(resolve, 1500)); 
             } catch (error) {
-                console.warn(`[Global Search] Query failed: ${query}. Continuing with next query.`);
+                console.warn(`[Global Search] Query failed: ${query}. Continuing...`);
             }
         }
 
         const leads = Array.from(uniqueLeads.values());
-        console.log(`[Global Search] Found ${leads.length} unique leads across ${targetedQueries.length} targeted queries.`);
+        console.log(`[Global Search] Found ${leads.length} unique leads from ${queryCount} queries.`);
         
         return leads;
 
