@@ -13,7 +13,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import LoadingLeads from '../loading/LoadingLeads';
 import PulsatingDotsLoaderDashboard from '../loading/LoadingDashboard';
-import { DeleteLeadsModal } from "./DeleteLead"
+import { DeleteLeadsModal } from "./DeleteLead";
+import { DiscoveryButtons } from './DiscoveryOptions';
 import { TrashIcon } from '@heroicons/react/24/outline';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -49,6 +50,7 @@ interface Campaign {
   targetSubreddits: string[];
   competitors: string[];
   createdAt: string;
+  lastManualDiscoveryAt?: string | null;
   _count?: {
     leads: number;
   };
@@ -160,6 +162,15 @@ export const DashboardLayout = () => {
     }
   };
 
+  const handleLeadsDiscovered = () => {
+    // Refresh leads data after discovery
+    if (activeCampaign) {
+      fetchLeads(activeCampaign);
+      // Also refresh campaigns to update lastManualDiscoveryAt
+      fetchCampaigns();
+    }
+  };
+
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
@@ -191,6 +202,9 @@ export const DashboardLayout = () => {
     setLeads(updateLeadList(leads));
     setAllLeads(updateLeadList(allLeads));
   };
+
+  // Get current campaign data
+  const currentCampaign = campaigns.find(c => c.id === activeCampaign);
 
   if (error && campaigns.length === 0) {
     return (
@@ -327,42 +341,26 @@ export const DashboardLayout = () => {
                       Discover and manage potential customers from Reddit
                     </p>
                   </div>
-                  <Button 
-                    onClick={handleManualDiscovery} 
-                    disabled={isRunningDiscovery || !activeCampaign}
-                    className="bg-orange-500 hover:bg-orange-600 text-white w-full md:w-auto"
-                  >
-                    {isRunningDiscovery ? (
-                      <>
-                        <Loader className="h-4 w-4 mr-2 animate-spin" />
-                        <span className={inter.className}>Discovering...</span>
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        <span className={inter.className}>Discover Leads</span>
-                      </>
-                    )}
-                  </Button>
+                
                   <Button
-  variant="outline"
-  size="sm"
-  onClick={() => setShowDeleteModal(true)}
-  className="text-red-400 border-red-500/20 hover:bg-red-500/10"
->
-  <TrashIcon className="h-4 w-4 mr-2" />
-  Delete Leads
-</Button>
-<DeleteLeadsModal
-  isOpen={showDeleteModal}
-  onClose={() => setShowDeleteModal(false)}
-  campaignId={activeCampaign ?? ""}
-  leadStats={leadStats}
-  onLeadsDeleted={() => {
-    // Refresh your leads data
-    window.location.reload(); // Simple refresh, or implement proper state update
-  }}
-/>
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowDeleteModal(true)}
+                    className="text-red-400 border-red-500/20 hover:bg-red-500/10"
+                  >
+                    <TrashIcon className="h-4 w-4 mr-2" />
+                    Delete Leads
+                  </Button>
+                </div>
+
+                {/* Discovery Buttons Section */}
+                <div className="mb-8">
+                  <DiscoveryButtons
+                    campaignId={activeCampaign || ''}
+                    targetSubreddits={currentCampaign?.targetSubreddits || []}
+                    onLeadsDiscovered={handleLeadsDiscovered}
+                    lastDiscoveryAt={currentCampaign?.lastManualDiscoveryAt ? new Date(currentCampaign.lastManualDiscoveryAt) : null}
+                  />
                 </div>
 
                 {isLoading ? (
@@ -376,6 +374,15 @@ export const DashboardLayout = () => {
                     activeFilter={activeFilter ?? "all"}
                   />
                 )}
+
+                {/* Delete Leads Modal */}
+                <DeleteLeadsModal
+                  isOpen={showDeleteModal}
+                  onClose={() => setShowDeleteModal(false)}
+                  campaignId={activeCampaign ?? ""}
+                  leadStats={leadStats}
+                  onLeadsDeleted={handleLeadsDiscovered}
+                />
               </motion.div>
             )}
           </AnimatePresence>

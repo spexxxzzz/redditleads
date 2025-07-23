@@ -291,4 +291,16 @@ export const api = {
     if (!response.ok) throw new Error(`Failed to delete ${status} leads`);
     return response.json();
   },
+  runTargetedDiscovery: async (campaignId: string, token: string | null) => {
+    const response = await fetch(`${API_BASE_URL}/api/leads/campaign/${campaignId}/discover/targeted`, {
+      method: 'POST',
+      headers: getAuthHeaders(token)
+    });
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to run targeted discovery');
+    }
+    return response.json();
+  },
+
 };

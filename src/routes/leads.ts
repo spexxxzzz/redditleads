@@ -1,5 +1,5 @@
 import express, { Request, Response } from 'express';
-import { deleteAllLeads, deleteLeadsByStatus, getLeadsForCampaign, runManualDiscovery, updateLeadStatus } from '../controllers/lead.controller';
+import { deleteAllLeads, deleteLeadsByStatus, getLeadsForCampaign, runManualDiscovery, runTargetedDiscovery, updateLeadStatus } from '../controllers/lead.controller';
 import { summarizeLead } from '../controllers/post.controller';
 import { gateKeeper } from '../middleware/gateKeeper';
 
@@ -18,4 +18,5 @@ leadRouter.patch('/:leadId/status', gateKeeper, updateLeadStatus);
 leadRouter.post('/:id/summarize', gateKeeper, summarizeLead);
 leadRouter.delete('/campaign/:campaignId/all', deleteAllLeads);
 leadRouter.delete('/campaign/:campaignId/status', deleteLeadsByStatus);
+leadRouter.post('/campaign/:campaignId/discover/targeted', runTargetedDiscovery);
 export default leadRouter;
