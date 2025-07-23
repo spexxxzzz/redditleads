@@ -1,4 +1,4 @@
- // /src/workers/lead.worker.ts
+// /src/workers/lead.worker.ts
 
 import { PrismaClient, LeadType, User, Campaign } from '@prisma/client';
 import { findLeadsGlobally, findLeadsInSubmissions, findLeadsInComments, RawLead } from '../services/reddit.service';
@@ -8,6 +8,7 @@ import { calculateLeadScore } from '../services/scoring.service';
 import { webhookService } from '../services/webhook.service';
 import { AIUsageService } from '../services/aitracking.service';
 import { calculateContentRelevance } from '../services/relevance.service';
+import { sendEmail } from '../services/email.service';
 
 const prisma = new PrismaClient();
 const BATCH_SIZE = 50; // Process 50 campaigns at a time
@@ -53,7 +54,7 @@ const saveLeadsToDatabase = async (
             }
         } catch (error: any) {
             // P2002 is the unique constraint violation code, which is expected and can be ignored.
-            if (error.code !== 'P2002') { 
+            if (error.code !== 'P2002') {
                 console.error(`Failed to save lead ${lead.id}:`, error.message);
             }
         }
@@ -78,6 +79,20 @@ const saveLeadsToDatabase = async (
             }, userId, campaignId, getPriorityFromScore(lead.opportunityScore));
         } catch (webhookError) {
             console.error(`Failed to broadcast webhook for lead ${lead.id}:`, webhookError);
+        }
+    }
+
+    if (savedCount > 0) {
+        const userSettings = await prisma.emailNotificationSetting.findUnique({
+            where: { userId },
+        });
+
+        if (userSettings && userSettings.enabled) {
+            await sendEmail(
+                userSettings.email,
+                `${savedCount} new leads discovered!`,
+                `<h1>You have ${savedCount} new leads waiting for you in RedLead.</h1>`
+            );
         }
     }
 
@@ -153,15 +168,15 @@ if (isDueForGlobalSearch) {
         );
 
         console.log(`[Worker] Found ${rawLeads.length} potential global leads.`);
-        
+
         // 🎯 IMPROVED: Filter for relevance with fallback strategy
         const relevantLeads = rawLeads.filter(lead => {
             const relevance = calculateContentRelevance(
-                lead, 
-                campaign.generatedKeywords, 
+                lead,
+                campaign.generatedKeywords,
                 campaign.generatedDescription
             );
-            
+
             if (relevance.isRelevant) {
                 console.log(`✅ Relevant lead: "${lead.title.substring(0, 50)}..." (Score: ${relevance.score})`);
                 console.log(`   Reasons: ${relevance.reasons.join('; ')}`);
@@ -173,12 +188,12 @@ if (isDueForGlobalSearch) {
         });
 
         console.log(`[Worker] Filtered to ${relevantLeads.length} relevant leads (${rawLeads.length > 0 ? ((relevantLeads.length / rawLeads.length) * 100).toFixed(1) : 0}% relevance rate)`);
-        
+
         // 🎯 NEW: Fallback strategy if we got too few relevant leads
         let leadsToProcess = relevantLeads;
         if (relevantLeads.length < 3 && rawLeads.length > 0) {
             console.log(`[Worker] Too few relevant leads (${relevantLeads.length}). Using fallback strategy...`);
-            
+
             // Sort by a simple score and take top ones as fallback
             const fallbackLeads = rawLeads
                 .sort((a, b) => {
@@ -188,11 +203,11 @@ if (isDueForGlobalSearch) {
                     return bScore - aScore;
                 })
                 .slice(0, Math.max(5, Math.floor(rawLeads.length * 0.3))); // Take top 30% or at least 5
-            
+
             console.log(`[Worker] Using ${fallbackLeads.length} leads from fallback strategy`);
             leadsToProcess = fallbackLeads;
         }
-        
+
         if (leadsToProcess.length > 0) {
             const enrichedLeads = await enrichLeadsForUser(leadsToProcess, user);
             const saved = await saveLeadsToDatabase(enrichedLeads, campaign.id, user.id, 'DIRECT_LEAD');
@@ -224,7 +239,7 @@ else {
                                 findLeadsInSubmissions(campaign.competitors, campaign.targetSubreddits),
                                 findLeadsInComments(campaign.competitors, campaign.targetSubreddits)
                             ]);
-                            
+
                             const competitorLeads = [...submissionLeads, ...commentLeads];
                             const uniqueCompetitorLeadsMap = new Map<string, RawLead>();
                             competitorLeads.forEach(lead => {
@@ -245,7 +260,7 @@ else {
                             console.log(`  -> Saved ${saved} competitor leads for user ${user.id}`);
                         }
                     }
-                    
+
                     break; // Success, exit retry loop
                 } catch (error) {
                     retries++;

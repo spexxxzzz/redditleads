@@ -8,6 +8,8 @@ import engagementRouter from './routes/engagement';
 import insightRouter from './routes/insights';
 import performanceRouter from './routes/performance';
 import { clerkMiddleware } from '@clerk/express';
+import emailRouter from './routes/email';
+
 
 
 // --- NEW: Import campaigns router ---
@@ -51,6 +53,8 @@ app.use('/api/onboarding', onboardingRouter);
 app.use('/api/engagement', engagementRouter);
 app.use('/api/performance', performanceRouter);
 app.use('/api/insights', insightRouter);
+app.use('/api/email', emailRouter);
+
 // --- NEW: Add campaigns router ---
 app.use('/api/campaigns', campaignRouter);
 app.use('/api/reddit', redditRouter);

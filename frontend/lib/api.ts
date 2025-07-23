@@ -302,5 +302,33 @@ export const api = {
     }
     return response.json();
   },
+    // Email Notification Settings
+    getEmailSettings: async (token: string | null) => {
+      const response = await fetch(`${API_BASE_URL}/api/email/settings`, {
+        headers: getAuthHeaders(token),
+      });
+      if (!response.ok) throw new Error('Failed to fetch email settings');
+      return response.json();
+    },
+  
+    updateEmailSettings: async (settings: { email: string; enabled: boolean }, token: string | null) => {
+      const response = await fetch(`${API_BASE_URL}/api/email/settings`, {
+        method: 'POST',
+        headers: getAuthHeaders(token),
+        body: JSON.stringify(settings),
+      });
+      if (!response.ok) throw new Error('Failed to update email settings');
+      return response.json();
+    },
+  
+    sendTestEmail: async (token: string | null) => {
+      const response = await fetch(`${API_BASE_URL}/api/email/settings/test`, {
+        method: 'POST',
+        headers: getAuthHeaders(token),
+      });
+      if (!response.ok) throw new Error('Failed to send test email');
+      return response.json();
+    },
+  
 
 };

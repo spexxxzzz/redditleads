@@ -8,40 +8,50 @@ datasource db {
 }
 
 model User {
-  id                 String           @id @default(cuid())
-  email              String           @unique
-  plan               String           @default("free")
-  subscriptionStatus String?
-  lastKarmaCheck     DateTime?
-  redditKarma        Int?             @default(0)
-  redditRefreshToken String?
-  redditUsername     String?
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
-  redditAuthState    String?          @unique
-  hasConnectedReddit Boolean          @default(false)
-  AIUsage            AIUsage[]
-  campaigns          Campaign[]
-  leads              Lead[]
-  MarketInsight      MarketInsight[]
-  scheduledReplies   ScheduledReply[]
-  webhooks           Webhook[]
+  id                      String                    @id @default(cuid())
+  email                   String                    @unique
+  plan                    String                    @default("free")
+  subscriptionStatus      String?
+  lastKarmaCheck          DateTime?
+  redditKarma             Int?                      @default(0)
+  redditRefreshToken      String?
+  redditUsername          String?
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime                  @updatedAt
+  redditAuthState         String?                   @unique
+  hasConnectedReddit      Boolean                   @default(false)
+  AIUsage                 AIUsage[]
+  campaigns               Campaign[]
+  leads                   Lead[]
+  MarketInsight           MarketInsight[]
+  scheduledReplies        ScheduledReply[]
+  webhooks                Webhook[]
+  emailNotificationSetting EmailNotificationSetting? // Relation to EmailNotificationSetting
+}
+
+// ✨ NEW MODEL ADDED FOR EMAIL NOTIFICATIONS ✨
+model EmailNotificationSetting {
+  id      String  @id @default(cuid())
+  email   String
+  enabled Boolean @default(false)
+  userId  String  @unique // Each user has one setting
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Webhook {
-  id            String    @id @default(cuid())
-  name          String
-  url           String
-  type          String
-  isActive      Boolean   @default(true)
-  events        String[]
-  userId        String
-  createdAt     DateTime  @default(now())
-  lastTriggered DateTime?
-  lastSentAt    DateTime?
-  filters       Json?
+  id               String    @id @default(cuid())
+  name             String
+  url              String
+  type             String
+  isActive         Boolean   @default(true)
+  events           String[]
+  userId           String
+  createdAt        DateTime  @default(now())
+  lastTriggered    DateTime?
+  lastSentAt       DateTime?
+  filters          Json?
   rateLimitMinutes Int?
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("webhooks")
 }
@@ -61,7 +71,7 @@ model Campaign {
   negativeKeywords      String[]        @default([])
   subredditBlacklist    String[]        @default([])
   lastManualDiscoveryAt DateTime?
-  lastGlobalSearchAt    DateTime? 
+  lastGlobalSearchAt    DateTime?
   user                  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   leads                 Lead[]
   MarketInsight         MarketInsight[]
@@ -70,29 +80,29 @@ model Campaign {
 }
 
 model Lead {
-  id                 String      @id @default(cuid())
-  redditId           String      @unique
+  id                 String           @id @default(cuid())
+  redditId           String           @unique
   title              String
   author             String
   subreddit          String
-  url                String      @unique
+  url                String           @unique
   body               String?
   postedAt           DateTime
-  discoveredAt       DateTime    @default(now())
+  discoveredAt       DateTime         @default(now())
   opportunityScore   Int
-  status             String      @default("new")
+  status             String           @default("new")
   campaignId         String
   intent             String?
   userId             String
-  createdAt          DateTime    @default(now())
+  createdAt          DateTime         @default(now())
   sentiment          String?
-  type               LeadType    @default(DIRECT_LEAD)
-  updatedAt          DateTime    @updatedAt
-  insightAnalysisRan Boolean     @default(false)
+  type               LeadType         @default(DIRECT_LEAD)
+  updatedAt          DateTime         @updatedAt
+  insightAnalysisRan Boolean          @default(false)
   summary            String?
-  isGoogleRanked     Boolean?    @default(false)
-  campaign           Campaign    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  user               User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isGoogleRanked     Boolean?         @default(false)
+  campaign           Campaign         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   scheduledReplies   ScheduledReply[]
 
   @@unique([id, userId])
@@ -122,12 +132,12 @@ model ScheduledReply {
 }
 
 model SubredditProfile {
-  id               String    @id @default(cuid())
-  name             String    @unique
-  rules            String[]  @default([])
+  id               String   @id @default(cuid())
+  name             String   @unique
+  rules            String[] @default([])
   cultureNotes     String?
   peakActivityTime String?
-  lastAnalyzedAt   DateTime  @updatedAt
+  lastAnalyzedAt   DateTime @updatedAt
 }
 
 model MarketInsight {
