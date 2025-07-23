@@ -171,7 +171,7 @@ export const api = {
 
   // Webhook endpoints
   createWebhook: async (webhookData: any, token: string | null) => {
-    const response = await fetch(`${API_BASE_URL}/api/webhooks`, {
+    const response = await fetch(`${API_BASE_URL}/api/webhook`, {
       method: 'POST',
       headers: getAuthHeaders(token),
       body: JSON.stringify(webhookData),
@@ -181,7 +181,7 @@ export const api = {
   },
 
   getWebhooks: async (token: string | null) => {
-    const response = await fetch(`${API_BASE_URL}/api/webhooks`, {
+    const response = await fetch(`${API_BASE_URL}/api/webhook`, {
         headers: getAuthHeaders(token)
     });
     if (!response.ok) throw new Error('Failed to fetch webhooks');
@@ -189,7 +189,7 @@ export const api = {
   },
 
   getWebhookStats: async (token: string | null) => {
-    const response = await fetch(`${API_BASE_URL}/api/webhooks/stats`, {
+    const response = await fetch(`${API_BASE_URL}/api/webhook/stats`, {
         headers: getAuthHeaders(token)
     });
     if (!response.ok) throw new Error('Failed to fetch webhook stats');
@@ -197,7 +197,7 @@ export const api = {
   },
 
   updateWebhook: async (webhookId: string, updates: any, token: string | null) => {
-    const response = await fetch(`${API_BASE_URL}/api/webhooks/${webhookId}`, {
+    const response = await fetch(`${API_BASE_URL}/api/webhook/${webhookId}`, {
       method: 'PUT',
       headers: getAuthHeaders(token),
       body: JSON.stringify(updates),
@@ -207,7 +207,7 @@ export const api = {
   },
 
   deleteWebhook: async (webhookId: string, token: string | null) => {
-    const response = await fetch(`${API_BASE_URL}/api/webhooks/${webhookId}`, {
+    const response = await fetch(`${API_BASE_URL}/api/webhook/${webhookId}`, {
       method: 'DELETE',
       headers: getAuthHeaders(token)
     });
@@ -216,7 +216,7 @@ export const api = {
   },
 
   testWebhook: async (webhookId: string, token: string | null) => {
-    const response = await fetch(`${API_BASE_URL}/api/webhooks/${webhookId}/test`, {
+    const response = await fetch(`${API_BASE_URL}/api/webhook/${webhookId}/test`, {
       method: 'POST',
       headers: getAuthHeaders(token)
     });
