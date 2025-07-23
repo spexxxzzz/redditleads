@@ -1,24 +1,17 @@
 "use client";
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { 
-  MagnifyingGlassIcon, 
-  GlobeAltIcon,
-  TagIcon,
-  SparklesIcon 
-} from '@heroicons/react/24/outline';
+import { ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { api } from '@/lib/api';
 import { useAuth } from '@clerk/nextjs';
 import { Inter, Poppins } from 'next/font/google';
 import { toast } from 'sonner';
-import { TargetIcon } from 'lucide-react';
 
 const inter = Inter({ subsets: ['latin'] });
 const poppins = Poppins({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700']
+  weight: ['400', '500', '600', '700', '800']
 });
 
 interface DiscoveryButtonsProps {
@@ -91,71 +84,44 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
   const hasTargetSubreddits = targetSubreddits && targetSubreddits.length > 0;
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className={`text-lg font-semibold text-white ${poppins.className}`}>
-            Lead Discovery
-          </h3>
-          <p className={`text-sm text-gray-400 ${inter.className}`}>
-            Choose your discovery method
-          </p>
-        </div>
-        {lastDiscoveryAt && (
-          <Badge variant="outline" className="text-xs">
-            Last run: {new Date(lastDiscoveryAt).toLocaleDateString()}
-          </Badge>
-        )}
-      </div>
-
+    <div className="space-y-6">
       {/* Discovery Options */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="grid grid-cols-1 lg:grid-cols-2 gap-4"
+      >
         {/* Global Discovery */}
         <motion.div
-          whileHover={{ scale: 1.02 }}
-          className="relative group"
+          whileHover={{ scale: 1.01 }}
+          whileTap={{ scale: 0.99 }}
+          className="group relative"
         >
-          <div className="absolute -inset-0.5 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg blur opacity-20 group-hover:opacity-40 transition duration-300" />
-          <div className="relative bg-zinc-900 border border-zinc-700 rounded-lg p-4 space-y-3">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-full bg-orange-500/10">
-                  <GlobeAltIcon className="h-4 w-4 text-orange-400" />
-                </div>
-                <div>
-                  <h4 className={`text-sm font-semibold text-white ${poppins.className}`}>
-                    Global Search
-                  </h4>
-                  <p className={`text-xs text-gray-400 ${inter.className}`}>
-                    Search across all Reddit
-                  </p>
-                </div>
-              </div>
-              <SparklesIcon className="h-4 w-4 text-orange-400" />
+          <div className="bg-black/40 backdrop-blur-sm border border-white/10 rounded-lg p-4 space-y-3">
+            <div className="space-y-2">
+              <h3 className={`text-lg font-bold text-white ${poppins.className}`}>
+                Global Search
+              </h3>
+              <p className={`text-white/60 text-sm ${inter.className}`}>
+                AI-powered search across the entire Reddit platform for discovering new opportunities.
+              </p>
             </div>
-            
-            <p className={`text-xs text-gray-300 leading-relaxed ${inter.className}`}>
-              Searches the entire Reddit platform using AI-powered relevance filtering. 
-              Best for discovering new opportunities.
-            </p>
-            
+
             <Button
               onClick={handleGlobalDiscovery}
               disabled={isAnyRunning}
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white"
-              size="sm"
+              className={`
+                w-full bg-white text-blue-600 hover:bg-gray-50 
+                border-0 shadow-sm hover:shadow-md transition-all duration-200
+                disabled:opacity-50 disabled:cursor-not-allowed
+                font-semibold
+              `}
             >
               {isRunningGlobal ? (
-                <>
-                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-2" />
-                  Searching...
-                </>
+                <span className={poppins.className}>Discovering Globally...</span>
               ) : (
-                <>
-                  <MagnifyingGlassIcon className="h-3 w-3 mr-2" />
-                  Run Global Search
-                </>
+                <span className={poppins.className}>Start Global Discovery</span>
               )}
             </Button>
           </div>
@@ -163,70 +129,91 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
 
         {/* Targeted Discovery */}
         <motion.div
-          whileHover={{ scale: 1.02 }}
-          className="relative group"
+          whileHover={{ scale: 1.01 }}
+          whileTap={{ scale: 0.99 }}
+          className="group relative"
         >
-          <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg blur opacity-20 group-hover:opacity-40 transition duration-300" />
-          <div className="relative bg-zinc-900 border border-zinc-700 rounded-lg p-4 space-y-3">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-full bg-blue-500/10">
-                  <TargetIcon className="h-4 w-4 text-blue-400" />
-                </div>
-                <div>
-                  <h4 className={`text-sm font-semibold text-white ${poppins.className}`}>
-                    Targeted Search
-                  </h4>
-                  <p className={`text-xs text-gray-400 ${inter.className}`}>
-                    Search specific subreddits
-                  </p>
-                </div>
+          <div className="bg-black/40 backdrop-blur-sm border border-white/10 rounded-lg p-4 space-y-3">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className={`text-lg font-bold text-white ${poppins.className}`}>
+                  Targeted Search
+                </h3>
+                <ArrowRight className="w-4 h-4 text-red-400 group-hover:translate-x-1 transition-transform duration-300" />
               </div>
-              {hasTargetSubreddits && (
-                <Badge variant="outline" className="text-xs">
-                  {targetSubreddits.length} subs
-                </Badge>
-              )}
+              <p className={`text-white/60 text-sm ${inter.className}`}>
+                {hasTargetSubreddits 
+                  ? `Deep search across your ${targetSubreddits.length} configured subreddits for highly relevant leads.`
+                  : 'Configure target subreddits in your campaign settings to unlock precision targeting.'
+                }
+              </p>
             </div>
-            
-            <p className={`text-xs text-gray-300 leading-relaxed ${inter.className}`}>
-              {hasTargetSubreddits 
-                ? `Searches your ${targetSubreddits.length} configured subreddits for highly relevant leads with less competition.`
-                : 'Configure target subreddits in campaign settings to use this feature.'
-              }
-            </p>
-            
+
             <Button
               onClick={handleTargetedDiscovery}
               disabled={isAnyRunning || !hasTargetSubreddits}
-              className="w-full bg-blue-500 hover:bg-blue-600 text-white disabled:bg-gray-600 disabled:text-gray-400"
-              size="sm"
+              className={`
+                w-full bg-white text-red-600 hover:bg-gray-50 
+                border-0 shadow-sm hover:shadow-md transition-all duration-200
+                disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-200
+                font-semibold
+              `}
             >
               {isRunningTargeted ? (
-                <>
-                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-2" />
-                  Searching...
-                </>
+                <span className={poppins.className}>Targeting Leads...</span>
               ) : !hasTargetSubreddits ? (
-                'Configure Subreddits'
+                <span className={poppins.className}>Configure Subreddits</span>
               ) : (
-                <>
-                  <TargetIcon className="h-3 w-3 mr-2" />
-                  Run Targeted Search
-                </>
+                <span className={poppins.className}>Start Targeted Search</span>
               )}
             </Button>
           </div>
         </motion.div>
-      </div>
+      </motion.div>
 
-      {/* Info Note */}
-      <div className="bg-zinc-800/50 border border-zinc-700 rounded-lg p-3">
-        <p className={`text-xs text-gray-400 ${inter.className}`}>
-          <span className="font-medium text-orange-400">Global:</span> Broader reach, AI-filtered results. 
-          <span className="font-medium text-blue-400 ml-3">Targeted:</span> Specific subreddits, higher relevance.
-        </p>
-      </div>
+      {/* Progress Indicator */}
+      {isAnyRunning && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          exit={{ opacity: 0, height: 0 }}
+          className="space-y-3"
+        >
+          <div className="relative h-1.5 bg-white/10 rounded-full overflow-hidden">
+            <motion.div
+              className="absolute inset-y-0 left-0 bg-gradient-to-r from-orange-400 to-orange-500 rounded-full"
+              animate={{ 
+                width: ['0%', '100%'],
+                opacity: [0.5, 1, 0.5]
+              }}
+              transition={{ 
+                duration: 2, 
+                repeat: Infinity, 
+                ease: "easeInOut" 
+              }}
+            />
+          </div>
+          <p className={`text-center text-white/60 text-sm ${inter.className}`}>
+            {isRunningGlobal 
+              ? 'Scanning Reddit globally for opportunities...' 
+              : 'Analyzing targeted subreddits for leads...'
+            }
+          </p>
+        </motion.div>
+      )}
+
+      {/* Last Discovery Info */}
+      {lastDiscoveryAt && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-center"
+        >
+          <p className={`text-white/50 text-sm ${inter.className}`}>
+            Last discovery: {new Date(lastDiscoveryAt).toLocaleDateString()}
+          </p>
+        </motion.div>
+      )}
     </div>
   );
 };
