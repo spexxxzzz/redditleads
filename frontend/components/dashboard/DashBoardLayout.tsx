@@ -13,6 +13,8 @@ import { Button } from "@/components/ui/button";
 import PulsatingDotsLoaderDashboard from '../loading/LoadingDashboard';
 import { DeleteLeadsModal } from "./DeleteLead";
 import { DiscoveryButtons } from './DiscoveryOptions';
+import { useReplyModal } from '@/hooks/useReplyModal'; // ✨ Import the global modal hook
+import { ReplyModal } from './ReplyModal'; // ✨ Import the ReplyModal component
 
 const inter = Inter({ subsets: ['latin'] });
 const poppins = Poppins({
@@ -20,7 +22,7 @@ const poppins = Poppins({
   weight: ['400', '500', '600', '700', '800', '900']
 });
 
-// Interface definitions remain the same...
+// Interface definitions...
 interface Lead {
   id: string;
   title: string;
@@ -62,7 +64,7 @@ export const DashboardLayout = () => {
   const [isRunningDiscovery, setIsRunningDiscovery] = useState(false);
   const [activeCampaign, setActiveCampaign] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true); // 🎯 Default to minimized
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -73,18 +75,17 @@ export const DashboardLayout = () => {
   const [sortBy, setSortBy] = useState("opportunityScore");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
-  // Updated responsive logic to keep sidebar minimized by default
+  // ✨ Initialize the global reply modal state
+  const { isOpen: isReplyModalOpen, lead: replyModalLead, onClose: onReplyModalClose } = useReplyModal();
+
   useEffect(() => {
     const checkScreenSize = () => {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
-      
       if (mobile) {
         setIsSidebarCollapsed(true);
         setIsMobileMenuOpen(false);
       }
-      // 🎯 Removed the else block that was expanding sidebar on desktop
-      // Now sidebar stays minimized by default on all screen sizes
     };
 
     checkScreenSize();
@@ -202,13 +203,12 @@ export const DashboardLayout = () => {
         transform: 'translateZ(0)',
         willChange: 'scroll-position'
       }}>
-        {/* Hero-inspired Background Effects */}
+        {/* Background Effects */}
         <div className="absolute inset-0 z-5">
           <div className="absolute inset-0 bg-black"></div>
           <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-black/40 to-black/20 opacity-70"></div>
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.03),transparent_70%)] opacity-50"></div>
           
-          {/* Subtle Orange Glow */}
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
             <div className="w-[600px] h-[600px] bg-gradient-radial from-orange-400/10 via-orange-300/5 to-transparent rounded-full blur-3xl"></div>
           </div>
@@ -250,14 +250,13 @@ export const DashboardLayout = () => {
       transform: 'translateZ(0)',
       willChange: 'scroll-position'
     }}>
-      {/* Hero-inspired Background Effects */}
+      {/* Background Effects */}
       <div className="fixed inset-0 z-0">
         <div className="absolute inset-0 bg-black"></div>
         <div className="absolute inset-0 bg-gradient-to-br from-black/30 via-black/60 to-black/30 opacity-80"></div>
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,255,255,0.02),transparent_70%)] opacity-60"></div>
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,rgba(255,255,255,0.01),transparent_70%)] opacity-40"></div>
         
-        {/* Ambient Orange Glow */}
         <div className="absolute top-1/3 right-1/4 transform">
           <div className="w-[400px] h-[400px] bg-gradient-radial from-orange-400/8 via-orange-300/4 to-transparent rounded-full blur-3xl"></div>
         </div>
@@ -290,7 +289,7 @@ export const DashboardLayout = () => {
             </motion.div>
           )}
 
-          {/* Sidebar - Now defaults to minimized */}
+          {/* Sidebar */}
           <motion.aside 
             initial={{ opacity: 0, x: -20 }} 
             animate={{ 
@@ -342,7 +341,7 @@ export const DashboardLayout = () => {
             )}
           </AnimatePresence>
           
-          {/* Main Content - Now has more space by default */}
+          {/* Main Content */}
           <main className={`
             flex-1 min-h-screen relative
             ${isMobile ? 'w-full' : ''}
@@ -374,7 +373,6 @@ export const DashboardLayout = () => {
                   transition={{ duration: 0.4, ease: "easeOut" }}
                   className="p-4 md:p-8 relative z-10"
                 >
-                  {/* Enhanced Header Section */}
                   <motion.div 
                     initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -407,7 +405,6 @@ export const DashboardLayout = () => {
                     </motion.div>
                   </motion.div>
 
-                  {/* Discovery Section */}
                   <motion.div 
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -422,7 +419,6 @@ export const DashboardLayout = () => {
                     />
                   </motion.div>
 
-                  {/* Content Area */}
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -441,7 +437,6 @@ export const DashboardLayout = () => {
                     )}
                   </motion.div>
 
-                  {/* Delete Modal */}
                   <DeleteLeadsModal
                     isOpen={showDeleteModal}
                     onClose={() => setShowDeleteModal(false)}
@@ -455,6 +450,16 @@ export const DashboardLayout = () => {
           </main>
         </div>
       </div>
+      
+      {/* ✨ Render the ReplyModal globally */}
+      {replyModalLead && (
+        <ReplyModal
+          isOpen={isReplyModalOpen}
+          onClose={onReplyModalClose}
+          lead={replyModalLead}
+          onLeadUpdate={handleLeadUpdate}
+        />
+      )}
     </div>
   );
 };

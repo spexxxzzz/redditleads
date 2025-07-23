@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   XMarkIcon,
@@ -51,7 +51,7 @@ interface ReplyOption {
 }
 
 interface Props {
-  lead: Lead;
+  lead: Lead | null; // Allow lead to be null
   isOpen: boolean;
   onClose: () => void;
   onLeadUpdate: (leadId: string, status: Lead['status']) => void;
@@ -68,16 +68,17 @@ export const ReplyModal = ({ lead, isOpen, onClose, onLeadUpdate }: Props) => {
   const [refinementInstruction, setRefinementInstruction] = useState('');
   const [copiedReplyId, setCopiedReplyId] = useState<string | null>(null);
 
-  const generateReplies = async () => {
+  const generateReplies = useCallback(async (currentLead: Lead) => {
+    if (!currentLead) return;
     setIsGenerating(true);
     setError(null);
     try {
       const token = await getToken();
-      const data = await api.generateReply(lead.id, "Generate a reply for this lead.", token);
+      const data = await api.generateReply(currentLead.id, "Generate a reply for this lead.", token);
 
       if (Array.isArray(data.replies)) {
         setReplyOptions(data.replies.map((text: string, index: number) => ({ 
-          id: `${lead.id}-${index}`, 
+          id: `${currentLead.id}-${index}`, 
           text, 
           isRefining: false 
         })));
@@ -89,7 +90,7 @@ export const ReplyModal = ({ lead, isOpen, onClose, onLeadUpdate }: Props) => {
     } finally {
       setIsGenerating(false);
     }
-  };
+  }, [getToken]);
 
   const refineReply = async (replyId: string, instruction: string) => {
     const originalText = replyOptions.find(r => r.id === replyId)?.text;
@@ -132,185 +133,179 @@ export const ReplyModal = ({ lead, isOpen, onClose, onLeadUpdate }: Props) => {
   };
 
   const handleReply = (text: string) => {
+    if (!lead) return;
     navigator.clipboard.writeText(text);
     onLeadUpdate(lead.id, 'replied');
     window.open(lead.url, '_blank');
     onClose();
   };
 
+  // 🎯 FIX: This effect now correctly handles state reset and data fetching
   useEffect(() => {
-    if (isOpen && replyOptions.length === 0) {
-      generateReplies();
+    if (isOpen && lead) {
+      // 1. Reset all state for the new lead
+      setReplyOptions([]);
+      setError(null);
+      setSuccess(null);
+      setActiveEditId(null);
+      setEditText('');
+      setRefinementInstruction('');
+      setCopiedReplyId(null);
+      
+      // 2. Immediately start the generation process
+      generateReplies(lead);
     }
-  }, [isOpen]);
+  }, [isOpen, lead, generateReplies]); // Depend on the lead object itself
 
-  if (!isOpen) return null;
+  if (!isOpen || !lead) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="w-full max-w-6xl max-h-[90vh] bg-black rounded-xl border border-zinc-800 overflow-hidden"
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-zinc-800">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-orange-500/10 rounded-lg">
-              <ChatBubbleLeftIcon className="w-6 h-6 text-orange-500" />
-            </div>
-            <div>
-              <h2 className={`text-xl font-bold text-white ${poppins.className}`}>
-                AI Reply Generator
-              </h2>
-              <p className={`text-sm text-gray-400 ${inter.className}`}>
-                r/{lead.subreddit} • u/{lead.author}
-              </p>
-            </div>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClose}
-            className="text-gray-400 hover:text-white p-2"
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+            className="w-full max-w-6xl max-h-[90vh] bg-black rounded-xl border border-zinc-800 overflow-hidden flex flex-col"
           >
-            <XMarkIcon className="w-5 h-5" />
-          </Button>
-        </div>
-
-        <div className="flex h-[calc(90vh-100px)]">
-          {/* Left Panel - Original Post */}
-          <div className="w-1/3 p-6 border-r border-zinc-800 overflow-y-auto">
-            <div className="space-y-4">
-              <div>
-                <h3 className={`font-semibold text-white mb-3 ${poppins.className}`}>
-                  Original Post
-                </h3>
-                <Card className="bg-zinc-900 border-zinc-800">
-                  <CardContent className="p-4">
-                    <h4 className={`font-medium text-white mb-2 ${poppins.className}`}>
-                      {lead.title}
-                    </h4>
-                    <p className={`text-sm text-gray-300 leading-relaxed ${inter.className}`}>
-                      {lead.body}
-                    </p>
-                  </CardContent>
-                </Card>
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-zinc-800 flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-orange-500/10 rounded-lg">
+                  <ChatBubbleLeftIcon className="w-6 h-6 text-orange-500" />
+                </div>
+                <div>
+                  <h2 className={`text-xl font-bold text-white ${poppins.className}`}>
+                    AI Reply Generator
+                  </h2>
+                  <p className={`text-sm text-gray-400 ${inter.className}`}>
+                    r/{lead.subreddit} • u/{lead.author}
+                  </p>
+                </div>
               </div>
-              
-              <div className="flex flex-wrap gap-2">
-                <Badge className="bg-orange-500/10 text-orange-400 border-orange-500/20">
-                  <span className={inter.className}>
-                    {lead.opportunityScore}% opportunity
-                  </span>
-                </Badge>
-                <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20">
-                  <span className={inter.className}>
-                    {lead.intent.replace('_', ' ')}
-                  </span>
-                </Badge>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Panel - AI Replies */}
-          <div className="flex-1 flex flex-col">
-            {/* Replies Header */}
-            <div className="p-6 border-b border-zinc-800">
-              <div className="flex items-center justify-between">
-                <h3 className={`font-semibold text-white ${poppins.className}`}>
-                  AI-Generated Replies
-                </h3>
-                <Button
-                  onClick={generateReplies}
-                  disabled={isGenerating}
-                  variant="outline"
-                  size="sm"
-                  className="border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white"
-                >
-                  <ArrowPathIcon className={`w-4 h-4 mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
-                  <span className={inter.className}>Regenerate</span>
-                </Button>
-              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onClose}
+                className="text-gray-400 hover:text-white p-2"
+              >
+                <XMarkIcon className="w-5 h-5" />
+              </Button>
             </div>
 
-            {/* Error/Success Messages */}
-            <AnimatePresence>
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                >
-                  <Card className="mx-6 mt-4 bg-red-500/5 border-red-500/20">
-                    <CardContent className="p-3">
-                      <div className="flex items-center gap-2">
-                        <ExclamationCircleIcon className="w-4 h-4 text-red-400" />
-                        <span className={`text-red-400 text-sm ${inter.className}`}>
-                          {error}
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )}
-              {success && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                >
-                  <Card className="mx-6 mt-4 bg-green-500/5 border-green-500/20">
-                    <CardContent className="p-3">
-                      <div className="flex items-center gap-2">
-                        <CheckCircleIcon className="w-4 h-4 text-green-400" />
-                        <span className={`text-green-400 text-sm ${inter.className}`}>
-                          {success}
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <div className="flex flex-grow min-h-0">
+              {/* Left Panel - Original Post */}
+              <div className="w-1/3 p-6 border-r border-zinc-800 overflow-y-auto">
+                <div className="space-y-4">
+                  <div>
+                    <h3 className={`font-semibold text-white mb-3 ${poppins.className}`}>
+                      Original Post
+                    </h3>
+                    <Card className="bg-zinc-900 border-zinc-800">
+                      <CardContent className="p-4">
+                        <h4 className={`font-medium text-white mb-2 ${poppins.className}`}>
+                          {lead.title}
+                        </h4>
+                        <p className={`text-sm text-gray-300 leading-relaxed ${inter.className}`}>
+                          {lead.body}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-2">
+                    <Badge className="bg-orange-500/10 text-orange-400 border-orange-500/20">
+                      <span className={inter.className}>
+                        {lead.opportunityScore}% opportunity
+                      </span>
+                    </Badge>
+                    <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20">
+                      <span className={inter.className}>
+                        {lead.intent.replace(/_/g, ' ')}
+                      </span>
+                    </Badge>
+                  </div>
+                </div>
+              </div>
 
-            {/* Replies Content */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              {isGenerating ? (
-                <ReplyLoader />
-              ) : (
+              {/* Right Panel - AI Replies */}
+              <div className="flex-1 flex flex-col min-h-0">
+                {/* Replies Header */}
+                <div className="p-6 border-b border-zinc-800 flex-shrink-0">
+                  <div className="flex items-center justify-between">
+                    <h3 className={`font-semibold text-white ${poppins.className}`}>
+                      AI-Generated Replies
+                    </h3>
+                    <Button
+                      onClick={() => generateReplies(lead)}
+                      disabled={isGenerating}
+                      variant="outline"
+                      size="sm"
+                      className="border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white"
+                    >
+                      <ArrowPathIcon className={`w-4 h-4 mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
+                      <span className={inter.className}>Regenerate</span>
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Error/Success Messages */}
                 <AnimatePresence>
-                  {replyOptions.map((reply, index) => (
-                    <ReplyOptionCard
-                      key={reply.id}
-                      reply={reply}
-                      lead={lead}
-                      index={index}
-                      activeEditId={activeEditId}
-                      editText={editText}
-                      refinementInstruction={refinementInstruction}
-                      copiedReplyId={copiedReplyId}
-                      onStartEdit={startEditing}
-                      onSaveEdit={saveEdit}
-                      onCancelEdit={() => setActiveEditId(null)}
-                      onEditTextChange={setEditText}
-                      onRefinementChange={setRefinementInstruction}
-                      onRefine={refineReply}
-                      onCopy={copyReply}
-                      onReply={handleReply}
-                    />
-                  ))}
+                  {error && (
+                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
+                      <Card className="mx-6 mt-4 bg-red-500/5 border-red-500/20">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2">
+                            <ExclamationCircleIcon className="w-4 h-4 text-red-400" />
+                            <span className={`text-red-400 text-sm ${inter.className}`}>{error}</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  )}
                 </AnimatePresence>
-              )}
+
+                {/* Replies Content */}
+                <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                  {isGenerating ? (
+                    <ReplyLoader />
+                  ) : (
+                    <AnimatePresence>
+                      {replyOptions.map((reply, index) => (
+                        <ReplyOptionCard
+                          key={reply.id}
+                          reply={reply}
+                          lead={lead}
+                          index={index}
+                          activeEditId={activeEditId}
+                          editText={editText}
+                          refinementInstruction={refinementInstruction}
+                          copiedReplyId={copiedReplyId}
+                          onStartEdit={startEditing}
+                          onSaveEdit={saveEdit}
+                          onCancelEdit={() => setActiveEditId(null)}
+                          onEditTextChange={setEditText}
+                          onRefinementChange={setRefinementInstruction}
+                          onRefine={refineReply}
+                          onCopy={copyReply}
+                          onReply={handleReply}
+                        />
+                      ))}
+                    </AnimatePresence>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
+          </motion.div>
         </div>
-      </motion.div>
-    </div>
+      )}
+    </AnimatePresence>
   );
 };
 
+// ... (ReplyOptionCard component remains the same)
 interface ReplyOptionCardProps {
   reply: ReplyOption;
   lead: Lead;
@@ -356,7 +351,7 @@ const ReplyOptionCard = ({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.1 }}
     >
-      <Card>
+      <Card className="bg-zinc-900/50 border-zinc-800">
         <CardHeader className="pb-3">
           <div className="flex justify-between items-center">
             <CardTitle className={`text-sm font-medium text-gray-400 ${inter.className}`}>

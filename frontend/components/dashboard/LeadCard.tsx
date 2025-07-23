@@ -29,6 +29,7 @@ import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useReplyModal } from "@/hooks/useReplyModal"; // Import the global modal hook
 
 // Define ApiError for local use
 export class ApiError extends Error {
@@ -46,7 +47,8 @@ const poppins = Poppins({
   weight: ["400", "500", "600", "700", "800"],
 });
 
-interface Lead {
+// Export the Lead interface so it can be used by the hook
+export interface Lead {
   id: string;
   title: string;
   author: string;
@@ -71,8 +73,8 @@ const MIN_WORDS_FOR_SUMMARY = 40;
 
 export const LeadCard = ({ lead, onStatusChange }: Props) => {
   const { getToken } = useAuth();
+  const { onOpen: onOpenReplyModal } = useReplyModal(); // Use the global modal hook
   const [isExpanded, setIsExpanded] = useState(false);
-  const [showReplyModal, setShowReplyModal] = useState(false);
   const [summary, setSummary] = useState<string | null>(lead.summary || null);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
@@ -379,7 +381,7 @@ export const LeadCard = ({ lead, onStatusChange }: Props) => {
           <div className="flex items-center gap-2 pt-4 border-t border-zinc-800">
             {status !== 'replied' && (
               <Button 
-                onClick={() => setShowReplyModal(true)} 
+                onClick={() => onOpenReplyModal(lead)} // Use the global open function
                 className="bg-orange-500 hover:bg-orange-600 text-white"
                 size="sm"
               >
@@ -477,15 +479,7 @@ export const LeadCard = ({ lead, onStatusChange }: Props) => {
         </div>
       </motion.div>
 
-      <ReplyModal 
-        lead={lead} 
-        isOpen={showReplyModal} 
-        onClose={() => setShowReplyModal(false)} 
-        onLeadUpdate={(id, newStatus) => { 
-          setStatus(newStatus); 
-          onStatusChange(id, newStatus); 
-        }} 
-      />
+      {/* REMOVE THE REPLY MODAL FROM HERE */}
       
       {showUpgradeModal && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center">
