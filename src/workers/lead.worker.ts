@@ -1,19 +1,14 @@
-// /src/workers/lead.worker.ts
-
 import { PrismaClient, LeadType, User, Campaign } from '@prisma/client';
-import { findLeadsGlobally, findLeadsInSubmissions, findLeadsInComments, RawLead } from '../services/reddit.service';
+import { findLeadsInSubmissions, findLeadsInComments, RawLead } from '../services/reddit.service';
 import { enrichLeadsForUser, EnrichedLead } from '../services/enrichment.service';
 import { analyzeSentiment } from '../services/ai.service';
 import { calculateLeadScore } from '../services/scoring.service';
 import { webhookService } from '../services/webhook.service';
 import { AIUsageService } from '../services/aitracking.service';
-import { calculateContentRelevance } from '../services/relevance.service';
-// import { sendEmail } from '../services/email.service';
 
 const prisma = new PrismaClient();
 const BATCH_SIZE = 50; // Process 50 campaigns at a time
 const MAX_RETRIES = 3;
-const GLOBAL_SEARCH_INTERVAL_HOURS = 30; // Set the desired interval in hours
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -70,8 +65,8 @@ const saveLeadsToDatabase = async (
                 opportunityScore: lead.opportunityScore,
                 intent: lead.intent,
                 url: lead.url,
-                numComments: lead.numComments,
-                upvoteRatio: lead.upvoteRatio,
+                numComments: (lead as any).numComments,
+                upvoteRatio: (lead as any).upvoteRatio,
                 createdAt: lead.createdAt,
                 body: lead.body,
                 id: lead.id,
@@ -80,20 +75,6 @@ const saveLeadsToDatabase = async (
         } catch (webhookError) {
             console.error(`Failed to broadcast webhook for lead ${lead.id}:`, webhookError);
         }
-    }
-
-    if (savedCount > 0) {
-        const userSettings = await prisma.emailNotificationSetting.findUnique({
-            where: { userId },
-        });
-
-        // if (userSettings && userSettings.enabled) {
-        //     await sendEmail(
-        //         userSettings.email,
-        //         `${savedCount} new leads discovered!`,
-        //         `<h1>You have ${savedCount} new leads waiting for you in RedLead.</h1>`
-        //     );
-        // }
     }
 
     return savedCount;
@@ -109,7 +90,6 @@ const getPriorityFromScore = (score: number): 'low' | 'medium' | 'high' | 'urgen
 export const runLeadDiscoveryWorker = async (): Promise<void> => {
     console.log('Starting lead discovery worker run...');
     let cursor: string | null = null;
-    const GLOBAL_SEARCH_INTERVAL_MS = GLOBAL_SEARCH_INTERVAL_HOURS * 60 * 60 * 1000;
 
     while (true) {
         const campaigns: (Campaign & { user: User })[] = await prisma.campaign.findMany({
@@ -149,90 +129,17 @@ export const runLeadDiscoveryWorker = async (): Promise<void> => {
                     }
 
                     console.log(`Processing campaign ${campaign.id} for user ${user.id}`);
-                    const now = new Date();
-
-                    // --- PRIMARY LEAD DISCOVERY: Use Global Search with Time Gate ---
-                    const lastSearch = campaign.lastGlobalSearchAt;
-                    const isDueForGlobalSearch = !lastSearch || (now.getTime() - lastSearch.getTime()) > GLOBAL_SEARCH_INTERVAL_MS;
-
-
-// Update the worker logic section
-if (isDueForGlobalSearch) {
-    if (campaign.generatedKeywords && campaign.generatedKeywords.length > 0) {
-        console.log(`[Worker] Running GLOBAL search for campaign ${campaign.id}...`);
-        const rawLeads = await findLeadsGlobally(
-            campaign.generatedKeywords,
-            campaign.negativeKeywords || [],
-            campaign.subredditBlacklist || [],
-            campaign.generatedDescription
-        );
-
-        console.log(`[Worker] Found ${rawLeads.length} potential global leads.`);
-
-        // 🎯 IMPROVED: Filter for relevance with fallback strategy
-        const relevantLeads = rawLeads.filter(lead => {
-            const relevance = calculateContentRelevance(
-                lead,
-                campaign.generatedKeywords,
-                campaign.generatedDescription
-            );
-
-            if (relevance.isRelevant) {
-                console.log(`✅ Relevant lead: "${lead.title.substring(0, 50)}..." (Score: ${relevance.score})`);
-                console.log(`   Reasons: ${relevance.reasons.join('; ')}`);
-                return true;
-            } else {
-                console.log(`❌ Filtered out: "${lead.title.substring(0, 50)}..." (Score: ${relevance.score})`);
-                return false;
-            }
-        });
-
-        console.log(`[Worker] Filtered to ${relevantLeads.length} relevant leads (${rawLeads.length > 0 ? ((relevantLeads.length / rawLeads.length) * 100).toFixed(1) : 0}% relevance rate)`);
-
-        // 🎯 NEW: Fallback strategy if we got too few relevant leads
-        let leadsToProcess = relevantLeads;
-        if (relevantLeads.length < 3 && rawLeads.length > 0) {
-            console.log(`[Worker] Too few relevant leads (${relevantLeads.length}). Using fallback strategy...`);
-
-            // Sort by a simple score and take top ones as fallback
-            const fallbackLeads = rawLeads
-                .sort((a, b) => {
-                    // Simple fallback scoring: comments + keyword matches
-                    const aScore = a.numComments + (a.title.toLowerCase().includes(campaign.generatedKeywords[0]?.toLowerCase() || '') ? 10 : 0);
-                    const bScore = b.numComments + (b.title.toLowerCase().includes(campaign.generatedKeywords[0]?.toLowerCase() || '') ? 10 : 0);
-                    return bScore - aScore;
-                })
-                .slice(0, Math.max(5, Math.floor(rawLeads.length * 0.3))); // Take top 30% or at least 5
-
-            console.log(`[Worker] Using ${fallbackLeads.length} leads from fallback strategy`);
-            leadsToProcess = fallbackLeads;
-        }
-
-        if (leadsToProcess.length > 0) {
-            const enrichedLeads = await enrichLeadsForUser(leadsToProcess, user);
-            const saved = await saveLeadsToDatabase(enrichedLeads, campaign.id, user.id, 'DIRECT_LEAD');
-            console.log(`  -> Saved ${saved} leads for user ${user.id} (${relevantLeads.length} high-relevance + ${leadsToProcess.length - relevantLeads.length} fallback)`);
-        } else {
-            console.log(`  -> No leads to process for campaign ${campaign.id}`);
-        }
-
-        // Update the timestamp after a successful run
-        await prisma.campaign.update({
-            where: { id: campaign.id },
-            data: { lastGlobalSearchAt: now },
-        });
-        console.log(`  -> Updated last global search time for campaign ${campaign.id}`);
-    }
-}
-else {
-                        const hoursSinceLastSearch = ((now.getTime() - lastSearch.getTime()) / (1000 * 60 * 60)).toFixed(2);
-                        console.log(`[Worker] Skipping GLOBAL search for campaign ${campaign.id}. Last ran ${hoursSinceLastSearch} hours ago (next run in ~${(GLOBAL_SEARCH_INTERVAL_HOURS - parseFloat(hoursSinceLastSearch)).toFixed(2)} hours).`);
-                    }
+                    
+                    // FIX: The automatic global search logic has been removed from this worker.
+                    // This worker now only handles automatic competitor discovery for pro users.
+                    // Global and targeted discovery are now triggered manually by the user from the frontend.
 
                     // --- COMPETITOR DISCOVERY: Uses targeted search for precision (can run more frequently) ---
                     if (user.plan === 'pro' && campaign.competitors && campaign.competitors.length > 0) {
                         const aiUsage = AIUsageService.getInstance();
-                        const canUseCompetitorAI = await aiUsage.trackAIUsage(user.id, 'competitor');
+                        // Note: The usage type here is 'competitor', not 'manual_discovery'.
+                        // This is a separate, automatic check.
+                        const canUseCompetitorAI = await aiUsage.trackAIUsage(user.id, 'competitor', user.plan);
                         if (canUseCompetitorAI) {
                             console.log(`[Worker] Running TARGETED competitor search for campaign ${campaign.id}...`);
                             const [submissionLeads, commentLeads] = await Promise.all([
@@ -249,15 +156,21 @@ else {
                             });
                             const uniqueCompetitorLeads = Array.from(uniqueCompetitorLeadsMap.values());
 
-                            const enrichedCompetitorLeads = await Promise.all(
-                                uniqueCompetitorLeads.map(async (lead): Promise<EnrichedLead> => {
-                                    const sentiment = await analyzeSentiment(lead.title, lead.body, user.id);
-                                    const opportunityScore = calculateLeadScore({ ...lead, sentiment, type: 'COMPETITOR_MENTION' });
-                                    return { ...lead, sentiment, opportunityScore, intent: 'competitor_mention' };
-                                })
-                            );
-                            const saved = await saveLeadsToDatabase(enrichedCompetitorLeads, campaign.id, user.id, 'COMPETITOR_MENTION');
-                            console.log(`  -> Saved ${saved} competitor leads for user ${user.id}`);
+                            if (uniqueCompetitorLeads.length > 0) {
+                                const enrichedCompetitorLeads = await Promise.all(
+                                    uniqueCompetitorLeads.map(async (lead): Promise<EnrichedLead> => {
+                                        const sentiment = await analyzeSentiment(lead.title, lead.body, user.id);
+                                        const opportunityScore = calculateLeadScore({ ...lead, sentiment, type: 'COMPETITOR_MENTION' });
+                                        return { ...lead, sentiment, opportunityScore, intent: 'competitor_mention' };
+                                    })
+                                );
+                                const saved = await saveLeadsToDatabase(enrichedCompetitorLeads, campaign.id, user.id, 'COMPETITOR_MENTION');
+                                console.log(`  -> Saved ${saved} competitor leads for user ${user.id}`);
+                            } else {
+                                console.log(`  -> No new competitor leads found for campaign ${campaign.id}`);
+                            }
+                        } else {
+                            console.log(`[Worker] Skipping competitor search for user ${user.id} due to usage limits.`);
                         }
                     }
 

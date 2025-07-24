@@ -1,15 +1,22 @@
-// Create new service for AI 
-// 
-// 
-// 
+import { PrismaClient } from '@prisma/client';
 
-import { PrismaClient } from "@prisma/client";
-
-// usage tracking
 const prisma = new PrismaClient();
+
+// Define limits for different usage types and plans
+const USAGE_LIMITS = {
+    competitor: { free: 0, starter: 0, pro: 1 },
+    sentiment: { free: 50, starter: 200, pro: 1000 },
+    intent: { free: 25, starter: 100, pro: 500 },
+    // FIX: Added limits for manual discovery runs
+    manual_discovery: { free: 5, starter: 20, pro: 100 }
+};
+
+type UsageType = keyof typeof USAGE_LIMITS;
+
 export class AIUsageService {
     private static instance: AIUsageService;
-    private usageCache = new Map<string, { count: number, resetDate: Date }>();
+
+    private constructor() {}
 
     public static getInstance(): AIUsageService {
         if (!AIUsageService.instance) {
@@ -18,67 +25,46 @@ export class AIUsageService {
         return AIUsageService.instance;
     }
 
-    async trackAIUsage(userId: string, type: 'reply' | 'intent' | 'competitor'): Promise<boolean> {
-        const user = await prisma.user.findUnique({ where: { id: userId } });
-        if (!user) return false;
-
-        const limits = this.getAILimits(user.plan);
-        const usage = await this.getCurrentUsage(userId, type);
-        
-        if (usage >= limits[type]) {
-            console.log(`❌ AI usage limit exceeded for user ${userId} (${type})`);
-            return false;
-        }
-
-        await this.incrementUsage(userId, type);
-        return true;
+    private getLimit(plan: string, type: UsageType): number {
+        const planKey = plan as keyof typeof USAGE_LIMITS[UsageType];
+        return USAGE_LIMITS[type][planKey] ?? 0;
     }
 
-    private getAILimits(plan: string): Record<string, number> {
-        switch (plan) {
-            case 'free': return { reply: 0, intent: 0, competitor: 0 };
-            case 'starter': return { reply: 75, intent: 200, competitor: 0 };
-            case 'pro': return { reply: 300, intent: 1000, competitor: 100 };
-            default: return { reply: 0, intent: 0, competitor: 0 };
-        }
-    }
+    public async trackAIUsage(userId: string, type: UsageType, userPlan: string): Promise<boolean> {
+        const limit = this.getLimit(userPlan, type);
+        if (limit === 0) return false;
 
-    private async getCurrentUsage(userId: string, type: string): Promise<number> {
-        const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
-        
+        const month = new Date().toISOString().slice(0, 7); // YYYY-MM format
+
         const usage = await prisma.aIUsage.findUnique({
-            where: {
-                userId_month_type: {
-                    userId,
-                    month: currentMonth,
-                    type
-                }
-            }
+            where: { userId_month_type: { userId, month, type } },
         });
 
-        return usage?.count || 0;
+        if (usage && usage.count >= limit) {
+            console.log(`[Usage Limit] User ${userId} reached limit for ${type} (${usage.count}/${limit})`);
+            return false; // Limit reached
+        }
+
+        await prisma.aIUsage.upsert({
+            where: { userId_month_type: { userId, month, type } },
+            update: { count: { increment: 1 } },
+            create: { userId, month, type, count: 1 },
+        });
+
+        return true; // Within limit
     }
 
-    private async incrementUsage(userId: string, type: string): Promise<void> {
-        const currentMonth = new Date().toISOString().slice(0, 7);
-        
-        await prisma.aIUsage.upsert({
-            where: {
-                userId_month_type: {
-                    userId,
-                    month: currentMonth,
-                    type
-                }
-            },
-            update: {
-                count: { increment: 1 }
-            },
-            create: {
-                userId,
-                month: currentMonth,
-                type,
-                count: 1
-            }
+    public async canUse(userId: string, type: UsageType, userPlan: string): Promise<boolean> {
+        const limit = this.getLimit(userPlan, type);
+        if (limit === 0 && type !== 'manual_discovery') return false; // Allow free discovery runs
+        if (limit === 0 && type === 'manual_discovery' && userPlan !== 'free') return true; // Pro/Starter have higher limits
+
+        const month = new Date().toISOString().slice(0, 7);
+
+        const usage = await prisma.aIUsage.findUnique({
+            where: { userId_month_type: { userId, month, type } },
         });
+
+        return !usage || usage.count < limit;
     }
 }

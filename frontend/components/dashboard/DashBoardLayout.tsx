@@ -143,7 +143,11 @@ export const DashboardLayout = () => {
       fetchCampaigns();
     }
   };
-
+  const handleLeadDelete = (leadId: string) => {
+    const updateLeadList = (list: Lead[]) => list.filter(lead => lead.id !== leadId);
+    setLeads(updateLeadList(leads));
+    setAllLeads(updateLeadList(allLeads));
+  };
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
@@ -281,6 +285,7 @@ export const DashboardLayout = () => {
                         leads={leads}
                         onManualDiscovery={handleManualDiscovery}
                         isRunningDiscovery={isRunningDiscovery}
+                        onDelete={handleLeadDelete}
                         onLeadUpdate={handleLeadUpdate} 
                         activeFilter={activeFilter ?? "all"}
                       />

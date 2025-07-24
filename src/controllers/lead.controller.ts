@@ -4,6 +4,7 @@ import { findLeadsGlobally, findLeadsOnReddit } from '../services/reddit.service
 import { enrichLeadsForUser } from '../services/enrichment.service';
 import { summarizeTextContent } from '../services/summarisation.service';
 import { calculateContentRelevance } from '../services/relevance.service';
+import { AIUsageService } from '../services/aitracking.service';
 
 
 const prisma = new PrismaClient();
@@ -42,6 +43,12 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
         }
 
         const user = campaign.user;
+        const usageService = AIUsageService.getInstance();
+        const canRun = await usageService.trackAIUsage(userId, 'manual_discovery', user.plan);
+        if (!canRun) {
+            return res.status(429).json({ message: "You've reached your monthly discovery limit. Please upgrade your plan for more." });
+        }
+        
         
         console.log(`[Manual Discovery] Running GLOBAL search for campaign ${campaign.id}...`);
         const rawLeads = await findLeadsGlobally(
@@ -367,6 +374,11 @@ export const runTargetedDiscovery: RequestHandler = async (req: any, res, next) 
       }
 
       const user = campaign.user;
+      const usageService = AIUsageService.getInstance();
+      const canRun = await usageService.trackAIUsage(userId, 'manual_discovery', user.plan);
+      if (!canRun) {
+          return res.status(429).json({ message: "You've reached your monthly discovery limit. Please upgrade your plan for more." });
+      }
 
       // Check if campaign has target subreddits
       if (!campaign.targetSubreddits || campaign.targetSubreddits.length === 0) {
@@ -508,5 +520,36 @@ export const updateLeadStatus: RequestHandler = async (req: any, res, next) => {
     } catch (error) {
         console.error(`❌ [Lead Status] Error updating lead ${leadId}:`, error);
         next(error);
+    }
+};
+
+export const deleteSingleLead: RequestHandler = async (req: any, res, next) => {
+    const { userId } = req.auth;
+    const { leadId } = req.params;
+
+    if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated.' });
+    }
+
+    try {
+        // Verify the lead exists and belongs to the user before deleting
+        const lead = await prisma.lead.findFirst({
+            where: {
+                id: leadId,
+                userId: userId,
+            },
+        });
+
+        if (!lead) {
+            return res.status(404).json({ message: 'Lead not found or you do not have permission to delete it.' });
+        }
+
+        await prisma.lead.delete({
+            where: { id: leadId },
+        });
+
+        res.status(200).json({ success: true, message: 'Lead deleted successfully.' });
+    } catch (error) {
+        console.error(`[Delete Lead] Error deleting lead ${leadId}:`, error);
     }
 };

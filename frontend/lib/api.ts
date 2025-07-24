@@ -331,4 +331,12 @@ export const api = {
       }
       return response.json();
     },
+    deleteLead: async (leadId: string, token: string | null) => {
+      const response = await fetch(`${API_BASE_URL}/api/leads/${leadId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(token),
+      });
+      if (!response.ok) throw new Error('Failed to delete lead');
+      return response.json();
+    },
 };

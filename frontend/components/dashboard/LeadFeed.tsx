@@ -55,6 +55,8 @@ interface LeadFeedProps {
   onLeadUpdate: (leadId: string, status: Lead['status']) => void;
   isLoading?: boolean;
   activeFilter: string;
+  onDelete: (leadId: string) => void;
+
 }
 
 type SortOption = 'createdAt' | 'opportunityScore' | 'numComments' | 'upvoteRatio';
@@ -119,6 +121,7 @@ export const LeadFeed: React.FC<LeadFeedProps> = ({
   isRunningDiscovery,
   onLeadUpdate,
   isLoading = false,
+  onDelete,
   activeFilter 
 }) => {
   const [sortBy, setSortBy] = useState<SortOption>('createdAt');
@@ -470,6 +473,7 @@ export const LeadFeed: React.FC<LeadFeedProps> = ({
           {processedLeads.map(lead => (
             <LeadCard 
               key={lead.id} 
+              onDelete={onDelete}
               lead={lead} 
               onStatusChange={onLeadUpdate} 
             />

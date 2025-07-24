@@ -20,8 +20,9 @@ import {
   Copy,
   Check,
   Sparkles,
+  Trash2, // FIX: Import Trash icon
 } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { ReplyModal } from "./ReplyModal";
 import { Inter, Poppins } from "next/font/google";
 import { api } from "@/lib/api";
@@ -29,7 +30,16 @@ import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useReplyModal } from "@/hooks/useReplyModal"; // Import the global modal hook
+import { useReplyModal } from "@/hooks/useReplyModal";
+import { toast } from "sonner";
+// FIX: Import DropdownMenu components
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // Define ApiError for local use
 export class ApiError extends Error {
@@ -64,16 +74,19 @@ export interface Lead {
   upvoteRatio: number;
 }
 
-interface Props {
+// FIX: Use a single, correct props interface
+interface LeadCardProps {
   lead: Lead;
-  onStatusChange: (leadId: string, newStatus: Lead['status']) => void;
+  onStatusChange: (leadId: string, status: Lead['status']) => void;
+  onDelete: (leadId: string) => void;
 }
 
 const MIN_WORDS_FOR_SUMMARY = 40;
 
-export const LeadCard = ({ lead, onStatusChange }: Props) => {
+// FIX: Use the correct LeadCardProps interface and destructure onDelete
+export const LeadCard = ({ lead, onStatusChange, onDelete }: LeadCardProps) => {
   const { getToken } = useAuth();
-  const { onOpen: onOpenReplyModal } = useReplyModal(); // Use the global modal hook
+  const { onOpen: onOpenReplyModal } = useReplyModal();
   const [isExpanded, setIsExpanded] = useState(false);
   const [summary, setSummary] = useState<string | null>(lead.summary || null);
   const [isSummarizing, setIsSummarizing] = useState(false);
@@ -82,6 +95,8 @@ export const LeadCard = ({ lead, onStatusChange }: Props) => {
   
   const [status, setStatus] = useState<Lead['status']>(lead.status || 'new');
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const timeAgo = (timestamp: number) => {
@@ -165,6 +180,19 @@ export const LeadCard = ({ lead, onStatusChange }: Props) => {
     }
   };
 
+  const handleDelete = async () => {
+    try {
+      const token = await getToken();
+      await api.deleteLead(lead.id, token);
+      toast.success("Lead deleted successfully.");
+      onDelete(lead.id); // This now works correctly
+    } catch (error: any) {
+      toast.error("Failed to delete lead", { description: error.message });
+    } finally {
+      setIsConfirmingDelete(false);
+    }
+  };
+
   const wordCount = lead.body?.split(' ').length || 0;
   const shouldShowSummary = wordCount >= MIN_WORDS_FOR_SUMMARY;
 
@@ -178,6 +206,7 @@ export const LeadCard = ({ lead, onStatusChange }: Props) => {
         className="bg-black rounded-lg border border-zinc-800 hover:border-zinc-700 transition-all duration-200 overflow-hidden"
       >
         <div className="p-6">
+          {/* ... existing card header and content ... */}
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3 flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-shrink-0">
@@ -253,6 +282,7 @@ export const LeadCard = ({ lead, onStatusChange }: Props) => {
             </div>
           )}
 
+          {/* ... existing summary section ... */}
           {shouldShowSummary && (
             <div className="mb-4">
               {!summary && !isSummarizing && (
@@ -379,9 +409,10 @@ export const LeadCard = ({ lead, onStatusChange }: Props) => {
           )}
 
           <div className="flex items-center gap-2 pt-4 border-t border-zinc-800">
+            {/* ... existing action buttons ... */}
             {status !== 'replied' && (
               <Button 
-                onClick={() => onOpenReplyModal(lead)} // Use the global open function
+                onClick={() => onOpenReplyModal(lead)}
                 className="bg-orange-500 hover:bg-orange-600 text-white"
                 size="sm"
               >
@@ -452,34 +483,66 @@ export const LeadCard = ({ lead, onStatusChange }: Props) => {
 
             <div className="flex-1" />
             <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                asChild
-                className="text-gray-400 hover:text-orange-400 hover:bg-orange-500/10 p-2"
-              >
-                <a 
-                  href={lead.url} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                >
-                  <ExternalLink className="w-3 h-3 mr-1" />
-                  <span className={`text-xs ${inter.className}`}>View</span>
-                </a>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-gray-400 hover:text-white p-2"
-              >
-                <MoreHorizontal className="w-3.5 h-3.5" />
-              </Button>
+              {/* FIX: Replace the single MoreHorizontal button with a DropdownMenu */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-gray-400 hover:text-white p-2"
+                  >
+                    <MoreHorizontal className="w-3.5 h-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-800 text-zinc-300">
+                  <DropdownMenuItem asChild>
+                    <a href={lead.url} target="_blank" rel="noopener noreferrer" className="flex items-center">
+                      <ExternalLink className="w-3 h-3 mr-2" />
+                      View on Reddit
+                    </a>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-zinc-800" />
+                  <DropdownMenuItem 
+                    onSelect={(e) => { e.preventDefault(); setIsConfirmingDelete(true); }}
+                    className="text-red-400 focus:bg-red-500/10 focus:text-red-400"
+                  >
+                    <Trash2 className="w-3 h-3 mr-2" />
+                    Delete Lead
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
       </motion.div>
 
-      {/* REMOVE THE REPLY MODAL FROM HERE */}
+      {/* FIX: Add the confirmation dialog */}
+      <AnimatePresence>
+        {isConfirmingDelete && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md"
+            onClick={() => setIsConfirmingDelete(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 w-full max-w-sm"
+            >
+              <h3 className="text-lg font-bold text-white">Confirm Deletion</h3>
+              <p className="text-zinc-400 mt-2 mb-6">Are you sure you want to permanently delete this lead? This action cannot be undone.</p>
+              <div className="flex justify-end gap-3">
+                <Button variant="ghost" onClick={() => setIsConfirmingDelete(false)}>Cancel</Button>
+                <Button variant="destructive" onClick={handleDelete}>Delete</Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       
       {showUpgradeModal && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center">
