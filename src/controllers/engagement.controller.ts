@@ -1,5 +1,7 @@
 import { RequestHandler } from 'express';
 import { generateReplyOptions, refineReply } from '../services/engagement.service';
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
 
 /**
  * Handles the request to generate initial reply options for a lead.
@@ -56,6 +58,56 @@ export const postRefineReply: RequestHandler = async (req: any, res, next) => {
         const refinedReply = await refineReply(originalReply, instruction);
         res.status(200).json({ refinedReply });
     } catch (error) {
+        next(error);
+    }
+};
+
+ 
+ 
+/**
+ * Creates a placeholder reply record so the worker can track a manually posted reply.
+ */
+export const prepareReplyForTracking: RequestHandler = async (req: any, res, next) => {
+    const { userId } = req.auth;
+    const { leadId, content } = req.body;
+
+    if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated.' });
+    }
+    if (!leadId || !content) {
+        return res.status(400).json({ message: 'leadId and content are required.' });
+    }
+
+    try {
+        const lead = await prisma.lead.findFirst({
+            where: { id: leadId, userId: userId }
+        });
+
+        if (!lead) {
+            return res.status(404).json({ message: 'Lead not found.' });
+        }
+
+        // Create a reply record with a PENDING status
+        await prisma.scheduledReply.create({
+            data: {
+                content,
+                status: "POSTED",
+                scheduledAt: new Date(), // Add scheduledAt as required
+                lead: { connect: { id: lead.id } },
+                user: { connect: { id: userId } },
+                // Other fields like redditPostId and postedAt will be null initially
+            }
+        });
+
+        // Update the lead's status to 'replied'
+        await prisma.lead.update({
+            where: { id: leadId },
+            data: { status: 'replied' }
+        });
+
+        res.status(200).json({ message: 'Reply is now being tracked. Please post it on Reddit.' });
+    } catch (error) {
+        console.error('❌ [Prepare Tracking] Error:', error);
         next(error);
     }
 };

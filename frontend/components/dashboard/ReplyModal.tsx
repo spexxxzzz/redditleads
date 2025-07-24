@@ -6,12 +6,11 @@ import {
   ChatBubbleLeftIcon,
   PencilSquareIcon,
   ExclamationCircleIcon,
-  CheckCircleIcon,
   ArrowPathIcon,
-  ArrowTopRightOnSquareIcon,
   DocumentDuplicateIcon,
   CheckIcon,
-  PaperAirplaneIcon
+  PaperAirplaneIcon,
+  ArrowTopRightOnSquareIcon
 } from '@heroicons/react/24/outline';
 import { api } from '@/lib/api';
 import { useAuth } from '@clerk/nextjs';
@@ -34,7 +33,7 @@ interface ReplyOption {
   id: string;
   text: string;
   isRefining: boolean;
-  isPosting?: boolean;
+  isPreparing?: boolean;
 }
 
 interface Props {
@@ -111,26 +110,31 @@ export const ReplyModal = ({ lead, isOpen, onClose, onLeadUpdate }: Props) => {
     setEditText('');
   };
 
-  // 🎯 FIX: This function now posts the reply to the backend for tracking
-  const handleReply = async (replyId: string, text: string) => {
+  const handleManualReply = async (replyId: string, text: string) => {
     if (!lead) return;
     
-    setReplyOptions(prev => prev.map(r => r.id === replyId ? { ...r, isPosting: true } : r));
+    setReplyOptions(prev => prev.map(r => r.id === replyId ? { ...r, isPreparing: true } : r));
     setError(null);
 
     try {
       const token = await getToken();
-      // 1. Post the reply via our backend
-      await api.postReply(lead.id, text, token);
+      // 1. Tell backend to prepare for tracking
+      await api.prepareReplyForTracking(lead.id, text, token);
       
-      // 2. Update the lead status locally and on the backend
+      // 2. Copy text to clipboard for user
+      await navigator.clipboard.writeText(text);
+
+      // 3. Update lead status locally
       onLeadUpdate(lead.id, 'replied');
       
-      // 3. Close the modal on success
+      // 4. Open Reddit in a new tab
+      window.open(lead.url, '_blank');
+
+      // 5. Close the modal
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Failed to post reply.');
-      setReplyOptions(prev => prev.map(r => r.id === replyId ? { ...r, isPosting: false } : r));
+      setError(err.message || 'Failed to prepare reply for tracking.');
+      setReplyOptions(prev => prev.map(r => r.id === replyId ? { ...r, isPreparing: false } : r));
     }
   };
 
@@ -233,7 +237,7 @@ export const ReplyModal = ({ lead, isOpen, onClose, onLeadUpdate }: Props) => {
                           onRefinementChange={setRefinementInstruction}
                           onRefine={refineReply}
                           onCopy={copyReply}
-                          onReply={handleReply}
+                          onReply={handleManualReply}
                         />
                       ))}
                     </AnimatePresence>
@@ -276,7 +280,7 @@ const ReplyOptionCard = ({ reply, index, activeEditId, editText, refinementInstr
         <CardHeader className="pb-3">
           <div className="flex justify-between items-center">
             <CardTitle className={`text-sm font-medium text-gray-400 ${inter.className}`}>Option {index + 1}</CardTitle>
-            {(reply.isRefining || reply.isPosting) && <RefiningLoader />}
+            {(reply.isRefining || reply.isPreparing) && <RefiningLoader />}
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -308,9 +312,9 @@ const ReplyOptionCard = ({ reply, index, activeEditId, editText, refinementInstr
                 {isCopied ? <CheckIcon className="w-4 h-4 mr-1" /> : <DocumentDuplicateIcon className="w-4 h-4 mr-1" />}
                 {isCopied ? 'Copied!' : 'Copy'}
               </Button>
-              <Button onClick={() => onReply(reply.id, reply.text)} disabled={reply.isPosting} size="sm" className="bg-orange-500 hover:bg-orange-600 text-white">
-                <PaperAirplaneIcon className="w-4 h-4 mr-1" />
-                {reply.isPosting ? 'Posting...' : 'Post Reply'}
+              <Button onClick={() => onReply(reply.id, reply.text)} disabled={reply.isPreparing} size="sm" className="bg-orange-500 hover:bg-orange-600 text-white">
+                <ArrowTopRightOnSquareIcon className="w-4 h-4 mr-1" />
+                {reply.isPreparing ? 'Preparing...' : 'Copy & Reply Manually'}
               </Button>
               <Button onClick={() => onStartEdit(reply.id, reply.text)} variant="ghost" size="sm" className="text-gray-400 hover:text-white hover:bg-zinc-800">
                 <PencilSquareIcon className="w-4 h-4 mr-1" />

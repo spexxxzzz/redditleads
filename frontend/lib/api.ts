@@ -319,15 +319,15 @@ export const api = {
       return response.json();
     },
   
-    postReply: async (leadId: string, replyContent: string, token: string | null) => {
-      const response = await fetch(`${API_BASE_URL}/api/engagement/post-reply`, {
+    prepareReplyForTracking: async (leadId: string, replyContent: string, token: string | null) => {
+      const response = await fetch(`${API_BASE_URL}/api/engagement/prepare-tracking`, {
         method: 'POST',
         headers: getAuthHeaders(token),
         body: JSON.stringify({ leadId, content: replyContent }),
       });
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to post reply');
+        throw new Error(errorData.message || 'Failed to prepare reply for tracking');
       }
       return response.json();
     },
