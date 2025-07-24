@@ -10,7 +10,8 @@ import {
   ArrowPathIcon,
   ArrowTopRightOnSquareIcon,
   DocumentDuplicateIcon,
-  CheckIcon
+  CheckIcon,
+  PaperAirplaneIcon
 } from '@heroicons/react/24/outline';
 import { api } from '@/lib/api';
 import { useAuth } from '@clerk/nextjs';
@@ -21,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import  {Textarea}  from  "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { ReplyLoader, RefiningLoader } from '@/components/loading/reply-loader';
+import { Lead } from '@/hooks/useReplyModal';
 
 const inter = Inter({ subsets: ['latin'] });
 const poppins = Poppins({
@@ -28,30 +30,15 @@ const poppins = Poppins({
   weight: ['400', '500', '600', '700', '800']
 });
 
-interface Lead {
-  id: string;
-  title: string;
-  author: string;
-  subreddit: string;
-  url: string;
-  body: string;
-  createdAt: number;
-  numComments: number;
-  upvoteRatio: number;
-  intent: string;
-  summary?: string | null;
-  opportunityScore: number;
-  status?: "new" | "replied" | "saved" | "ignored";
-}
-
 interface ReplyOption {
   id: string;
   text: string;
   isRefining: boolean;
+  isPosting?: boolean;
 }
 
 interface Props {
-  lead: Lead | null; // Allow lead to be null
+  lead: Lead | null;
   isOpen: boolean;
   onClose: () => void;
   onLeadUpdate: (leadId: string, status: Lead['status']) => void;
@@ -62,25 +49,20 @@ export const ReplyModal = ({ lead, isOpen, onClose, onLeadUpdate }: Props) => {
   const [replyOptions, setReplyOptions] = useState<ReplyOption[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [activeEditId, setActiveEditId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [refinementInstruction, setRefinementInstruction] = useState('');
   const [copiedReplyId, setCopiedReplyId] = useState<string | null>(null);
 
   const generateReplies = useCallback(async (currentLead: Lead) => {
-    if (!currentLead) return;
     setIsGenerating(true);
     setError(null);
     try {
       const token = await getToken();
       const data = await api.generateReply(currentLead.id, "Generate a reply for this lead.", token);
-
       if (Array.isArray(data.replies)) {
         setReplyOptions(data.replies.map((text: string, index: number) => ({ 
-          id: `${currentLead.id}-${index}`, 
-          text, 
-          isRefining: false 
+          id: `${currentLead.id}-${index}`, text, isRefining: false 
         })));
       } else {
         throw new Error("Invalid response format from API.");
@@ -124,45 +106,55 @@ export const ReplyModal = ({ lead, isOpen, onClose, onLeadUpdate }: Props) => {
 
   const saveEdit = () => {
     if (!activeEditId) return;
-    
-    setReplyOptions(prev => prev.map(r => 
-      r.id === activeEditId ? { ...r, text: editText } : r
-    ));
+    setReplyOptions(prev => prev.map(r => r.id === activeEditId ? { ...r, text: editText } : r));
     setActiveEditId(null);
     setEditText('');
   };
 
-  const handleReply = (text: string) => {
+  // 🎯 FIX: This function now posts the reply to the backend for tracking
+  const handleReply = async (replyId: string, text: string) => {
     if (!lead) return;
-    navigator.clipboard.writeText(text);
-    onLeadUpdate(lead.id, 'replied');
-    window.open(lead.url, '_blank');
-    onClose();
+    
+    setReplyOptions(prev => prev.map(r => r.id === replyId ? { ...r, isPosting: true } : r));
+    setError(null);
+
+    try {
+      const token = await getToken();
+      // 1. Post the reply via our backend
+      await api.postReply(lead.id, text, token);
+      
+      // 2. Update the lead status locally and on the backend
+      onLeadUpdate(lead.id, 'replied');
+      
+      // 3. Close the modal on success
+      onClose();
+    } catch (err: any) {
+      setError(err.message || 'Failed to post reply.');
+      setReplyOptions(prev => prev.map(r => r.id === replyId ? { ...r, isPosting: false } : r));
+    }
   };
 
-  // 🎯 FIX: This effect now correctly handles state reset and data fetching
   useEffect(() => {
     if (isOpen && lead) {
-      // 1. Reset all state for the new lead
       setReplyOptions([]);
       setError(null);
-      setSuccess(null);
       setActiveEditId(null);
       setEditText('');
       setRefinementInstruction('');
       setCopiedReplyId(null);
-      
-      // 2. Immediately start the generation process
       generateReplies(lead);
     }
-  }, [isOpen, lead, generateReplies]); // Depend on the lead object itself
-
-  if (!isOpen || !lead) return null;
+  }, [isOpen, lead, generateReplies]);
 
   return (
     <AnimatePresence>
-      {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+      {isOpen && lead && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+        >
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -173,111 +165,62 @@ export const ReplyModal = ({ lead, isOpen, onClose, onLeadUpdate }: Props) => {
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-zinc-800 flex-shrink-0">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-orange-500/10 rounded-lg">
-                  <ChatBubbleLeftIcon className="w-6 h-6 text-orange-500" />
-                </div>
+                <div className="p-2 bg-orange-500/10 rounded-lg"><ChatBubbleLeftIcon className="w-6 h-6 text-orange-500" /></div>
                 <div>
-                  <h2 className={`text-xl font-bold text-white ${poppins.className}`}>
-                    AI Reply Generator
-                  </h2>
-                  <p className={`text-sm text-gray-400 ${inter.className}`}>
-                    r/{lead.subreddit} • u/{lead.author}
-                  </p>
+                  <h2 className={`text-xl font-bold text-white ${poppins.className}`}>AI Reply Generator</h2>
+                  <p className={`text-sm text-gray-400 ${inter.className}`}>r/{lead.subreddit} • u/{lead.author}</p>
                 </div>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onClose}
-                className="text-gray-400 hover:text-white p-2"
-              >
-                <XMarkIcon className="w-5 h-5" />
-              </Button>
+              <Button variant="ghost" size="sm" onClick={onClose} className="text-gray-400 hover:text-white p-2"><XMarkIcon className="w-5 h-5" /></Button>
             </div>
 
             <div className="flex flex-grow min-h-0">
-              {/* Left Panel - Original Post */}
+              {/* Left Panel */}
               <div className="w-1/3 p-6 border-r border-zinc-800 overflow-y-auto">
                 <div className="space-y-4">
                   <div>
-                    <h3 className={`font-semibold text-white mb-3 ${poppins.className}`}>
-                      Original Post
-                    </h3>
+                    <h3 className={`font-semibold text-white mb-3 ${poppins.className}`}>Original Post</h3>
                     <Card className="bg-zinc-900 border-zinc-800">
                       <CardContent className="p-4">
-                        <h4 className={`font-medium text-white mb-2 ${poppins.className}`}>
-                          {lead.title}
-                        </h4>
-                        <p className={`text-sm text-gray-300 leading-relaxed ${inter.className}`}>
-                          {lead.body}
-                        </p>
+                        <h4 className={`font-medium text-white mb-2 ${poppins.className}`}>{lead.title}</h4>
+                        <p className={`text-sm text-gray-300 leading-relaxed ${inter.className}`}>{lead.body}</p>
                       </CardContent>
                     </Card>
                   </div>
-                  
                   <div className="flex flex-wrap gap-2">
-                    <Badge className="bg-orange-500/10 text-orange-400 border-orange-500/20">
-                      <span className={inter.className}>
-                        {lead.opportunityScore}% opportunity
-                      </span>
-                    </Badge>
-                    <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20">
-                      <span className={inter.className}>
-                        {lead.intent.replace(/_/g, ' ')}
-                      </span>
-                    </Badge>
+                    <Badge className="bg-orange-500/10 text-orange-400 border-orange-500/20">{lead.opportunityScore}% opportunity</Badge>
+                    <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20">{lead.intent.replace(/_/g, ' ')}</Badge>
                   </div>
                 </div>
               </div>
 
-              {/* Right Panel - AI Replies */}
+              {/* Right Panel */}
               <div className="flex-1 flex flex-col min-h-0">
-                {/* Replies Header */}
                 <div className="p-6 border-b border-zinc-800 flex-shrink-0">
                   <div className="flex items-center justify-between">
-                    <h3 className={`font-semibold text-white ${poppins.className}`}>
-                      AI-Generated Replies
-                    </h3>
-                    <Button
-                      onClick={() => generateReplies(lead)}
-                      disabled={isGenerating}
-                      variant="outline"
-                      size="sm"
-                      className="border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white"
-                    >
+                    <h3 className={`font-semibold text-white ${poppins.className}`}>AI-Generated Replies</h3>
+                    <Button onClick={() => generateReplies(lead)} disabled={isGenerating} variant="outline" size="sm" className="border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white">
                       <ArrowPathIcon className={`w-4 h-4 mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
-                      <span className={inter.className}>Regenerate</span>
+                      Regenerate
                     </Button>
                   </div>
                 </div>
 
-                {/* Error/Success Messages */}
-                <AnimatePresence>
-                  {error && (
-                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-                      <Card className="mx-6 mt-4 bg-red-500/5 border-red-500/20">
-                        <CardContent className="p-3">
-                          <div className="flex items-center gap-2">
-                            <ExclamationCircleIcon className="w-4 h-4 text-red-400" />
-                            <span className={`text-red-400 text-sm ${inter.className}`}>{error}</span>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                {error && (
+                  <div className="p-4">
+                    <Card className="bg-red-500/5 border-red-500/20">
+                      <CardContent className="p-3 flex items-center gap-2 text-red-400 text-sm"><ExclamationCircleIcon className="w-4 h-4" />{error}</CardContent>
+                    </Card>
+                  </div>
+                )}
 
-                {/* Replies Content */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                  {isGenerating ? (
-                    <ReplyLoader />
-                  ) : (
+                  {isGenerating ? <ReplyLoader /> : (
                     <AnimatePresence>
                       {replyOptions.map((reply, index) => (
                         <ReplyOptionCard
                           key={reply.id}
                           reply={reply}
-                          lead={lead}
                           index={index}
                           activeEditId={activeEditId}
                           editText={editText}
@@ -299,16 +242,14 @@ export const ReplyModal = ({ lead, isOpen, onClose, onLeadUpdate }: Props) => {
               </div>
             </div>
           </motion.div>
-        </div>
+        </motion.div>
       )}
     </AnimatePresence>
   );
 };
 
-// ... (ReplyOptionCard component remains the same)
 interface ReplyOptionCardProps {
   reply: ReplyOption;
-  lead: Lead;
   index: number;
   activeEditId: string | null;
   editText: string;
@@ -321,159 +262,63 @@ interface ReplyOptionCardProps {
   onRefinementChange: (text: string) => void;
   onRefine: (id: string, instruction: string) => void;
   onCopy: (id: string, text: string) => void;
-  onReply: (text: string) => void;
+  onReply: (id: string, text: string) => void;
 }
 
-const ReplyOptionCard = ({
-  reply,
-  lead,
-  index,
-  activeEditId,
-  editText,
-  refinementInstruction,
-  copiedReplyId,
-  onStartEdit,
-  onSaveEdit,
-  onCancelEdit,
-  onEditTextChange,
-  onRefinementChange,
-  onRefine,
-  onCopy,
-  onReply
-}: ReplyOptionCardProps) => {
+const ReplyOptionCard = ({ reply, index, activeEditId, editText, refinementInstruction, copiedReplyId, onStartEdit, onSaveEdit, onCancelEdit, onEditTextChange, onRefinementChange, onRefine, onCopy, onReply }: ReplyOptionCardProps) => {
   const [showRefinement, setShowRefinement] = useState(false);
   const isEditing = activeEditId === reply.id;
   const isCopied = copiedReplyId === reply.id;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.1 }}
-    >
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1 }}>
       <Card className="bg-zinc-900/50 border-zinc-800">
         <CardHeader className="pb-3">
           <div className="flex justify-between items-center">
-            <CardTitle className={`text-sm font-medium text-gray-400 ${inter.className}`}>
-              Option {index + 1}
-            </CardTitle>
-            {reply.isRefining && <RefiningLoader />}
+            <CardTitle className={`text-sm font-medium text-gray-400 ${inter.className}`}>Option {index + 1}</CardTitle>
+            {(reply.isRefining || reply.isPosting) && <RefiningLoader />}
           </div>
         </CardHeader>
-        
         <CardContent className="space-y-4">
           {isEditing ? (
             <div className="space-y-3">
-              <Textarea
-                value={editText}
-                onChange={(e) => onEditTextChange(e.target.value)}
-                className="min-h-[100px] bg-zinc-900 border-zinc-700 text-white focus:border-orange-500"
-                placeholder="Edit your reply..."
-              />
+              <Textarea value={editText} onChange={(e) => onEditTextChange(e.target.value)} className="min-h-[100px] bg-zinc-900 border-zinc-700 text-white focus:border-orange-500" placeholder="Edit your reply..." />
               <div className="flex items-center gap-2">
-                <Button
-                  onClick={onSaveEdit}
-                  size="sm"
-                  className="bg-orange-500 hover:bg-orange-600 text-white"
-                >
-                  <span className={inter.className}>Save Changes</span>
-                </Button>
-                <Button
-                  onClick={onCancelEdit}
-                  variant="outline"
-                  size="sm"
-                  className="border-zinc-700 text-gray-300 hover:bg-zinc-800 hover:text-white"
-                >
-                  <span className={inter.className}>Cancel</span>
-                </Button>
+                <Button onClick={onSaveEdit} size="sm" className="bg-orange-500 hover:bg-orange-600 text-white">Save Changes</Button>
+                <Button onClick={onCancelEdit} variant="outline" size="sm" className="border-zinc-700 text-gray-300 hover:bg-zinc-800 hover:text-white">Cancel</Button>
               </div>
             </div>
           ) : (
-            <p className={`text-white leading-relaxed ${inter.className}`}>
-              {reply.text}
-            </p>
+            <p className={`text-white leading-relaxed ${inter.className}`}>{reply.text}</p>
           )}
-
           {showRefinement && !isEditing && (
             <Card className="bg-zinc-900 border-zinc-800">
               <CardContent className="p-4 space-y-3">
-                <Input
-                  value={refinementInstruction}
-                  onChange={(e) => onRefinementChange(e.target.value)}
-                  placeholder="How would you like to refine this reply? (e.g., 'make it shorter', 'be more technical')"
-                  className="bg-transparent border-zinc-700 text-white focus:border-orange-500"
-                />
+                <Input value={refinementInstruction} onChange={(e) => onRefinementChange(e.target.value)} placeholder="e.g., 'make it shorter', 'be more technical'" className="bg-transparent border-zinc-700 text-white focus:border-orange-500" />
                 <div className="flex items-center gap-2">
-                  <Button
-                    onClick={() => {
-                      onRefine(reply.id, refinementInstruction);
-                      setShowRefinement(false);
-                    }}
-                    disabled={!refinementInstruction.trim() || reply.isRefining}
-                    size="sm"
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    <span className={inter.className}>Apply Refinement</span>
-                  </Button>
-                  <Button
-                    onClick={() => setShowRefinement(false)}
-                    variant="ghost"
-                    size="sm"
-                    className="text-gray-400 hover:text-white"
-                  >
-                    <span className={inter.className}>Cancel</span>
-                  </Button>
+                  <Button onClick={() => { onRefine(reply.id, refinementInstruction); setShowRefinement(false); }} disabled={!refinementInstruction.trim() || reply.isRefining} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">Apply Refinement</Button>
+                  <Button onClick={() => setShowRefinement(false)} variant="ghost" size="sm" className="text-gray-400 hover:text-white">Cancel</Button>
                 </div>
               </CardContent>
             </Card>
           )}
-
           {!isEditing && (
             <div className="flex items-center gap-2 pt-3 border-t border-zinc-800">
-              <Button
-                onClick={() => onCopy(reply.id, reply.text)}
-                variant="outline"
-                size="sm"
-                className={`${
-                  isCopied 
-                    ? 'bg-green-500/10 text-green-400 border-green-500/20' 
-                    : 'border-zinc-700 text-gray-300 hover:bg-zinc-800 hover:text-white'
-                }`}
-              >
+              <Button onClick={() => onCopy(reply.id, reply.text)} variant="outline" size="sm" className={`${isCopied ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'border-zinc-700 text-gray-300 hover:bg-zinc-800 hover:text-white'}`}>
                 {isCopied ? <CheckIcon className="w-4 h-4 mr-1" /> : <DocumentDuplicateIcon className="w-4 h-4 mr-1" />}
-                <span className={inter.className}>
-                  {isCopied ? 'Copied!' : 'Copy'}
-                </span>
+                {isCopied ? 'Copied!' : 'Copy'}
               </Button>
-              
-              <Button
-                onClick={() => onReply(reply.text)}
-                size="sm"
-                className="bg-orange-500 hover:bg-orange-600 text-white"
-              >
-                <ArrowTopRightOnSquareIcon className="w-4 h-4 mr-1" />
-                <span className={inter.className}>Reply on Reddit</span>
+              <Button onClick={() => onReply(reply.id, reply.text)} disabled={reply.isPosting} size="sm" className="bg-orange-500 hover:bg-orange-600 text-white">
+                <PaperAirplaneIcon className="w-4 h-4 mr-1" />
+                {reply.isPosting ? 'Posting...' : 'Post Reply'}
               </Button>
-              
-              <Button
-                onClick={() => onStartEdit(reply.id, reply.text)}
-                variant="ghost"
-                size="sm"
-                className="text-gray-400 hover:text-white hover:bg-zinc-800"
-              >
+              <Button onClick={() => onStartEdit(reply.id, reply.text)} variant="ghost" size="sm" className="text-gray-400 hover:text-white hover:bg-zinc-800">
                 <PencilSquareIcon className="w-4 h-4 mr-1" />
-                <span className={inter.className}>Edit</span>
+                Edit
               </Button>
-              
-              <Button
-                onClick={() => setShowRefinement(!showRefinement)}
-                disabled={reply.isRefining}
-                variant="ghost"
-                size="sm"
-                className="text-gray-400 hover:text-white hover:bg-zinc-800 disabled:opacity-50"
-              >
+              <Button onClick={() => setShowRefinement(!showRefinement)} disabled={reply.isRefining} variant="ghost" size="sm" className="text-gray-400 hover:text-white hover:bg-zinc-800 disabled:opacity-50">
                 <ArrowPathIcon className="w-4 h-4 mr-1" />
-                <span className={inter.className}>Refine</span>
+                Refine
               </Button>
             </div>
           )}

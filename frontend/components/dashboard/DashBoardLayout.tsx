@@ -13,31 +13,16 @@ import { Button } from "@/components/ui/button";
 import PulsatingDotsLoaderDashboard from '../loading/LoadingDashboard';
 import { DeleteLeadsModal } from "./DeleteLead";
 import { DiscoveryButtons } from './DiscoveryOptions';
-import { useReplyModal } from '@/hooks/useReplyModal'; // ✨ Import the global modal hook
-import { ReplyModal } from './ReplyModal'; // ✨ Import the ReplyModal component
+import { useReplyModal, Lead } from '@/hooks/useReplyModal';
+import { ReplyModal } from './ReplyModal';
+import { Menu, X } from 'lucide-react';
+import { TrashIcon } from '@heroicons/react/24/outline';
 
 const inter = Inter({ subsets: ['latin'] });
 const poppins = Poppins({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700', '800', '900']
 });
-
-// Interface definitions...
-interface Lead {
-  id: string;
-  title: string;
-  author: string;
-  subreddit: string;
-  url: string;
-  body: string;
-  createdAt: number;
-  numComments: number;
-  upvoteRatio: number;
-  intent: string;
-  summary?: string | null;
-  opportunityScore: number;
-  status?: "new" | "replied" | "saved" | "ignored";
-}
 
 interface Campaign {
   id: string;
@@ -75,7 +60,6 @@ export const DashboardLayout = () => {
   const [sortBy, setSortBy] = useState("opportunityScore");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
-  // ✨ Initialize the global reply modal state
   const { isOpen: isReplyModalOpen, lead: replyModalLead, onClose: onReplyModalClose } = useReplyModal();
 
   useEffect(() => {
@@ -87,7 +71,6 @@ export const DashboardLayout = () => {
         setIsMobileMenuOpen(false);
       }
     };
-
     checkScreenSize();
     window.addEventListener('resize', checkScreenSize);
     return () => window.removeEventListener('resize', checkScreenSize);
@@ -196,117 +179,35 @@ export const DashboardLayout = () => {
   const currentCampaign = campaigns.find(c => c.id === activeCampaign);
 
   if (error && campaigns.length === 0) {
+    // Error state UI
     return (
-      <div className="min-h-screen bg-black" style={{
-        WebkitOverflowScrolling: 'touch',
-        scrollBehavior: 'smooth',
-        transform: 'translateZ(0)',
-        willChange: 'scroll-position'
-      }}>
-        {/* Background Effects */}
-        <div className="absolute inset-0 z-5">
-          <div className="absolute inset-0 bg-black"></div>
-          <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-black/40 to-black/20 opacity-70"></div>
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.03),transparent_70%)] opacity-50"></div>
-          
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-            <div className="w-[600px] h-[600px] bg-gradient-radial from-orange-400/10 via-orange-300/5 to-transparent rounded-full blur-3xl"></div>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-center min-h-screen p-4 relative z-10">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="w-full max-w-md"
-          >
-            <Card className="bg-black/60 backdrop-blur-sm border border-white/10 shadow-2xl shadow-orange-500/10">
-              <CardHeader>
-                <CardTitle className={`text-white text-center ${poppins.className} font-bold text-xl`}>
-                  Dashboard Error
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="text-center">
-                <p className={`text-white/80 mb-6 ${inter.className}`}>{error}</p>
-                <Button 
-                  onClick={() => window.location.reload()} 
-                  className="w-full bg-white text-black hover:bg-gray-100 font-semibold transition-colors"
-                >
-                  <span className={inter.className}>Retry Dashboard</span>
-                </Button>
-              </CardContent>
-            </Card>
-          </motion.div>
-        </div>
+      <div className="min-h-screen bg-black flex items-center justify-center p-4">
+        <Card className="w-full max-w-md bg-black/60 border-white/10">
+          <CardHeader>
+            <CardTitle className="text-white text-center">Dashboard Error</CardTitle>
+          </CardHeader>
+          <CardContent className="text-center">
+            <p className="text-white/80 mb-6">{error}</p>
+            <Button onClick={() => window.location.reload()} className="w-full bg-white text-black">
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-black" style={{
-      WebkitOverflowScrolling: 'touch',
-      scrollBehavior: 'smooth',
-      transform: 'translateZ(0)',
-      willChange: 'scroll-position'
-    }}>
-      {/* Background Effects */}
-      <div className="fixed inset-0 z-0">
-        <div className="absolute inset-0 bg-black"></div>
-        <div className="absolute inset-0 bg-gradient-to-br from-black/30 via-black/60 to-black/30 opacity-80"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,255,255,0.02),transparent_70%)] opacity-60"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,rgba(255,255,255,0.01),transparent_70%)] opacity-40"></div>
-        
-        <div className="absolute top-1/3 right-1/4 transform">
-          <div className="w-[400px] h-[400px] bg-gradient-radial from-orange-400/8 via-orange-300/4 to-transparent rounded-full blur-3xl"></div>
-        </div>
-        <div className="absolute bottom-1/3 left-1/4 transform">
-          <div className="w-[300px] h-[300px] bg-gradient-radial from-orange-500/6 via-orange-400/3 to-transparent rounded-full blur-2xl"></div>
-        </div>
-      </div>
-
+    <div className="min-h-screen bg-black">
       <div className="relative z-10">
         <RedLeadHeader />
         
         <div className="flex relative">
-          {/* Mobile Menu Button */}
-          {isMobile && (
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              className="fixed top-4 left-4 z-50 md:hidden"
-            >
-              <Button
-                onClick={toggleMobileMenu}
-                variant="ghost"
-                size="sm"
-                className="bg-black/80 backdrop-blur-sm border border-white/10 text-white hover:bg-white/10 hover:border-white/20 transition-all duration-200"
-              >
-                <span className={`text-sm ${inter.className} font-medium`}>
-                  {isMobileMenuOpen ? 'Close' : 'Menu'}
-                </span>
-              </Button>
-            </motion.div>
-          )}
-
-          {/* Sidebar */}
           <motion.aside 
-            initial={{ opacity: 0, x: -20 }} 
-            animate={{ 
-              opacity: 1, 
-              x: isMobile && !isMobileMenuOpen ? -280 : 0,
-              width: isSidebarCollapsed ? 80 : 280 
-            }} 
+            animate={{ x: isMobile && !isMobileMenuOpen ? -280 : 0, width: isSidebarCollapsed ? 80 : 280 }} 
             transition={{ duration: 0.4, ease: "easeOut" }} 
-            className={`
-              flex-shrink-0 border-r border-white/10 bg-black/40 backdrop-blur-sm z-40
-              ${isMobile ? 'fixed h-full' : 'relative'}
-              ${isMobile && isMobileMenuOpen ? 'shadow-2xl shadow-orange-500/20' : ''}
-            `}
-            style={{
-              height: isMobile ? '100vh' : 'auto',
-              top: isMobile ? 0 : 'auto',
-            }}
+            className={`flex-shrink-0 border-r border-white/10 bg-black/40 backdrop-blur-sm z-40 ${isMobile ? 'fixed h-full' : 'relative'}`}
+            style={{ height: isMobile ? '100vh' : 'auto', top: isMobile ? 0 : 'auto' }}
           >
             <DashboardSidebar 
               campaigns={campaigns} 
@@ -328,7 +229,6 @@ export const DashboardLayout = () => {
             />
           </motion.aside>
 
-          {/* Mobile Overlay */}
           <AnimatePresence>
             {isMobile && isMobileMenuOpen && (
               <motion.div
@@ -341,76 +241,30 @@ export const DashboardLayout = () => {
             )}
           </AnimatePresence>
           
-          {/* Main Content */}
-          <main className={`
-            flex-1 min-h-screen relative
-            ${isMobile ? 'w-full' : ''}
-            transition-all duration-300
-          `}>
+          <main className={`flex-1 min-h-screen relative ${isMobile ? 'w-full' : ''}`}>
             <AnimatePresence mode="wait">
               {activeView === 'dashboard' ? (
-                <motion.div
-                  key="dashboard"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.4, ease: "easeOut" }}
-                  className="relative z-10"
-                >
-                  <AnalyticalDashboard 
-                    campaigns={campaigns}
-                    activeCampaign={activeCampaign}
-                    leadStats={leadStats}
-                    allLeads={allLeads}
-                  />
+                <motion.div key="dashboard" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.4, ease: "easeOut" }} className="relative z-10">
+                  <AnalyticalDashboard campaigns={campaigns} activeCampaign={activeCampaign} leadStats={leadStats} allLeads={allLeads} />
                 </motion.div>
               ) : (
-                <motion.div
-                  key="leads"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.4, ease: "easeOut" }}
-                  className="p-4 md:p-8 relative z-10"
-                >
-                  <motion.div 
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, delay: 0.1 }}
-                    className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-6"
-                  >
+                <motion.div key="leads" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.4, ease: "easeOut" }} className="p-4 md:p-8 relative z-10">
+                  <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.1 }} className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-6">
                     <div className="space-y-2">
                       <h1 className={`text-3xl md:text-4xl font-black tracking-tight text-white ${poppins.className}`}>
-                        Lead{" "}
-                        <span className="bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 bg-clip-text text-transparent">
-                          Management
-                        </span>
+                        Lead <span className="bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 bg-clip-text text-transparent">Management</span>
                       </h1>
-                      <p className={`text-white/70 text-lg ${inter.className} font-medium`}>
-                        Discover and manage potential customers from Reddit
-                      </p>
+                      <p className={`text-white/70 text-lg ${inter.className} font-medium`}>Discover and manage potential customers from Reddit</p>
                     </div>
-                  
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ duration: 0.4, delay: 0.3 }}
-                    >
-                      <Button
-                        onClick={() => setShowDeleteModal(true)}
-                        className="bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/40 transition-all duration-200 font-semibold"
-                      >
-                        <span className={inter.className}>Delete Leads</span>
+                    <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4, delay: 0.3 }}>
+                      <Button onClick={() => setShowDeleteModal(true)} className="bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20">
+                        <TrashIcon className="w-4 h-4 mr-2" />
+                        Delete Leads
                       </Button>
                     </motion.div>
                   </motion.div>
 
-                  <motion.div 
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, delay: 0.2 }}
-                    className="mb-8"
-                  >
+                  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.2 }} className="mb-8">
                     <DiscoveryButtons
                       campaignId={activeCampaign || ''}
                       targetSubreddits={currentCampaign?.targetSubreddits || []}
@@ -419,11 +273,7 @@ export const DashboardLayout = () => {
                     />
                   </motion.div>
 
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, delay: 0.3 }}
-                  >
+                  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.3 }}>
                     {isLoading ? (
                       <PulsatingDotsLoaderDashboard/>
                     ) : (
@@ -436,14 +286,6 @@ export const DashboardLayout = () => {
                       />
                     )}
                   </motion.div>
-
-                  <DeleteLeadsModal
-                    isOpen={showDeleteModal}
-                    onClose={() => setShowDeleteModal(false)}
-                    campaignId={activeCampaign ?? ""}
-                    leadStats={leadStats}
-                    onLeadsDeleted={handleLeadsDiscovered}
-                  />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -451,15 +293,20 @@ export const DashboardLayout = () => {
         </div>
       </div>
       
-      {/* ✨ Render the ReplyModal globally */}
-      {replyModalLead && (
-        <ReplyModal
-          isOpen={isReplyModalOpen}
-          onClose={onReplyModalClose}
-          lead={replyModalLead}
-          onLeadUpdate={handleLeadUpdate}
-        />
-      )}
+      {/* 🎯 FIX: Modals are now rendered directly and control their own visibility. */}
+      <ReplyModal
+        isOpen={isReplyModalOpen}
+        onClose={onReplyModalClose}
+        lead={replyModalLead}
+        onLeadUpdate={handleLeadUpdate}
+      />
+      <DeleteLeadsModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        campaignId={activeCampaign ?? ""}
+        leadStats={leadStats}
+        onLeadsDeleted={handleLeadsDiscovered}
+      />
     </div>
   );
 };

@@ -14,3 +14,5 @@ export const useReplyModal = create<ReplyModalStore>((set) => ({
   onOpen: (lead) => set({ isOpen: true, lead }),
   onClose: () => set({ isOpen: false, lead: null }),
 }));
+
+export type  { Lead };

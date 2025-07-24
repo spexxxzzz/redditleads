@@ -83,18 +83,7 @@ export const api = {
     return response.json();
   },
 
-  postReply: async (leadId: string, replyContent: string, token: string | null) => {
-    const response = await fetch(`${API_BASE_URL}/api/engagement/post-reply`, {
-      method: 'POST',
-      headers: getAuthHeaders(token),
-      body: JSON.stringify({ leadId, content: replyContent }),
-    });
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || 'Failed to post reply');
-    }
-    return response.json();
-  },
+ 
 
   refineReply: async (originalReply: string, instruction: string, token: string | null) => {
     const response = await fetch(`${API_BASE_URL}/api/engagement/refine`, {
@@ -330,5 +319,16 @@ export const api = {
       return response.json();
     },
   
-
+    postReply: async (leadId: string, replyContent: string, token: string | null) => {
+      const response = await fetch(`${API_BASE_URL}/api/engagement/post-reply`, {
+        method: 'POST',
+        headers: getAuthHeaders(token),
+        body: JSON.stringify({ leadId, content: replyContent }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to post reply');
+      }
+      return response.json();
+    },
 };

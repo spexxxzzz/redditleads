@@ -35,36 +35,34 @@ export const DeleteLeadsModal: React.FC<DeleteLeadsModalProps> = ({
 }) => {
   const { getToken } = useAuth();
   const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteType, setDeleteType] = useState<'all' | 'status' | null>(null);
-  const [selectedStatus, setSelectedStatus] = useState<string>('');
+  const [error, setError] = useState<string | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
 
-  const handleDeleteAll = async () => {
+  const handleDelete = async () => {
+    if (!selectedStatus) {
+      setError("Please select a category of leads to delete.");
+      return;
+    }
+    setIsDeleting(true);
+    setError(null);
     try {
-      setIsDeleting(true);
       const token = await getToken();
-      await api.deleteAllLeads(campaignId, token);
+      await api.deleteAllLeads(campaignId, selectedStatus);
       onLeadsDeleted();
       onClose();
-    } catch (error) {
-      console.error('Failed to delete all leads:', error);
+    } catch (err: any) {
+      setError(err.message || "Failed to delete leads.");
     } finally {
       setIsDeleting(false);
     }
   };
 
-  const handleDeleteByStatus = async () => {
-    try {
-      setIsDeleting(true);
-      const token = await getToken();
-      await api.deleteLeadsByStatus(campaignId, selectedStatus, token);
-      onLeadsDeleted();
-      onClose();
-    } catch (error) {
-      console.error(`Failed to delete ${selectedStatus} leads:`, error);
-    } finally {
-      setIsDeleting(false);
-    }
-  };
+  const leadTypes = [
+    { status: 'ignored', count: leadStats.ignored, label: 'Ignored Leads' },
+    { status: 'saved', count: leadStats.saved, label: 'Saved Leads' },
+    { status: 'replied', count: leadStats.replied, label: 'Replied Leads' },
+    { status: 'all', count: leadStats.all, label: 'All Leads' },
+  ];
 
   return (
     <AnimatePresence>
@@ -73,145 +71,56 @@ export const DeleteLeadsModal: React.FC<DeleteLeadsModalProps> = ({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          onClick={onClose}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
         >
           <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            className="bg-black border border-red-800 rounded-xl max-w-md w-full p-6"
-            onClick={e => e.stopPropagation()}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="relative w-full max-w-lg bg-black rounded-xl border border-zinc-800 shadow-2xl p-8"
           >
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-full bg-red-500/10">
-                  <TrashIcon className="h-5 w-5 text-red-400" />
-                </div>
-                <div>
-                  <h2 className={`text-lg font-bold text-white ${poppins.className}`}>
-                    Delete Leads
-                  </h2>
-                  <p className={`text-sm text-gray-400 ${inter.className}`}>
-                    Permanently remove leads from your campaign
-                  </p>
-                </div>
+            <div className="text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10 border border-red-500/20">
+                <TrashIcon className="h-6 w-6 text-red-400" aria-hidden="true" />
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onClose}
-                className="text-gray-400 hover:text-white"
-              >
-                <XMarkIcon className="h-5 w-5" />
-              </Button>
-            </div>
-
-            {/* Warning */}
-            <div className="flex items-start gap-3 p-4 rounded-lg bg-red-500/10 border border-red-500/20 mb-6">
-              <ExclamationTriangleIcon className="h-5 w-5 text-red-400 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className={`text-sm font-medium text-red-400 ${inter.className}`}>
-                  Warning: This action cannot be undone
-                </p>
-                <p className={`text-xs text-red-300/80 mt-1 ${inter.className}`}>
-                  Deleted leads will be permanently removed from your account.
+              <h3 className={`mt-5 text-2xl font-bold leading-6 text-white ${poppins.className}`}>
+                Bulk Delete Leads
+              </h3>
+              <div className="mt-2">
+                <p className={`text-sm text-gray-400 ${inter.className}`}>
+                  This action is irreversible. Please select which category of leads you want to permanently delete.
                 </p>
               </div>
             </div>
 
-            {/* Delete Options */}
-            <div className="space-y-4 mb-6">
-              {/* Delete All */}
-              <div 
-                className={`p-4 rounded-lg border cursor-pointer transition-all ${
-                  deleteType === 'all' 
-                    ? 'border-red-500 bg-red-500/5' 
-                    : 'border-zinc-700 hover:border-zinc-600'
-                }`}
-                onClick={() => setDeleteType('all')}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className={`font-medium text-white ${poppins.className}`}>
-                      Delete All Leads
-                    </p>
-                    <p className={`text-sm text-gray-400 ${inter.className}`}>
-                      Remove all {leadStats.all} leads from this campaign
-                    </p>
-                  </div>
-                  <Badge variant="outline" className="border-red-500/20 text-red-400">
-                    {leadStats.all} leads
-                  </Badge>
-                </div>
-              </div>
-
-              {/* Delete by Status */}
-              <div 
-                className={`p-4 rounded-lg border cursor-pointer transition-all ${
-                  deleteType === 'status' 
-                    ? 'border-red-500 bg-red-500/5' 
-                    : 'border-zinc-700 hover:border-zinc-600'
-                }`}
-                onClick={() => setDeleteType('status')}
-              >
-                <div>
-                  <p className={`font-medium text-white mb-3 ${poppins.className}`}>
-                    Delete by Status
-                  </p>
-                  
-                  {deleteType === 'status' && (
-                    <div className="grid grid-cols-2 gap-2">
-                      {[
-                        { key: 'ignored', label: 'Ignored', count: leadStats.ignored },
-                        { key: 'replied', label: 'Replied', count: leadStats.replied },
-                        { key: 'saved', label: 'Saved', count: leadStats.saved },
-                        { key: 'new', label: 'New', count: leadStats.new }
-                      ].map(status => (
-                        <div
-                          key={status.key}
-                          className={`p-2 rounded border text-sm cursor-pointer transition-all ${
-                            selectedStatus === status.key
-                              ? 'border-red-500 bg-red-500/10 text-red-400'
-                              : 'border-zinc-700 text-gray-400 hover:border-zinc-600'
-                          }`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedStatus(status.key);
-                          }}
-                        >
-                          <div className="flex justify-between items-center">
-                            <span className={inter.className}>{status.label}</span>
-                            <Badge variant="outline" className="text-xs">
-                              {status.count}
-                            </Badge>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
+            <div className="mt-6 space-y-3">
+              {leadTypes.map(type => (
+                <button
+                  key={type.status}
+                  onClick={() => setSelectedStatus(type.status)}
+                  disabled={type.count === 0}
+                  className={`w-full flex justify-between items-center p-4 rounded-lg border transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed
+                    ${selectedStatus === type.status ? 'bg-red-500/20 border-red-500/40' : 'bg-zinc-800/50 border-zinc-700 hover:bg-zinc-800 hover:border-zinc-600'}
+                  `}
+                >
+                  <span className={`font-medium ${selectedStatus === type.status ? 'text-red-300' : 'text-white'} ${inter.className}`}>{type.label}</span>
+                  <Badge variant={selectedStatus === type.status ? 'destructive' : 'secondary'}>{type.count}</Badge>
+                </button>
+              ))}
             </div>
 
-            {/* Actions */}
-            <div className="flex gap-3">
+            {error && (
+              <p className="mt-4 text-center text-sm text-red-400">{error}</p>
+            )}
+
+            <div className="mt-8 grid grid-cols-2 gap-4">
+              <Button variant="outline" onClick={onClose} className="border-zinc-700 text-gray-300 hover:bg-zinc-800">Cancel</Button>
               <Button
-                variant="outline"
-                onClick={onClose}
-                disabled={isDeleting}
-                className="flex-1"
+                onClick={handleDelete}
+                disabled={isDeleting || !selectedStatus}
+                className="bg-red-600 hover:bg-red-700 text-white disabled:bg-red-800/50"
               >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={deleteType === 'all' ? handleDeleteAll : handleDeleteByStatus}
-                disabled={isDeleting || !deleteType || (deleteType === 'status' && !selectedStatus)}
-                className="flex-1"
-              >
-                {isDeleting ? 'Deleting...' : 'Delete Leads'}
+                {isDeleting ? 'Deleting...' : `Delete ${selectedStatus ? leadStats[selectedStatus as keyof typeof leadStats] : ''} Leads`}
               </Button>
             </div>
           </motion.div>

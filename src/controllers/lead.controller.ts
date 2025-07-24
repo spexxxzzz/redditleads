@@ -5,6 +5,7 @@ import { enrichLeadsForUser } from '../services/enrichment.service';
 import { summarizeTextContent } from '../services/summarisation.service';
 import { calculateContentRelevance } from '../services/relevance.service';
 
+
 const prisma = new PrismaClient();
 
 export const runManualDiscovery: RequestHandler = async (req: any, res, next) => {
@@ -176,53 +177,7 @@ export const getLeadsForCampaign: RequestHandler = async (req: any, res, next) =
     }
 };
 
-export const updateLeadStatus: RequestHandler = async (req: any, res, next) => {
-    const { userId } = req.auth;
-    const { leadId } = req.params;
-    const { status } = req.body;
-
-    if (!userId) {
-        res.status(401).json({ message: 'User not authenticated.' });
-        return;
-    }
-
-    if (!leadId || !status) {
-        res.status(400).json({ message: 'Lead ID and status are required.' });
-        return;
-    }
-
-    const validStatuses = ['new', 'replied', 'saved', 'ignored'];
-    if (!validStatuses.includes(status)) {
-        res.status(400).json({ message: 'Invalid status. Must be one of: new, replied, saved, ignored' });
-        return;
-    }
-
-    try {
-        console.log(`📝 [Update Lead] User ${userId} updating lead ${leadId} status to: ${status}`);
-
-        // Securely update the lead only if it belongs to the authenticated user
-        const result = await prisma.lead.updateMany({
-            where: { 
-                id: leadId,
-                userId: userId
-            },
-            data: { status }
-        });
-
-        if (result.count === 0) {
-            res.status(404).json({ message: 'Lead not found or you do not have permission to update it.' });
-            return;
-        }
-
-        console.log(`✅ [Update Lead] Successfully updated lead status`);
-        res.status(200).json({ message: 'Lead status updated successfully.' });
-        return;
-
-    } catch (error) {
-        console.error('❌ [Update Lead] Error updating lead status:', error);
-        next(error);
-    }
-};
+ 
 
 export const summarizeLead: RequestHandler = async (req: any, res, next) => {
     const { userId } = req.auth;
@@ -499,4 +454,59 @@ export const runTargetedDiscovery: RequestHandler = async (req: any, res, next) 
       console.error('❌ [Targeted Discovery] Error:', error);
       next(error);
   }
+   
+
+};
+
+export const updateLeadStatus: RequestHandler = async (req: any, res, next) => {
+    const { userId } = req.auth;
+    const { leadId } = req.params;
+    const { status } = req.body;
+
+    if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated.' });
+    }
+
+    if (!leadId || !status) {
+        return res.status(400).json({ message: 'Lead ID and status are required.' });
+    }
+
+    const validStatuses = ["new", "replied", "saved", "ignored"];
+    if (!validStatuses.includes(status)) {
+        return res.status(400).json({ message: 'Invalid status provided.' });
+    }
+
+    try {
+        console.log(`[Lead Status] User ${userId} updating lead ${leadId} to status: ${status}`);
+
+        const lead = await prisma.lead.findFirst({
+            where: {
+                id: leadId,
+                userId: userId,
+            },
+        });
+
+        if (!lead) {
+            return res.status(404).json({ message: 'Lead not found or you do not have permission.' });
+        }
+
+        const updatedLead = await prisma.lead.update({
+            where: {
+                id: leadId,
+            },
+            data: {
+                status: status,
+            },
+        });
+
+        console.log(`✅ [Lead Status] Successfully updated lead ${leadId}`);
+        res.status(200).json({
+            success: true,
+            message: 'Lead status updated successfully.',
+            lead: updatedLead,
+        });
+    } catch (error) {
+        console.error(`❌ [Lead Status] Error updating lead ${leadId}:`, error);
+        next(error);
+    }
 };

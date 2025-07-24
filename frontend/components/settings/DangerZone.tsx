@@ -1,10 +1,13 @@
-// frontend/components/settings/DangerZone.tsx
+//================================================================//
+//          Your Existing Danger Zone Component                   //
+//================================================================//
 "use client";
 import { useAuth } from "@clerk/nextjs";
 import { api } from "@/lib/api";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-export const DangerZone = () => {
+
+ export const DangerZone = () => {
   const { getToken, signOut } = useAuth();
   const [showConfirm, setShowConfirm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -13,8 +16,8 @@ export const DangerZone = () => {
     setIsLoading(true);
     try {
       const token = await getToken();
-      await api.deleteCurrentUser(token); // We will create this API function
-      await signOut(() => window.location.replace("/")); // Sign out and redirect
+      await api.deleteCurrentUser(token);
+      await signOut(() => window.location.replace("/"));
     } catch (error) {
       console.error("Failed to delete account", error);
       alert("Failed to delete account. Please try again.");
@@ -53,3 +56,4 @@ export const DangerZone = () => {
     </div>
   );
 };
+
