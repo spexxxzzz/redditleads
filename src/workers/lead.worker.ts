@@ -8,7 +8,7 @@ import { calculateLeadScore } from '../services/scoring.service';
 import { webhookService } from '../services/webhook.service';
 import { AIUsageService } from '../services/aitracking.service';
 import { calculateContentRelevance } from '../services/relevance.service';
-import { sendEmail } from '../services/email.service';
+// import { sendEmail } from '../services/email.service';
 
 const prisma = new PrismaClient();
 const BATCH_SIZE = 50; // Process 50 campaigns at a time
@@ -87,13 +87,13 @@ const saveLeadsToDatabase = async (
             where: { userId },
         });
 
-        if (userSettings && userSettings.enabled) {
-            await sendEmail(
-                userSettings.email,
-                `${savedCount} new leads discovered!`,
-                `<h1>You have ${savedCount} new leads waiting for you in RedLead.</h1>`
-            );
-        }
+        // if (userSettings && userSettings.enabled) {
+        //     await sendEmail(
+        //         userSettings.email,
+        //         `${savedCount} new leads discovered!`,
+        //         `<h1>You have ${savedCount} new leads waiting for you in RedLead.</h1>`
+        //     );
+        // }
     }
 
     return savedCount;

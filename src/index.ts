@@ -8,7 +8,7 @@ import engagementRouter from './routes/engagement';
 import insightRouter from './routes/insights';
 import performanceRouter from './routes/performance';
 import { clerkMiddleware } from '@clerk/express';
-import emailRouter from './routes/email';
+
 
 
 
