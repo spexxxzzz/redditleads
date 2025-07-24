@@ -53,7 +53,7 @@ app.use('/api/onboarding', onboardingRouter);
 app.use('/api/engagement', engagementRouter);
 app.use('/api/performance', performanceRouter);
 app.use('/api/insights', insightRouter);
-app.use('/api/email', emailRouter);
+// app.use('/api/email', emailRouter);
 
 // --- NEW: Add campaigns router ---
 app.use('/api/campaigns', campaignRouter);
