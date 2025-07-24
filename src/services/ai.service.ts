@@ -256,7 +256,7 @@ export const generateReplyOptions = async (leadId: string): Promise<string[]> =>
     const aiUsage = AIUsageService.getInstance();
 
     // Check if user has AI reply quota
-    const canUseAI = await aiUsage.trackAIUsage(user.id, 'reply');
+    const canUseAI = await aiUsage.trackAIUsage(user.id, 'manual_discovery', user.plan);
     if (!canUseAI) {
         throw new Error('AI reply quota exceeded. Upgrade your plan or wait for next month.');
     }
@@ -282,9 +282,9 @@ export const generateReplyOptions = async (leadId: string): Promise<string[]> =>
 };
 
 // Also update the analyzeLeadIntent function to track usage:
-export const analyzeLeadIntent = async (title: string, body: string | null, userId: string): Promise<string> => {
+export const analyzeLeadIntent = async (title: string, body: string | null, userId: string, userPlan: string): Promise<string> => {
     const aiUsage = AIUsageService.getInstance();
-    const canUseAI = await aiUsage.trackAIUsage(userId, 'intent');
+    const canUseAI = await aiUsage.trackAIUsage(userId, 'intent', userPlan);
     
     if (!canUseAI) {
         // Fallback to basic intent analysis
@@ -314,9 +314,9 @@ function determineBasicIntent(title: string, body: string | null): string {
 }
 
 // Update analyzeSentiment to track usage:
-export const analyzeSentiment = async (title: string, body: string | null, userId: string): Promise<string> => {
+export const analyzeSentiment = async (title: string, body: string | null, userId: string, userPlan: string): Promise<string> => {
     const aiUsage = AIUsageService.getInstance();
-    const canUseAI = await aiUsage.trackAIUsage(userId, 'competitor');
+    const canUseAI = await aiUsage.trackAIUsage(userId, 'competitor', userPlan);
     
     if (!canUseAI) {
         // Fallback to basic sentiment analysis

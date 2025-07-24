@@ -159,7 +159,7 @@ export const runLeadDiscoveryWorker = async (): Promise<void> => {
                             if (uniqueCompetitorLeads.length > 0) {
                                 const enrichedCompetitorLeads = await Promise.all(
                                     uniqueCompetitorLeads.map(async (lead): Promise<EnrichedLead> => {
-                                        const sentiment = await analyzeSentiment(lead.title, lead.body, user.id);
+                                        const sentiment = await analyzeSentiment(lead.title, lead.body, user.id, user.plan);
                                         const opportunityScore = calculateLeadScore({ ...lead, sentiment, type: 'COMPETITOR_MENTION' });
                                         return { ...lead, sentiment, opportunityScore, intent: 'competitor_mention' };
                                     })

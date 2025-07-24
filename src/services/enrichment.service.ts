@@ -35,7 +35,7 @@ export const enrichLeadsForUser = async (rawLeads: RawLead[], user: User): Promi
             // Starter and Pro plans get AI intent analysis
             if (user.plan === 'pro' || user.plan === 'starter') {
                 console.log(`  -> [${user.plan}] AI intent analysis for lead: "${lead.title.substring(0, 30)}..."`);
-                intent = await analyzeLeadIntent(lead.title, lead.body, user.id);
+                intent = await analyzeLeadIntent(lead.title, lead.body, user.id, user.plan);
             }
 
             // Only Pro plans get the SERP check
