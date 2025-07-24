@@ -47,7 +47,15 @@ export const DeleteLeadsModal: React.FC<DeleteLeadsModalProps> = ({
     setError(null);
     try {
       const token = await getToken();
-      await api.deleteAllLeads(campaignId, selectedStatus);
+      
+      // FIX: Check which status is selected and call the correct API function
+      // with the correct arguments, including the auth token.
+      if (selectedStatus === 'all') {
+        await api.deleteAllLeads(campaignId, token);
+      } else {
+        await api.deleteLeadsByStatus(campaignId, selectedStatus, token);
+      }
+
       onLeadsDeleted();
       onClose();
     } catch (err: any) {
