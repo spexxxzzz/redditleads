@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { useUser } from "@clerk/nextjs";
@@ -21,7 +20,7 @@ const poppins = Poppins({
 });
 
 interface ProfileFormData {
-  username: string;
+  username: string; // Kept for validation, but Clerk handles username updates separately
   firstName: string;
   lastName: string;
   bio: string;
@@ -79,12 +78,6 @@ export function ProfileSettings() {
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.username.trim()) {
-      newErrors.username = "Username is required";
-    } else if (formData.username.length < 3) {
-      newErrors.username = "Username must be at least 3 characters";
-    }
-
     if (!formData.firstName.trim()) {
       newErrors.firstName = "First name is required";
     }
@@ -109,30 +102,53 @@ export function ProfileSettings() {
       return;
     }
 
+    if (!user) {
+      toast.error("User not found. Please refresh and try again.");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
+      // Step 1: Handle image upload via Clerk's SDK first
       if (imageUpload) {
-        await user?.setProfileImage({ file: imageUpload });
+        await user.setProfileImage({ file: imageUpload });
       }
-
-      await user?.update({
-        username: formData.username,
+      
+      // Step 2: Prepare data for your custom backend
+      const payload = {
         firstName: formData.firstName,
         lastName: formData.lastName,
-      });
-
-      await user?.update({
-        //@ts-ignore
         publicMetadata: {
           bio: formData.bio,
           website: formData.website,
           location: formData.location,
           publicProfile: formData.publicProfile,
           emailNotifications: formData.emailNotifications,
+        }
+      };
+
+      // Note: We don't update the username here, as that's a sensitive action
+      // often handled in a separate "Account" section, which we already built.
+      // Your backend will handle updating the name and metadata in both
+      // Clerk and your local database.
+
+      // Step 3: Call your custom backend API
+      const response = await fetch('/api/user', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify(payload),
       });
 
+      if (!response.ok) {
+        throw new Error('Failed to update profile on the server.');
+      }
+
+      // Step 4: Manually trigger a reload of the user object to get fresh data
+      await user.reload();
+      
       toast.success("Profile updated successfully!");
     } catch (error) {
       console.error("Error updating profile:", error);
@@ -141,6 +157,7 @@ export function ProfileSettings() {
       setIsLoading(false);
     }
   };
+
 
   const handleReset = () => {
     setFormData({
@@ -242,13 +259,18 @@ export function ProfileSettings() {
             />
           </div>
 
-          <FormField
-            label="Username *"
-            name="username"
-            value={formData.username}
-            onChange={handleInputChange}
-            error={errors.username}
-          />
+          <div className="space-y-2">
+            <Label className={`${inter.className} text-white font-semibold`}>Username</Label>
+            <Input
+              type="text"
+              value={formData.username}
+              disabled
+              className="border-white/20 bg-white/5 text-white/70 disabled:opacity-50"
+            />
+             <p className={`${inter.className} text-white/60 text-sm`}>
+              Username cannot be changed here. Use the <strong>Account</strong> settings.
+            </p>
+          </div>
 
           <div className="space-y-2">
             <Label className={`${inter.className} text-white font-semibold`}>Email Address</Label>
@@ -259,7 +281,7 @@ export function ProfileSettings() {
               className="border-white/20 bg-white/5 text-white/70 disabled:opacity-50"
             />
             <p className={`${inter.className} text-white/60 text-sm`}>
-              Email cannot be changed here. Use your account settings.
+              Email cannot be changed here. Use the <strong>Account</strong> settings.
             </p>
           </div>
         </div>
@@ -368,7 +390,7 @@ export function ProfileSettings() {
   );
 }
 
-// Helper Components
+// Helper Components (unchanged)
 function FormField({ 
   label, 
   name, 

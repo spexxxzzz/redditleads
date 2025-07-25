@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { User, Bell, CreditCard, ShieldAlert } from "lucide-react";
+import { User, Bell, CreditCard, ShieldAlert, Cog } from "lucide-react"; // Import Cog
 
 // Sidebar navigation items
 const sidebarNavItems = [
@@ -10,6 +10,11 @@ const sidebarNavItems = [
     title: "Profile",
     icon: <User className="mr-2 h-4 w-4" />,
     view: "profile",
+  },
+  {
+    title: "Account",
+    icon: <Cog className="mr-2 h-4 w-4" />, // Added Account section
+    view: "account",
   },
   {
     title: "Notifications",
@@ -33,7 +38,12 @@ interface SettingsSidebarNavProps extends React.HTMLAttributes<HTMLElement> {
   setActiveView: (view: string) => void;
 }
 
-export function SettingsSidebarNav({ className, activeView, setActiveView, ...props }: SettingsSidebarNavProps) {
+export function SettingsSidebarNav({
+  className,
+  activeView,
+  setActiveView,
+  ...props
+}: SettingsSidebarNavProps) {
   return (
     <nav
       className={cn(

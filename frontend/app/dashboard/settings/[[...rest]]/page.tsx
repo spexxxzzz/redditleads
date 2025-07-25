@@ -8,6 +8,7 @@ import { NotificationSettings } from "@/components/settings/NotificationSettings
 import { ProfileSettings } from "@/components/settings/ProfileSettings";
 import { SettingsSidebarNav } from "@/components/settings/SettingsSidebar";
 import { EmailSettings } from "@/components/settings/EmailSettings";
+import { AccountSettings } from "@/components/settings/AccountSettings";
 
 // Main component for the settings page
 export default function SettingsPage() {
@@ -20,11 +21,13 @@ export default function SettingsPage() {
       case "profile":
         return <ProfileSettings />;
       case "notifications":
-        return <NotificationSettings />;
+        return <NotificationSettings />
       case "billing":
         return <BillingSettings />;
       case "danger":
         return <DangerZone />;
+      case "account":
+        return <AccountSettings/>; // Assuming Account settings are similar to Profile
       case "email":
         return <EmailSettings />;
       default:
