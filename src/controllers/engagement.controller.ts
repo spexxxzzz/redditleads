@@ -2,37 +2,29 @@ import { RequestHandler } from 'express';
 import { generateReplyOptions, refineReply } from '../services/engagement.service';
 import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
-
-/**
- * Handles the request to generate initial reply options for a lead.
- * Ensures the lead belongs to the authenticated user.
- */
 export const getReplyOptions: RequestHandler = async (req: any, res, next) => {
-    // Get the authenticated user's ID from Clerk
     const { userId } = req.auth;
-    const { leadId } = req.body;
+    // --- MODIFIED: Destructure 'funMode' from the request body ---
+    const { leadId, funMode } = req.body;
 
-    // Ensure the user is authenticated
     if (!userId) {
-         res.status(401).json({ message: 'User not authenticated.' });
-         return
+        return res.status(401).json({ message: 'User not authenticated.' });
     }
 
     if (!leadId) {
-          res.status(400).json({ message: 'A leadId is required.' });
-          return
+        return res.status(400).json({ message: 'A leadId is required.' });
     }
 
     try {
-        // Pass userId to the service to ensure the lead belongs to the user.
-        // IMPORTANT: You must update `generateReplyOptions` to accept and use this userId
-        // to verify ownership of the lead before proceeding.
-        const replies = await generateReplyOptions(leadId, userId);
+        // --- MODIFIED: Pass 'funMode' to the service ---
+        const replies = await generateReplyOptions(leadId, userId, funMode);
         res.status(200).json({ replies });
     } catch (error) {
         next(error);
     }
 };
+
+
 
 /**
  * Handles the request to refine an existing reply based on an instruction.

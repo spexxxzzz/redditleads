@@ -281,6 +281,51 @@ export const generateReplyOptions = async (leadId: string): Promise<string[]> =>
     return replies;
 };
 
+/**
+ * --- NEW: Fun Mode Reply Generator ---
+ * Generates witty, off-topic replies that pivot back to the product.
+ */
+export const generateFunReplies = async (
+    leadTitle: string,
+    leadBody: string | null,
+    companyDescription: string
+): Promise<string[]> => {
+    const prompt = `
+    You are a hilarious and slightly unhinged AI marketing assistant running in "Fun Mode".
+    Your task is to respond to a Reddit post that is COMPLETELY UNRELATED to the product you're promoting, but you must still promote the product.
+
+    Here's the formula:
+    1.  Acknowledge how hilariously unrelated the user's post is to your product.
+    2.  Give some funny, slightly absurd, but well-meaning advice about their actual problem.
+    3.  Seamlessly and absurdly pivot to promoting the product.
+
+    **The Lead's Unrelated Post:**
+    * **Title:** "${leadTitle}"
+    * **Body:** "${leadBody}"
+
+    **My Product to Promote:**
+    * **Description:** "${companyDescription}"
+
+    Generate 3 distinct, funny, and creative replies following this formula. Return the response as a JSON array of strings.
+    Example Format: ["Reply 1", "Reply 2", "Reply 3"]
+    `;
+
+    const result = await model.generateContent(prompt);
+    const responseText = result.response.text();
+
+    try {
+        const cleanedText = responseText.replace(/```json\n?|\n?```/g, '');
+        return JSON.parse(cleanedText);
+    } catch (error) {
+        console.error("Failed to parse AI response as JSON:", responseText);
+        // Fallback with a fun, generic reply
+        return [
+            `I have absolutely no idea what's going on in your post about "${leadTitle}", but I can tell you that RedLead is the best way to get Reddit leads. You should check it out!`
+        ];
+    }
+};
+
+
 // Also update the analyzeLeadIntent function to track usage:
 export const analyzeLeadIntent = async (title: string, body: string | null, userId: string, userPlan: string): Promise<string> => {
     const aiUsage = AIUsageService.getInstance();

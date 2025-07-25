@@ -71,13 +71,12 @@ export const api = {
     if (!response.ok) throw new Error('Failed to run manual discovery');
     return response.json();
   },
-
-  // Engagement endpoints
-  generateReply: async (leadId: string, context: string, token: string | null) => {
+  generateReply: async (leadId: string, context: string, funMode: boolean, token: string | null) => {
     const response = await fetch(`${API_BASE_URL}/api/engagement/generate`, {
       method: 'POST',
       headers: getAuthHeaders(token),
-      body: JSON.stringify({ leadId, context }),
+      // --- MODIFIED: Include 'funMode' in the body ---
+      body: JSON.stringify({ leadId, context, funMode }),
     });
     if (!response.ok) throw new Error('Failed to generate reply');
     return response.json();
@@ -339,4 +338,5 @@ export const api = {
       if (!response.ok) throw new Error('Failed to delete lead');
       return response.json();
     },
+    
 };
