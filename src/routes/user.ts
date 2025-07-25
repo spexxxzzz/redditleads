@@ -8,6 +8,6 @@ const userRouter = express.Router();
 // It doesn't need gateKeeper because any authenticated user (free or pro)
 // should be allowed to delete their own account.
 userRouter.delete('/', deleteCurrentUser);
-userRouter.patch('/', updateCurrentUser);
+// userRouter.patch('/', updateCurrentUser);
 
 export default userRouter;
