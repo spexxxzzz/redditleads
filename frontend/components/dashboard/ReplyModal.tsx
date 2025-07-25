@@ -12,6 +12,7 @@ import {
   PaperAirplaneIcon,
   ArrowTopRightOnSquareIcon
 } from '@heroicons/react/24/outline';
+import { SparklesIcon } from '@heroicons/react/24/solid'; // Using solid for a filled look
 import { api } from '@/lib/api';
 import { useAuth } from '@clerk/nextjs';
 import { Inter, Poppins } from 'next/font/google';
@@ -63,8 +64,8 @@ export const ReplyModal = ({ lead, isOpen, onClose, onLeadUpdate }: Props) => {
       const token = await getToken();
       const data = await api.generateReply(currentLead.id, "Generate a reply for this lead.",funMode,  token);
       if (Array.isArray(data.replies)) {
-        setReplyOptions(data.replies.map((text: string, index: number) => ({ 
-          id: `${currentLead.id}-${index}`, text, isRefining: false 
+        setReplyOptions(data.replies.map((text: string, index: number) => ({
+          id: `${currentLead.id}-${index}`, text, isRefining: false
         })));
       } else {
         throw new Error("Invalid response format from API.");
@@ -76,7 +77,7 @@ export const ReplyModal = ({ lead, isOpen, onClose, onLeadUpdate }: Props) => {
     }
   }, [getToken, funMode]);
 
- 
+
 
   const refineReply = async (replyId: string, instruction: string) => {
     const originalText = replyOptions.find(r => r.id === replyId)?.text;
@@ -92,7 +93,7 @@ export const ReplyModal = ({ lead, isOpen, onClose, onLeadUpdate }: Props) => {
       setReplyOptions(prev => prev.map(r => r.id === replyId ? { ...r, isRefining: false } : r));
     }
   };
-  
+
   const copyReply = async (replyId: string, text: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -117,7 +118,7 @@ export const ReplyModal = ({ lead, isOpen, onClose, onLeadUpdate }: Props) => {
 
   const handleManualReply = async (replyId: string, text: string) => {
     if (!lead) return;
-    
+
     setReplyOptions(prev => prev.map(r => r.id === replyId ? { ...r, isPreparing: true } : r));
     setError(null);
 
@@ -125,13 +126,13 @@ export const ReplyModal = ({ lead, isOpen, onClose, onLeadUpdate }: Props) => {
       const token = await getToken();
       // 1. Tell backend to prepare for tracking
       await api.prepareReplyForTracking(lead.id, text, token);
-      
+
       // 2. Copy text to clipboard for user
       await navigator.clipboard.writeText(text);
 
       // 3. Update lead status locally
       onLeadUpdate(lead.id, 'replied');
-      
+
       // 4. Open Reddit in a new tab
       window.open(lead.url, '_blank');
 
@@ -174,19 +175,6 @@ export const ReplyModal = ({ lead, isOpen, onClose, onLeadUpdate }: Props) => {
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-zinc-800 flex-shrink-0">
               <div className="flex items-center gap-3">
-              <div className="flex items-center space-x-2">
-          <Switch
-            id="fun-mode-toggle"
-            checked={funMode}
-            onCheckedChange={setFunMode}
-            className="data-[state=checked]:bg-orange-500"
-          />
-          
-          <Label htmlFor="fun-mode-toggle" className="text-white font-medium">
-            Fun Mode 🎉
-          </Label>
-        </div>
-
                 <div className="p-2 bg-orange-500/10 rounded-lg"><ChatBubbleLeftIcon className="w-6 h-6 text-orange-500" /></div>
                 <div>
                   <h2 className={`text-xl font-bold text-white ${poppins.className}`}>AI Reply Generator</h2>
@@ -195,6 +183,7 @@ export const ReplyModal = ({ lead, isOpen, onClose, onLeadUpdate }: Props) => {
               </div>
               <Button variant="ghost" size="sm" onClick={onClose} className="text-gray-400 hover:text-white p-2"><XMarkIcon className="w-5 h-5" /></Button>
             </div>
+
 
             <div className="flex flex-grow min-h-0">
               {/* Left Panel */}
@@ -221,10 +210,33 @@ export const ReplyModal = ({ lead, isOpen, onClose, onLeadUpdate }: Props) => {
                 <div className="p-6 border-b border-zinc-800 flex-shrink-0">
                   <div className="flex items-center justify-between">
                     <h3 className={`font-semibold text-white ${poppins.className}`}>AI-Generated Replies</h3>
-                    <Button onClick={() => generateReplies(lead)} disabled={isGenerating} variant="outline" size="sm" className="border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white">
-                      <ArrowPathIcon className={`w-4 h-4 mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
-                      Regenerate
-                    </Button>
+
+                    {/* --- NEW AESTHETIC FUN MODE TOGGLE --- */}
+                    <div className="flex items-center gap-4">
+                       <div 
+                        className={`flex items-center gap-3 p-2 rounded-full transition-all duration-300 ${funMode ? 'bg-purple-500/20' : 'bg-zinc-800/50'}`}
+                      >
+                        <Label
+                          htmlFor="fun-mode-toggle"
+                          className={`cursor-pointer transition-colors duration-300 ${poppins.className} ${funMode ? 'text-purple-400' : 'text-gray-400'}`}
+                        >
+                          Fun Mode
+                        </Label>
+                        <Switch
+                          id="fun-mode-toggle"
+                          checked={funMode}
+                          onCheckedChange={setFunMode}
+                          className="data-[state=checked]:bg-purple-500"
+                        />
+                         <div className={`transition-all duration-300 ${funMode ? 'text-purple-400 scale-110' : 'text-gray-500'}`}>
+                           <SparklesIcon className="w-5 h-5" />
+                         </div>
+                       </div>
+                      <Button onClick={() => generateReplies(lead)} disabled={isGenerating} variant="outline" size="sm" className="border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white">
+                        <ArrowPathIcon className={`w-4 h-4 mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
+                        Regenerate
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
