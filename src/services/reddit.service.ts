@@ -2,10 +2,10 @@ import snoowrap from 'snoowrap';
 import { RawLead } from '../types/reddit.types';
 import pLimit from 'p-limit';
 
-// This singleton instance remains, as it's a good pattern.
 let r: snoowrap | null = null;
 
-// Your original, working authentication function is preserved.
+const MAX_PAGES_TO_FETCH = 5; // Safety valve for global search
+
 export const getAppAuthenticatedInstance = async (): Promise<snoowrap> => {
     if (r) {
         return r;
@@ -35,118 +35,6 @@ export const getAppAuthenticatedInstance = async (): Promise<snoowrap> => {
         throw new Error(`Reddit Authentication Failed: ${error.message}`);
     }
 };
-
-/**
- * [NEW] Builds a more advanced, precise search query for Reddit.
- * This is the core of the new logic to find higher-quality leads.
- */
-const buildAdvancedSearchQuery = (
-    keywords: string[],
-    negativeKeywords: string[] = [],
-    subreddits: string[] = []
-): string => {
-    const highIntentPhrases = [
-        "looking for", "recommend", "suggestion", "alternative to", "best way to",
-        "how to choose", "ui library", "component library", "design system", "help with",
-        "any good", "thoughts on", "what is the best", "compare"
-    ];
-
-    const keywordQuery = keywords.map(k => `"${k.trim()}"`).join(' OR ');
-    const intentQuery = highIntentPhrases.map(p => `"${p.trim()}"`).join(' OR ');
-    let query = `(${keywordQuery}) AND (${intentQuery})`;
-
-    if (subreddits.length > 0) {
-        const subredditQuery = subreddits.map(sub => `subreddit:${sub.trim()}`).join(' OR ');
-        query = `(${query}) AND (${subredditQuery})`;
-    }
-
-    if (negativeKeywords.length > 0) {
-        const negativeQuery = negativeKeywords.map(nk => `NOT "${nk.trim()}"`).join(' ');
-        query = `${query} ${negativeQuery}`;
-    }
-
-    return query;
-};
-
-// [NEW] Helper function to transform Reddit API post data into our RawLead format.
-const transformPostToRawLead = (post: any): RawLead => ({
-    id: post.id,
-    title: post.title,
-    author: post.author.name,
-    subreddit: post.subreddit.display_name,
-    url: `https://www.reddit.com${post.permalink}`,
-    body: post.selftext,
-    createdAt: post.created_utc,
-    numComments: post.num_comments,
-    upvoteRatio: post.upvote_ratio,
-    authorKarma: (post.author.link_karma || 0) + (post.author.comment_karma || 0),
-    type: 'DIRECT_LEAD'
-});
-
-
-/**
- * [NEW] A unified search function that executes the advanced query.
- */
-const executeAdvancedSearch = async (query: string): Promise<RawLead[]> => {
-    try {
-        const reddit = await getAppAuthenticatedInstance();
-        console.log(`[Reddit Service] Executing advanced search: ${query.substring(0, 120)}...`);
-        
-        const searchResults = await reddit.search({
-            query: query,
-            sort: 'new',
-            time: 'month',
-            limit: 100,
-        });
-
-        const uniqueLeads = new Map<string, RawLead>();
-        searchResults.forEach(post => {
-            if (!uniqueLeads.has(post.id)) {
-                uniqueLeads.set(post.id, transformPostToRawLead(post));
-            }
-        });
-
-        const leadsArray = Array.from(uniqueLeads.values());
-        console.log(`[Reddit Service] Found ${leadsArray.length} unique posts from advanced search.`);
-        return leadsArray;
-
-    } catch (error) {
-        console.error('[Reddit Service] A critical error occurred during advanced search.', error);
-        return [];
-    }
-};
-
-/**
- * [UPGRADED] findLeadsGlobally now uses the new, more intelligent search logic.
- * The old, complex multi-query logic has been replaced.
- */
-export const findLeadsGlobally = async (
-    keywords: string[],
-    negativeKeywords: string[],
-    subredditBlacklist: string[],
-    businessDescription?: string // Kept for signature compatibility
-): Promise<RawLead[]> => {
-    console.log(`[Global Search] Starting comprehensive Reddit search with new advanced logic.`);
-    const allNegativeKeywords = [
-        ...negativeKeywords,
-        ...subredditBlacklist.map(sub => `-subreddit:${sub.trim()}`)
-    ];
-    const query = buildAdvancedSearchQuery(keywords, allNegativeKeywords);
-    return executeAdvancedSearch(query);
-};
-
-/**
- * [UPGRADED] findLeadsOnReddit now uses the new, more intelligent search logic.
- */
-export const findLeadsOnReddit = async (keywords: string[], subreddits: string[]): Promise<RawLead[]> => {
-    console.log(`Starting targeted Reddit search for ${subreddits.length} subreddits with new advanced logic.`);
-    const query = buildAdvancedSearchQuery(keywords, [], subreddits);
-    return executeAdvancedSearch(query);
-};
-
-
-// --- ALL FUNCTIONS BELOW ARE PRESERVED FROM YOUR ORIGINAL FILE ---
-// --- This ensures no existing functionality is broken. ---
 
 export const findLeadsInSubmissions = async (keywords: string[], subreddits: string[]): Promise<RawLead[]> => {
     try {
@@ -229,6 +117,151 @@ export const findLeadsInComments = async (keywords: string[], subreddits: string
         return leads;
     } catch (error) {
         console.error('[Comments] Could not perform comment search due to an error.', error);
+        return [];
+    }
+};
+
+export const findLeadsGlobally = async (
+    keywords: string[],
+    negativeKeywords: string[],
+    subredditBlacklist: string[],
+    businessDescription?: string
+): Promise<RawLead[]> => {
+    try {
+        const reddit = await getAppAuthenticatedInstance();
+        console.log(`[Global Search] Starting comprehensive Reddit search.`);
+
+        // 🎯 IMPROVED: Cast a wider net with multiple search strategies
+        const primaryKeywords = keywords.slice(0, 5); // Increased from 3 to 5
+        
+        // Strategy 1: Direct keyword searches
+        const directQueries = primaryKeywords.map(keyword => `"${keyword}"`);
+        
+        // Strategy 2: Keyword + intent combinations  
+        const intentQueries = primaryKeywords.slice(0, 3).flatMap(keyword => [
+            `${keyword} (help OR advice OR recommendation)`,
+            `${keyword} (problem OR issue OR struggling)`,
+            `${keyword} (best OR better OR alternative)`
+        ]);
+
+        // Strategy 3: Broader context searches
+        const contextQueries = primaryKeywords.slice(0, 2).map(keyword => 
+            `${keyword} (experience OR thoughts OR opinion OR review)`
+        );
+
+        // Combine all strategies
+        const allQueries = [
+            ...directQueries,
+            ...intentQueries.slice(0, 6), // Limit to prevent too many calls
+            ...contextQueries
+        ];
+
+        const negativeKeywordQuery = negativeKeywords.length > 0 
+            ? negativeKeywords.map(kw => `-"${kw}"`).join(' ')
+            : '';
+        
+        const blacklistQuery = subredditBlacklist.length > 0
+            ? subredditBlacklist.map(sub => `-subreddit:${sub.trim().toLowerCase()}`).join(' ')
+            : '';
+
+        const uniqueLeads = new Map<string, RawLead>();
+        let queryCount = 0;
+
+        // 🎯 IMPROVED: Search with multiple strategies
+        for (const query of allQueries.slice(0, 8)) { // Increased limit to 8 queries
+            try {
+                const finalQuery = [query, negativeKeywordQuery, blacklistQuery]
+                    .filter(Boolean)
+                    .join(' ');
+                
+                console.log(`[Global Search] Query ${++queryCount}: ${finalQuery}`);
+
+                const searchResults = await reddit.search({
+                    query: finalQuery,
+                    sort: 'relevance',
+                    time: 'all', // CHANGED: Search all time instead of just 'week'
+                    limit: 25, 
+                });
+
+                console.log(`[Global Search] Query ${queryCount} returned ${searchResults.length} results`);
+
+                searchResults.forEach((post) => {
+                    if (!uniqueLeads.has(post.id)) {
+                        uniqueLeads.set(post.id, {
+                            id: post.id,
+                            title: post.title,
+                            author: post.author.name,
+                            subreddit: post.subreddit.display_name,
+                            url: `https://www.reddit.com${post.permalink}`,
+                            body: post.selftext,
+                            createdAt: post.created_utc,
+                            numComments: post.num_comments,
+                            upvoteRatio: post.upvote_ratio,
+                            authorKarma: post.author.link_karma + post.author.comment_karma,
+                            type: 'DIRECT_LEAD'
+                        });
+                    }
+                });
+
+                // Shorter delay between queries
+                await new Promise(resolve => setTimeout(resolve, 1500)); 
+            } catch (error) {
+                console.warn(`[Global Search] Query failed: ${query}. Continuing...`);
+            }
+        }
+
+        const leads = Array.from(uniqueLeads.values());
+        console.log(`[Global Search] Found ${leads.length} unique leads from ${queryCount} queries.`);
+        
+        return leads;
+
+    } catch (error) {
+        console.error('[Global Search] A critical error occurred during global search.', error);
+        return [];
+    }
+};
+
+export const findLeadsOnReddit = async (keywords: string[], subreddits: string[]): Promise<RawLead[]> => {
+    try {
+        const reddit = await getAppAuthenticatedInstance();
+        console.log(`Starting Reddit search for ${subreddits.length} subreddits.`);
+
+        const searchQuery = keywords.join(' OR ');
+        console.log(`  -> Using search query: "${searchQuery}"`);
+
+        const searchPromises = subreddits.map(async (subreddit) => {
+            try {
+                const searchResults = await reddit.getSubreddit(subreddit).search({
+                    query: searchQuery,
+                    sort: 'new',
+                    time: 'year',
+                });
+                return searchResults.map((post): RawLead => ({
+                    id: post.id,
+                    title: post.title,
+                    author: post.author.name,
+                    subreddit: post.subreddit.display_name,
+                    url: post.url,
+                    body: post.selftext,
+                    createdAt: post.created_utc,
+                    numComments: post.num_comments,
+                    upvoteRatio: post.upvote_ratio,
+                    authorKarma: post.author.link_karma,
+                    type: 'DIRECT_LEAD'
+                }));
+            } catch (error) {
+                console.warn(`⚠️  Could not search subreddit 'r/${subreddit}'. It might be private, banned, or non-existent. Skipping.`);
+                return [];
+            }
+        });
+
+        const results = await Promise.all(searchPromises);
+        const flattenedResults = results.flat();
+        console.log(`Reddit search complete. Found ${flattenedResults.length} total posts before filtering.`);
+        return flattenedResults;
+
+    } catch (error) {
+        console.error('Could not perform Reddit search due to an error.', error);
         return [];
     }
 };
