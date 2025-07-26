@@ -20,7 +20,8 @@ import {
   Copy,
   Check,
   Sparkles,
-  Trash2, // FIX: Import Trash icon
+  Trash2,
+  TrendingUp, // Make sure to import the TrendingUp icon
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ReplyModal } from "./ReplyModal";
@@ -32,7 +33,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useReplyModal } from "@/hooks/useReplyModal";
 import { toast } from "sonner";
-// FIX: Import DropdownMenu components
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -57,7 +57,7 @@ const poppins = Poppins({
   weight: ["400", "500", "600", "700", "800"],
 });
 
-// Export the Lead interface so it can be used by the hook
+// The Lead interface should include the isGoogleRanked property
 export interface Lead {
   id: string;
   title: string;
@@ -72,9 +72,9 @@ export interface Lead {
   status?: "new" | "replied" | "saved" | "ignored";
   numComments: number;
   upvoteRatio: number;
+  isGoogleRanked?: boolean; // Add this property
 }
 
-// FIX: Use a single, correct props interface
 interface LeadCardProps {
   lead: Lead;
   onStatusChange: (leadId: string, status: Lead['status']) => void;
@@ -83,7 +83,6 @@ interface LeadCardProps {
 
 const MIN_WORDS_FOR_SUMMARY = 40;
 
-// FIX: Use the correct LeadCardProps interface and destructure onDelete
 export const LeadCard = ({ lead, onStatusChange, onDelete }: LeadCardProps) => {
   const { getToken } = useAuth();
   const { onOpen: onOpenReplyModal } = useReplyModal();
@@ -185,7 +184,7 @@ export const LeadCard = ({ lead, onStatusChange, onDelete }: LeadCardProps) => {
       const token = await getToken();
       await api.deleteLead(lead.id, token);
       toast.success("Lead deleted successfully.");
-      onDelete(lead.id); // This now works correctly
+      onDelete(lead.id);
     } catch (error: any) {
       toast.error("Failed to delete lead", { description: error.message });
     } finally {
@@ -206,7 +205,6 @@ export const LeadCard = ({ lead, onStatusChange, onDelete }: LeadCardProps) => {
         className="bg-black rounded-lg border border-zinc-800 hover:border-zinc-700 transition-all duration-200 overflow-hidden"
       >
         <div className="p-6">
-          {/* ... existing card header and content ... */}
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3 flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-shrink-0">
@@ -247,7 +245,7 @@ export const LeadCard = ({ lead, onStatusChange, onDelete }: LeadCardProps) => {
             </h3>
           </a>
 
-          <div className="flex items-center gap-4 mb-4">
+          <div className="flex flex-wrap items-center gap-2 mb-4">
             <div className="flex items-center gap-2">
               <Target className="w-4 h-4 text-orange-400" />
               <span className={`text-sm font-medium ${getOpportunityColor(lead.opportunityScore)} ${inter.className}`}>
@@ -256,9 +254,16 @@ export const LeadCard = ({ lead, onStatusChange, onDelete }: LeadCardProps) => {
             </div>
             <Badge variant="outline" className={`${getIntentColor(lead.intent)}`}>
               <span className={inter.className}>
-                {lead.intent.replace('_', ' ')}
+                {lead.intent.replace(/_/g, ' ')}
               </span>
             </Badge>
+            {/* INTEGRATED GOOGLE RANKED BADGE HERE */}
+            {lead.isGoogleRanked && (
+                <Badge variant="default" className="bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500/20">
+                    <TrendingUp className="w-3.5 h-3.5 mr-1.5" />
+                    Google Ranked
+                </Badge>
+            )}
           </div>
 
           {lead.body && (
@@ -282,7 +287,6 @@ export const LeadCard = ({ lead, onStatusChange, onDelete }: LeadCardProps) => {
             </div>
           )}
 
-          {/* ... existing summary section ... */}
           {shouldShowSummary && (
             <div className="mb-4">
               {!summary && !isSummarizing && (
@@ -306,7 +310,7 @@ export const LeadCard = ({ lead, onStatusChange, onDelete }: LeadCardProps) => {
               )}
 
               {isSummarizing && (
-                <Card className="bg-black border-zinc-800">
+                 <Card className="bg-black border-zinc-800">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-center gap-3 text-orange-400">
                       <div className="relative">
@@ -409,7 +413,6 @@ export const LeadCard = ({ lead, onStatusChange, onDelete }: LeadCardProps) => {
           )}
 
           <div className="flex items-center gap-2 pt-4 border-t border-zinc-800">
-            {/* ... existing action buttons ... */}
             {status !== 'replied' && (
               <Button 
                 onClick={() => onOpenReplyModal(lead)}
@@ -483,7 +486,6 @@ export const LeadCard = ({ lead, onStatusChange, onDelete }: LeadCardProps) => {
 
             <div className="flex-1" />
             <div className="flex items-center gap-2">
-              {/* FIX: Replace the single MoreHorizontal button with a DropdownMenu */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -516,7 +518,6 @@ export const LeadCard = ({ lead, onStatusChange, onDelete }: LeadCardProps) => {
         </div>
       </motion.div>
 
-      {/* FIX: Add the confirmation dialog */}
       <AnimatePresence>
         {isConfirmingDelete && (
           <motion.div

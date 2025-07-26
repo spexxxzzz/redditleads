@@ -1,43 +1,56 @@
 import axios from 'axios';
-const APYHUB_SERP_API_URL = 'https://api.apyhub.com/extract/google-search-results';
+import dotenv from 'dotenv';
 
-const APYHUB_TOKEN = process.env.APYHUB_TOKEN;
+dotenv.config();
+
+const SERPER_API_KEY = process.env.SERPER_API_KEY;
+
+if (!SERPER_API_KEY) {
+    console.warn("⚠️ SERPER_API_KEY is not set. Google ranking feature will be disabled.");
+}
 
 /**
- * Checks if a given URL ranks on Google for a specific query.
- * @param query The search query (e.g., the Reddit post title).
- * @param urlToCheck The URL to look for in the search results (the Reddit post URL).
- * @returns A promise that resolves to true if the URL is found, false otherwise.
+ * Checks if a specific Reddit URL is indexed and ranked on Google.
+ * This helps identify posts that have high visibility outside of Reddit.
+ * * @param leadUrl The full URL of the Reddit post to check.
+ * @param leadTitle The title of the Reddit post, used for a more specific search query.
+ * @returns A promise that resolves to true if the URL is found on Google, false otherwise.
  */
-export const checkGoogleRanking = async (query: string, urlToCheck: string): Promise<boolean> => {
-    if (!APYHUB_TOKEN) {
-        console.warn('ApyHub API token is not configured. Skipping Google ranking check.');
+export const isRankedOnGoogle = async (leadUrl: string, leadTitle: string): Promise<boolean> => {
+    // If the API key is missing, we can't perform the check.
+    if (!SERPER_API_KEY) {
         return false;
     }
 
-    try {
-        const response = await axios.post(
-            APYHUB_SERP_API_URL,
-            { query },
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'apy-token': APYHUB_TOKEN,
-                },
-            }
-        );
+    // We create a very specific search query to see if Google has indexed this exact post.
+    // Searching for the title within the specific URL is highly effective.
+    const searchQuery = `site:${leadUrl} "${leadTitle}"`;
 
-        // The API returns { data: [ ...results ] }
-        if (response.data && Array.isArray(response.data.data)) {
-            const searchResults: { link: string }[] = response.data.data;
-            return searchResults.some(result => result.link.includes(urlToCheck));
+    try {
+        console.log(`[SERP] Checking Google rank for URL: ${leadUrl}`);
+        
+        const response = await axios.post('https://google.serper.dev/search', {
+            q: searchQuery,
+        }, {
+            headers: {
+                'X-API-KEY': SERPER_API_KEY,
+                'Content-Type': 'application/json',
+            },
+        });
+
+        // If the 'organic' results array exists and has one or more items,
+        // it means Google found a match for our specific query.
+        if (response.data && response.data.organic && response.data.organic.length > 0) {
+            console.log(`[SERP] ✅ SUCCESS: URL is ranked on Google.`);
+            return true;
+        } else {
+            console.log(`[SERP] ❌ URL not found on Google.`);
+            return false;
         }
-        return false;
+
     } catch (error: any) {
-        console.error(
-            'Error calling ApyHub SERP API:',
-            error.response?.data?.message || error.message
-        );
+        // Log any errors that occur during the API call.
+        console.error(`[SERP] 🚨 Error calling Serper API:`, error.response ? error.response.data : error.message);
         return false;
     }
 };

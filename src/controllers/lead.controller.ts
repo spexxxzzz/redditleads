@@ -249,9 +249,6 @@ export const runTargetedDiscovery: RequestHandler = async (req: any, res, next) 
         next(error);
     }
 };
-
-// ... (The rest of your controller functions: getLeadsForCampaign, summarizeLead, etc. remain unchanged)
-
 export const getLeadsForCampaign: RequestHandler = async (req: any, res, next) => {
     const { userId } = req.auth;
     const { campaignId } = req.params;
@@ -281,10 +278,9 @@ export const getLeadsForCampaign: RequestHandler = async (req: any, res, next) =
     try {
         console.log(`📋 [Get Leads] User ${userId} fetching leads for campaign: ${campaignId}`);
 
-        // Securely build the where clause
         const where: any = { 
             campaignId,
-            userId: userId // Ensure leads belong to the authenticated user
+            userId: userId
         };
         if (status && status !== 'all') {
             where.status = status as string;
@@ -306,6 +302,7 @@ export const getLeadsForCampaign: RequestHandler = async (req: any, res, next) =
 
         console.log(`📋 [Get Leads] Found ${leads.length} leads (${totalLeads} total) matching criteria`);
 
+        // CORRECTED: The transformation now includes the isGoogleRanked field.
         const transformedLeads = leads.map(lead => ({
             id: lead.id,
             title: lead.title,
@@ -319,7 +316,8 @@ export const getLeadsForCampaign: RequestHandler = async (req: any, res, next) =
             intent: lead.intent || 'information_seeking',
             opportunityScore: lead.opportunityScore,
             status: lead.status,
-            isGoogleRanked: false,
+            // Ensure the isGoogleRanked field is included, defaulting to false if null/undefined
+            isGoogleRanked: lead.isGoogleRanked ?? false,
         }));
 
         res.status(200).json({

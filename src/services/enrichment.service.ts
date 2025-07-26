@@ -1,7 +1,8 @@
 import { User } from '@prisma/client';
 import { analyzeLeadIntent } from './ai.service';
 import { calculateLeadScore } from './scoring.service';
-import { checkGoogleRanking } from "./serp.sevice";
+// CORRECTED: The function name is now isRankedOnGoogle
+import { isRankedOnGoogle } from "./serp.sevice";
 import { RawLead } from "../types/reddit.types";
 
 export interface EnrichedLead extends RawLead {
@@ -40,7 +41,8 @@ export const enrichLeadsForUser = async (rawLeads: RawLead[], user: User): Promi
 
             // Only Pro plans get the SERP check
             if (user.plan === 'pro') {
-                isGoogleRanked = await checkGoogleRanking(lead.title, lead.url);
+                // CORRECTED: The function call now matches the imported name
+                isGoogleRanked = await isRankedOnGoogle(lead.url, lead.title);
             }
 
             const opportunityScore = calculateLeadScore({ ...lead, intent, isGoogleRanked });
