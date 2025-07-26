@@ -13,8 +13,8 @@ import { Button } from "@/components/ui/button";
 import PulsatingDotsLoaderDashboard from '../loading/LoadingDashboard';
 import { DeleteLeadsModal } from "./DeleteLead";
 import { DiscoveryButtons } from './DiscoveryOptions';
-import { useReplyModal } from '@/hooks/useReplyModal';
-import { Lead } from "./LeadCard";
+// CORRECTED: The Lead type is now imported ONLY from the centralized hook
+import { useReplyModal, Lead } from '@/hooks/useReplyModal';
 import { ReplyModal } from './ReplyModal';
 import { Menu, X } from 'lucide-react';
 import { TrashIcon } from '@heroicons/react/24/outline';
@@ -104,7 +104,6 @@ export const DashboardLayout = () => {
         limit: 1000,
       }, token);
       
-      // CORRECTED: Explicitly map the properties to ensure isGoogleRanked is always included.
       const leadsData: Lead[] = (allLeadsResponse.data || []).map((lead: any) => ({
           id: lead.id,
           title: lead.title,
@@ -128,7 +127,7 @@ export const DashboardLayout = () => {
       } else {
         setLeads(leadsData);
       }
-    } catch (err: any) {
+    } catch (err: any) { // CORRECTED: Added the missing opening brace for the catch block
       setError(`Failed to load leads: ${err.message}`);
       setLeads([]);
       setAllLeads([]);

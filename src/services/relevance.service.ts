@@ -1,4 +1,21 @@
-import { RawLead } from './reddit.service';
+import { RawLead } from '../types/reddit.types';
+
+// Lists of words that help determine the context and intent of a post.
+const INTENT_KEYWORDS = [
+    'recommend', 'recommendation', 'advice', 'help', 'suggest', 'suggestion',
+    'looking for', 'alternative', 'best', 'top', 'how to', 'choose', 'choosing',
+    'compare', 'vs', 'versus', 'which is better', 'what is the best'
+];
+
+const PAIN_POINT_KEYWORDS = [
+    'problem', 'issue', 'struggling', 'frustrated', 'hate', 'annoying',
+    'bug', 'error', 'slow', 'difficult', 'hard to use'
+];
+
+const NEGATIVE_KEYWORDS = [
+    'hiring', 'job', 'for hire', 'tutorial', 'guide', 'news', 'article',
+    'giveaway', 'freebie', 'course', 'learn'
+];
 
 interface RelevanceScore {
     score: number;
@@ -6,150 +23,78 @@ interface RelevanceScore {
     isRelevant: boolean;
 }
 
+/**
+ * Calculates a more accurate relevance score for a lead based on a variety of factors.
+ * This new algorithm prioritizes title matches and specific intent keywords.
+ */
 export const calculateContentRelevance = (
     lead: RawLead,
     businessKeywords: string[],
-    businessDescription: string
+    businessDescription: string // Kept for signature compatibility
 ): RelevanceScore => {
     let score = 0;
     const reasons: string[] = [];
     
-    const titleLower = lead.title.toLowerCase();
-    const bodyLower = (lead.body || '').toLowerCase();
-    const combinedText = `${titleLower} ${bodyLower}`;
-    
-    // 🎯 INTENT SIGNALS (More generous scoring)
-    const solutionSeekingSignals = [
-        'looking for', 'need help', 'recommendations', 'recommend', 'suggest', 'advice',
-        'best tool', 'best software', 'alternatives', 'what should i use', 'which is better',
-        'help me find', 'anyone know', 'suggestions for', 'how to', 'thoughts on',
-        'experience with', 'opinions on', 'tried', 'using', 'review'
-    ];
-    
-    const painPointSignals = [
-        'struggling with', 'problem with', 'issue with', 'frustrated',
-        'not working', 'broken', 'terrible', 'hate using', 'fed up',
-        'difficult', 'hard to', 'can\'t figure out', 'having trouble',
-        'slow', 'expensive', 'complicated', 'confusing'
-    ];
-    
-    const buyingSignals = [
-        'budget', 'pricing', 'cost', 'price', 'expensive', 'cheap', 'affordable',
-        'worth it', 'pay for', 'subscription', 'free trial', 'demo',
-        'purchase', 'buy', 'invest in', 'spend on', 'upgrade', 'switch to'
-    ];
+    const title = lead.title.toLowerCase();
+    const body = lead.body?.toLowerCase() || '';
 
-    // Check for solution-seeking intent (reduced threshold)
-    const foundSolutionSignals = solutionSeekingSignals.filter(signal => 
-        combinedText.includes(signal)
-    );
-    if (foundSolutionSignals.length > 0) {
-        score += 25; // Reduced from 40
-        reasons.push(`Solution-seeking: ${foundSolutionSignals.slice(0, 2).join(', ')}`);
-    }
-
-    // Check for pain point mentions (reduced threshold)  
-    const foundPainSignals = painPointSignals.filter(signal => 
-        combinedText.includes(signal)
-    );
-    if (foundPainSignals.length > 0) {
-        score += 20; // Reduced from 35
-        reasons.push(`Pain points: ${foundPainSignals.slice(0, 2).join(', ')}`);
-    }
-
-    // Check for buying intent
-    const foundBuyingSignals = buyingSignals.filter(signal => 
-        combinedText.includes(signal)
-    );
-    if (foundBuyingSignals.length > 0) {
-        score += 20; // Reduced from 25
-        reasons.push(`Buying intent: ${foundBuyingSignals.slice(0, 2).join(', ')}`);
-    }
-
-    // 🎯 KEYWORD RELEVANCE (More generous)
-    const exactKeywordMatches = businessKeywords.filter(keyword =>
-        combinedText.includes(keyword.toLowerCase())
-    );
-    if (exactKeywordMatches.length > 0) {
-        score += exactKeywordMatches.length * 10; // Reduced from 15
-        reasons.push(`Keyword matches: ${exactKeywordMatches.slice(0, 3).join(', ')}`);
-    }
-
-    // 🎯 PARTIAL KEYWORD MATCHES (NEW - more permissive)
-    const partialMatches = businessKeywords.filter(keyword => {
-        const keywordWords = keyword.toLowerCase().split(' ');
-        return keywordWords.some(word => word.length > 3 && combinedText.includes(word));
+    // 1. Strongest Signal: Campaign keywords in the title
+    businessKeywords.forEach(keyword => {
+        if (title.includes(keyword.toLowerCase())) {
+            score += 35;
+            reasons.push(`+35 (Title contains campaign keyword: "${keyword}")`);
+        }
     });
-    if (partialMatches.length > 0) {
-        score += partialMatches.length * 5;
-        reasons.push(`Partial keyword matches: ${partialMatches.slice(0, 2).join(', ')}`);
-    }
 
-    // 🎯 QUESTION INDICATORS (NEW - questions are usually high-intent)
-    const questionIndicators = ['?', 'how do', 'what is', 'which', 'where can', 'who knows'];
-    const hasQuestions = questionIndicators.some(indicator => combinedText.includes(indicator));
-    if (hasQuestions) {
-        score += 15;
-        reasons.push('Contains question (high intent)');
-    }
+    // 2. Strong Signal: Intent keywords in the title
+    INTENT_KEYWORDS.forEach(keyword => {
+        if (title.includes(keyword)) {
+            score += 25;
+            reasons.push(`+25 (Title contains intent keyword: "${keyword}")`);
+        }
+    });
 
-    // 🎯 ENGAGEMENT QUALITY (More lenient)
-    if (lead.numComments >= 3) { // Reduced from 5
-        score += 8; // Reduced from 10
-        reasons.push(`Active discussion (${lead.numComments} comments)`);
-    }
+    // 3. Medium Signal: Pain point keywords in the title or body
+    PAIN_POINT_KEYWORDS.forEach(keyword => {
+        // Use a flag to avoid adding points for the same keyword multiple times
+        let alreadyScored = false;
+        if ((title.includes(keyword) || body.includes(keyword)) && !alreadyScored) {
+            score += 20;
+            reasons.push(`+20 (Contains pain point: "${keyword}")`);
+            alreadyScored = true;
+        }
+    });
 
-    if (lead.upvoteRatio >= 0.7) { // Reduced from 0.8
+    // 4. Lower Signal: Campaign keywords in the body
+    businessKeywords.forEach(keyword => {
+        if (body.includes(keyword.toLowerCase())) {
+            score += 10;
+            reasons.push(`+10 (Body contains campaign keyword: "${keyword}")`);
+        }
+    });
+
+    // 5. Penalty: Negative keywords that indicate low relevance (e.g., job postings, tutorials)
+    NEGATIVE_KEYWORDS.forEach(keyword => {
+        if (title.includes(keyword)) {
+            score -= 40;
+            reasons.push(`-40 (Title contains negative keyword: "${keyword}")`);
+        }
+    });
+
+    // 6. Bonus for engagement (indicates an active, valuable discussion)
+    if (lead.numComments > 10) {
         score += 5;
-        reasons.push(`Good engagement (${Math.round(lead.upvoteRatio * 100)}% upvoted)`);
+        reasons.push(`+5 (High engagement: ${lead.numComments} comments)`);
     }
 
-    // 🎯 CONTENT QUALITY CHECKS (More lenient)
-    const minContentLength = 30; // Reduced from 50
-    if ((lead.body || '').length < minContentLength && lead.title.length < 15) { // Reduced from 20
-        score -= 10; // Reduced penalty from -20
-        reasons.push('Very short content');
-    }
+    // Normalize the score to be between 0 and 100
+    const finalScore = Math.max(0, Math.min(100, score));
 
-    // Check for spam indicators (more lenient)
-    const spamIndicators = [
-        'dm me', 'check my profile', 'link in bio', 'visit my website', 
-        'upvote this', 'follow me', 'subscribe to my'
-    ];
-    const foundSpamSignals = spamIndicators.filter(spam => 
-        combinedText.includes(spam)
-    );
-    if (foundSpamSignals.length > 0) {
-        score -= 20; // Reduced penalty from -30
-        reasons.push(`Possible spam: ${foundSpamSignals.slice(0, 2).join(', ')}`);
-    }
-
-    // 🎯 SUBREDDIT QUALITY BONUS (More categories)
-    const businessSubreddits = [
-        'entrepreneur', 'startups', 'smallbusiness', 'marketing', 'saas',
-        'webdev', 'programming', 'business', 'investing', 'personalfinance',
-        'freelance', 'digitalnomad', 'ecommerce', 'productivity', 'consulting',
-        'agency', 'customerservice', 'sales'
-    ];
-    
-    if (businessSubreddits.includes(lead.subreddit.toLowerCase())) {
-        score += 8; // Reduced from 10
-        reasons.push(`Business subreddit: r/${lead.subreddit}`);
-    }
-
-    // 🎯 GENERAL DISCUSSION BONUS (NEW - for broader reach)
-    const generalDiscussionSubs = [
-        'askreddit', 'nostupidquestions', 'explainlikeimfive', 'advice',
-        'findareddit', 'tipofmytongue', 'helpmefind'
-    ];
-    if (generalDiscussionSubs.includes(lead.subreddit.toLowerCase())) {
-        score += 3;
-        reasons.push('General discussion subreddit');
-    }
+    console.log(`[Relevance] Lead "${lead.title.substring(0,30)}..." scored ${finalScore}. Reasons: [${reasons.join(', ')}]`);
 
     return {
-        score: Math.max(0, Math.min(100, score)),
-        reasons,
-        isRelevant: score >= 25 // MUCH LOWER threshold from 45 to 25
+        score: finalScore,
+        reasons: reasons,
+        isRelevant: finalScore >= 45 // A higher threshold to ensure only quality leads pass
     };
 };
