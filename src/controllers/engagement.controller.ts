@@ -2,6 +2,7 @@ import { RequestHandler } from 'express';
 import { generateReplyOptions, refineReply } from '../services/engagement.service';
 import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
+
 export const getReplyOptions: RequestHandler = async (req: any, res, next) => {
     const { userId } = req.auth;
     // --- MODIFIED: Destructure 'funMode' from the request body ---

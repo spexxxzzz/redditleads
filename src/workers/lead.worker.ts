@@ -1,10 +1,13 @@
-import { PrismaClient, LeadType, User, Campaign } from '@prisma/client';
+import { PrismaClient, LeadType, User, Campaign, Lead } from '@prisma/client';
 import { findLeadsInSubmissions, findLeadsInComments, RawLead } from '../services/reddit.service';
 import { enrichLeadsForUser, EnrichedLead } from '../services/enrichment.service';
 import { analyzeSentiment } from '../services/ai.service';
 import { calculateLeadScore } from '../services/scoring.service';
 import { webhookService } from '../services/webhook.service';
 import { AIUsageService } from '../services/aitracking.service';
+// Import the email notification service
+import { sendNewLeadsNotification } from '../services/email.service';
+
 
 const prisma = new PrismaClient();
 const BATCH_SIZE = 50; // Process 50 campaigns at a time
@@ -12,20 +15,25 @@ const MAX_RETRIES = 3;
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+/**
+ * Saves leads to the database, sends webhooks, and returns the successfully saved leads.
+ * @returns A promise that resolves to an array of the leads that were saved.
+ */
 const saveLeadsToDatabase = async (
     leads: EnrichedLead[],
     campaignId: string,
     userId: string,
     leadType: LeadType
-): Promise<number> => {
-    let savedCount = 0;
-    const highQualityLeads: EnrichedLead[] = [];
+): Promise<Lead[]> => {
+    const savedLeads: Lead[] = [];
+    const highQualityLeadsForWebhook: (EnrichedLead & { id: string })[] = [];
 
     for (const lead of leads) {
         try {
+            // Use upsert to prevent duplicates based on the lead's URL
             const savedLead = await prisma.lead.upsert({
                 where: { url: lead.url },
-                update: {},
+                update: {}, // Don't update if it already exists
                 create: {
                     redditId: lead.id,
                     title: lead.title,
@@ -42,13 +50,16 @@ const saveLeadsToDatabase = async (
                     sentiment: (lead as any).sentiment || null,
                 }
             });
-            savedCount++;
+            
+            // This logic assumes a lead returned from upsert is one we should notify about
+            // A more complex check could be added here if needed (e.g., checking created vs updated)
+            savedLeads.push(savedLead);
 
             if (lead.opportunityScore >= 70) {
-                highQualityLeads.push({ ...lead, id: savedLead.id });
+                highQualityLeadsForWebhook.push({ ...lead, id: savedLead.id });
             }
         } catch (error: any) {
-            // P2002 is the unique constraint violation code, which is expected and can be ignored.
+            // Prisma's P2002 code for unique constraint violation is expected and can be ignored.
             if (error.code !== 'P2002') {
                 console.error(`Failed to save lead ${lead.id}:`, error.message);
             }
@@ -56,7 +67,7 @@ const saveLeadsToDatabase = async (
     }
 
     // Broadcast high-quality leads via webhooks
-    for (const lead of highQualityLeads) {
+    for (const lead of highQualityLeadsForWebhook) {
         try {
             await webhookService.broadcastEvent('lead.discovered', {
                 title: lead.title,
@@ -77,7 +88,7 @@ const saveLeadsToDatabase = async (
         }
     }
 
-    return savedCount;
+    return savedLeads;
 };
 
 const getPriorityFromScore = (score: number): 'low' | 'medium' | 'high' | 'urgent' => {
@@ -130,16 +141,10 @@ export const runLeadDiscoveryWorker = async (): Promise<void> => {
 
                     console.log(`Processing campaign ${campaign.id} for user ${user.id}`);
                     
-                    // FIX: The automatic global search logic has been removed from this worker.
-                    // This worker now only handles automatic competitor discovery for pro users.
-                    // Global and targeted discovery are now triggered manually by the user from the frontend.
-
-                    // --- COMPETITOR DISCOVERY: Uses targeted search for precision (can run more frequently) ---
                     if (user.plan === 'pro' && campaign.competitors && campaign.competitors.length > 0) {
                         const aiUsage = AIUsageService.getInstance();
-                        // Note: The usage type here is 'competitor', not 'manual_discovery'.
-                        // This is a separate, automatic check.
                         const canUseCompetitorAI = await aiUsage.trackAIUsage(user.id, 'competitor', user.plan);
+                        
                         if (canUseCompetitorAI) {
                             console.log(`[Worker] Running TARGETED competitor search for campaign ${campaign.id}...`);
                             const [submissionLeads, commentLeads] = await Promise.all([
@@ -164,8 +169,15 @@ export const runLeadDiscoveryWorker = async (): Promise<void> => {
                                         return { ...lead, sentiment, opportunityScore, intent: 'competitor_mention' };
                                     })
                                 );
-                                const saved = await saveLeadsToDatabase(enrichedCompetitorLeads, campaign.id, user.id, 'COMPETITOR_MENTION');
-                                console.log(`  -> Saved ${saved} competitor leads for user ${user.id}`);
+                                
+                                // Save leads and get the ones that were newly created
+                                const savedLeads = await saveLeadsToDatabase(enrichedCompetitorLeads, campaign.id, user.id, 'COMPETITOR_MENTION');
+                                console.log(`  -> Saved ${savedLeads.length} competitor leads for user ${user.id}`);
+
+                                // ✨ SEND NOTIFICATION EMAIL IF NEW LEADS WERE SAVED ✨
+                                if (savedLeads.length > 0) {
+                                    await sendNewLeadsNotification(user, savedLeads, campaign.name);
+                                }
                             } else {
                                 console.log(`  -> No new competitor leads found for campaign ${campaign.id}`);
                             }

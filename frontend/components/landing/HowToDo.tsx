@@ -8,6 +8,8 @@ import {
 import { Inter, Poppins } from 'next/font/google';
 import { FaReddit, FaArrowRight } from "react-icons/fa";
 import Link from "next/link";
+import { useUser } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 
 const inter = Inter({ subsets: ['latin'] });
 const poppins = Poppins({ 
@@ -40,6 +42,26 @@ const steps = [
 ];
 
 export function HowToDo() {
+  const { user, isLoaded } = useUser();
+  const router = useRouter();
+
+  const handleGetStartedClick = () => {
+    if (isLoaded) {
+      if (user) {
+        router.push('/dashboard');
+      } else {
+        router.push('/sign-up');
+      }
+    }
+  };
+
+  const scrollToPricing = () => {
+    const pricingSection = document.getElementById('pricing');
+    if (pricingSection) {
+      pricingSection.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <section className="relative bg-black py-16 md:py-24">
       {/* Background Effects */}
@@ -113,20 +135,21 @@ export function HowToDo() {
         {/* CTA Section */}
         <div className="text-center space-y-8">
           <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
-            <Link 
-              href="/signup"
+            {/* CORRECTED BUTTONS */}
+            <button
+              onClick={handleGetStartedClick}
               className="group inline-flex items-center gap-3 bg-white text-black px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-100 transition-all duration-300 transform hover:scale-105"
             >
               <FaReddit className="w-5 h-5 text-orange-500" />
               <span className={`${inter.className} font-semibold`}>Get started for free</span>
-            </Link>
+            </button>
 
-            <Link 
-              href="/pricing"
+            <button
+              onClick={scrollToPricing}
               className="inline-flex items-center px-8 py-4 rounded-lg text-lg font-semibold text-white bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/30 transition-all duration-300 transform hover:scale-105"
             >
               <span className={`${inter.className} font-semibold`}>See plans & pricing</span>
-            </Link>
+            </button>
           </div>
 
           <p className={`${inter.className} text-zinc-400 font-medium`}>

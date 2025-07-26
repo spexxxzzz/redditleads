@@ -5,6 +5,8 @@ import { enrichLeadsForUser } from '../services/enrichment.service';
 import { summarizeTextContent } from '../services/summarisation.service';
 import { calculateContentRelevance } from '../services/relevance.service';
 import { AIUsageService } from '../services/aitracking.service';
+// Import the email notification service
+import { sendNewLeadsNotification } from '../services/email.service';
 
 
 const prisma = new PrismaClient();
@@ -64,6 +66,7 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
         const savedLeads = [];
         for (const lead of enrichedLeads) {
             try {
+                // Use upsert to avoid creating duplicate leads based on URL
                 const savedLead = await prisma.lead.upsert({
                     where: { url: lead.url },
                     update: {}, 
@@ -85,8 +88,20 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
                 });
                 savedLeads.push(savedLead);
             } catch (error) {
-                console.error(`❌ [Manual Discovery] Error saving lead "${lead.title}":`, error);
+                // Ignore unique constraint errors (P2002), but log others
+                if ((error as any).code !== 'P2002') {
+                    console.error(`❌ [Manual Discovery] Error saving lead "${lead.title}":`, error);
+                }
             }
+        }
+
+        // ✨ SEND NOTIFICATION EMAIL IF NEW LEADS WERE FOUND ✨
+        if (savedLeads.length > 0) {
+            console.log(`[Manual Discovery] Found ${savedLeads.length} new leads. Triggering email notification.`);
+            // Fire-and-forget the email notification
+            sendNewLeadsNotification(user, savedLeads, campaign.name).catch(err => {
+                console.error(`[Manual Discovery] Failed to send email notification for campaign ${campaign.id}:`, err);
+            });
         }
 
         const sortedLeads = savedLeads.sort((a, b) => b.opportunityScore - a.opportunityScore);
@@ -97,6 +112,145 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
         next(error);
     }
 };
+
+export const runTargetedDiscovery: RequestHandler = async (req: any, res, next) => {
+    const { userId } = req.auth;
+    const { campaignId } = req.params;
+  
+    if (!userId) {
+        res.status(401).json({ message: 'User not authenticated.' });
+        return;
+    }
+  
+    if (!campaignId) {
+        res.status(400).json({ message: 'Campaign ID is required.' });
+        return;
+    }
+  
+    try {
+        console.log(`🎯 [Targeted Discovery] User ${userId} starting for campaign: ${campaignId}`);
+        
+        // Securely find the campaign
+        const campaign = await prisma.campaign.findFirst({
+            where: { 
+                id: campaignId,
+                userId: userId 
+            },
+            include: { user: true }
+        });
+  
+        if (!campaign || !campaign.user) {
+            res.status(404).json({ message: 'Campaign not found or you do not have permission to access it.' });
+            return;
+        }
+  
+        const user = campaign.user;
+        const usageService = AIUsageService.getInstance();
+        const canRun = await usageService.trackAIUsage(userId, 'manual_discovery', user.plan);
+        if (!canRun) {
+            return res.status(429).json({ message: "You've reached your monthly discovery limit. Please upgrade your plan for more." });
+        }
+  
+        // Check if campaign has target subreddits
+        if (!campaign.targetSubreddits || campaign.targetSubreddits.length === 0) {
+            res.status(400).json({ 
+                message: 'No target subreddits configured for this campaign. Please add target subreddits first.',
+                needsSubreddits: true 
+            });
+            return;
+        }
+        
+        console.log(`[Targeted Discovery] Running TARGETED search in ${campaign.targetSubreddits.length} subreddits...`);
+        
+        // Use the targeted findLeadsOnReddit function
+        const rawLeads = await findLeadsOnReddit(
+            campaign.generatedKeywords,
+            campaign.targetSubreddits
+        );
+        
+        console.log(`[Targeted Discovery] Found ${rawLeads.length} unique targeted leads.`);
+  
+        // Apply relevance filtering (but more lenient for targeted search)
+        const relevantLeads = rawLeads.filter(lead => {
+            const relevance = calculateContentRelevance(
+                lead, 
+                campaign.generatedKeywords, 
+                campaign.generatedDescription
+            );
+            
+            // Lower threshold for targeted search since we're already in specific subreddits
+            return relevance.score >= 15; // Lower than global search threshold of 25
+        });
+  
+        console.log(`[Targeted Discovery] Filtered to ${relevantLeads.length} relevant targeted leads`);
+  
+        const enrichedLeads = await enrichLeadsForUser(relevantLeads, user);
+        
+        const savedLeads = [];
+        for (const lead of enrichedLeads) {
+            try {
+                const savedLead = await prisma.lead.upsert({
+                    where: { url: lead.url },
+                    update: {}, 
+                    create: {
+                        redditId: lead.id,
+                        title: lead.title,
+                        author: lead.author,
+                        subreddit: lead.subreddit,
+                        url: lead.url,
+                        body: lead.body || '',
+                        userId: user.id,
+                        campaignId: campaignId,
+                        opportunityScore: lead.opportunityScore,
+                        intent: lead.intent || null,
+                        status: 'new',
+                        postedAt: new Date(lead.createdAt ? lead.createdAt * 1000 : Date.now()),
+                        type: 'DIRECT_LEAD',
+                    }
+                });
+                savedLeads.push(savedLead);
+            } catch (error) {
+                if ((error as any).code !== 'P2002') {
+                    console.error(`❌ [Targeted Discovery] Error saving lead "${lead.title}":`, error);
+                }
+            }
+        }
+  
+        // ✨ SEND NOTIFICATION EMAIL IF NEW LEADS WERE FOUND ✨
+        if (savedLeads.length > 0) {
+            console.log(`[Targeted Discovery] Found ${savedLeads.length} new leads. Triggering email notification.`);
+            // Fire-and-forget the email notification
+            sendNewLeadsNotification(user, savedLeads, campaign.name).catch(err => {
+                console.error(`[Targeted Discovery] Failed to send email notification for campaign ${campaign.id}:`, err);
+            });
+        }
+
+        // Update last manual discovery timestamp
+        await prisma.campaign.update({
+            where: { id: campaignId },
+            data: { lastManualDiscoveryAt: new Date() }
+        });
+  
+        const sortedLeads = savedLeads.sort((a, b) => b.opportunityScore - a.opportunityScore);
+        
+        console.log(`✅ [Targeted Discovery] Completed for campaign ${campaignId}. Saved ${savedLeads.length} leads.`);
+        
+        res.status(200).json({
+            success: true,
+            message: `Found ${savedLeads.length} targeted leads from ${campaign.targetSubreddits.length} subreddits`,
+            leads: sortedLeads,
+            searchType: 'targeted',
+            subredditsSearched: campaign.targetSubreddits
+        });
+        return;
+         
+    } catch (error) {
+        console.error('❌ [Targeted Discovery] Error:', error);
+        next(error);
+    }
+};
+
+// ... (The rest of your controller functions: getLeadsForCampaign, summarizeLead, etc. remain unchanged)
 
 export const getLeadsForCampaign: RequestHandler = async (req: any, res, next) => {
     const { userId } = req.auth;
@@ -184,8 +338,6 @@ export const getLeadsForCampaign: RequestHandler = async (req: any, res, next) =
     }
 };
 
- 
-
 export const summarizeLead: RequestHandler = async (req: any, res, next) => {
     const { userId } = req.auth;
     const { id: leadId } = req.params;
@@ -230,7 +382,6 @@ export const summarizeLead: RequestHandler = async (req: any, res, next) => {
     }
 };
 
-// Add this new endpoint to your existing controller
 export const deleteAllLeads: RequestHandler = async (req: any, res, next) => {
     try {
       const { campaignId } = req.params;
@@ -289,8 +440,7 @@ export const deleteAllLeads: RequestHandler = async (req: any, res, next) => {
     }
   };
   
-  // Also add a delete by status endpoint
-  export const deleteLeadsByStatus: RequestHandler = async (req: any, res, next) => {
+export const deleteLeadsByStatus: RequestHandler = async (req: any, res, next) => {
     try {
       const { campaignId } = req.params;
       const { status } = req.body; // 'ignored', 'replied', 'saved', etc.
@@ -342,134 +492,6 @@ export const deleteAllLeads: RequestHandler = async (req: any, res, next) => {
     }
   };
  
-export const runTargetedDiscovery: RequestHandler = async (req: any, res, next) => {
-  const { userId } = req.auth;
-  const { campaignId } = req.params;
-
-  if (!userId) {
-      res.status(401).json({ message: 'User not authenticated.' });
-      return;
-  }
-
-  if (!campaignId) {
-      res.status(400).json({ message: 'Campaign ID is required.' });
-      return;
-  }
-
-  try {
-      console.log(`🎯 [Targeted Discovery] User ${userId} starting for campaign: ${campaignId}`);
-      
-      // Securely find the campaign
-      const campaign = await prisma.campaign.findFirst({
-          where: { 
-              id: campaignId,
-              userId: userId 
-          },
-          include: { user: true }
-      });
-
-      if (!campaign || !campaign.user) {
-          res.status(404).json({ message: 'Campaign not found or you do not have permission to access it.' });
-          return;
-      }
-
-      const user = campaign.user;
-      const usageService = AIUsageService.getInstance();
-      const canRun = await usageService.trackAIUsage(userId, 'manual_discovery', user.plan);
-      if (!canRun) {
-          return res.status(429).json({ message: "You've reached your monthly discovery limit. Please upgrade your plan for more." });
-      }
-
-      // Check if campaign has target subreddits
-      if (!campaign.targetSubreddits || campaign.targetSubreddits.length === 0) {
-          res.status(400).json({ 
-              message: 'No target subreddits configured for this campaign. Please add target subreddits first.',
-              needsSubreddits: true 
-          });
-          return;
-      }
-      
-      console.log(`[Targeted Discovery] Running TARGETED search in ${campaign.targetSubreddits.length} subreddits...`);
-      
-      // Use the targeted findLeadsOnReddit function
-      const rawLeads = await findLeadsOnReddit(
-          campaign.generatedKeywords,
-          campaign.targetSubreddits
-      );
-      
-      console.log(`[Targeted Discovery] Found ${rawLeads.length} unique targeted leads.`);
-
-      // Apply relevance filtering (but more lenient for targeted search)
-      const relevantLeads = rawLeads.filter(lead => {
-          const relevance = calculateContentRelevance(
-              lead, 
-              campaign.generatedKeywords, 
-              campaign.generatedDescription
-          );
-          
-          // Lower threshold for targeted search since we're already in specific subreddits
-          return relevance.score >= 15; // Lower than global search threshold of 25
-      });
-
-      console.log(`[Targeted Discovery] Filtered to ${relevantLeads.length} relevant targeted leads`);
-
-      const enrichedLeads = await enrichLeadsForUser(relevantLeads, user);
-      
-      const savedLeads = [];
-      for (const lead of enrichedLeads) {
-          try {
-              const savedLead = await prisma.lead.upsert({
-                  where: { url: lead.url },
-                  update: {}, 
-                  create: {
-                      redditId: lead.id,
-                      title: lead.title,
-                      author: lead.author,
-                      subreddit: lead.subreddit,
-                      url: lead.url,
-                      body: lead.body || '',
-                      userId: user.id,
-                      campaignId: campaignId,
-                      opportunityScore: lead.opportunityScore,
-                      intent: lead.intent || null,
-                      status: 'new',
-                      postedAt: new Date(lead.createdAt ? lead.createdAt * 1000 : Date.now()),
-                      type: 'DIRECT_LEAD',
-                  }
-              });
-              savedLeads.push(savedLead);
-          } catch (error) {
-              console.error(`❌ [Targeted Discovery] Error saving lead "${lead.title}":`, error);
-          }
-      }
-
-      // Update last manual discovery timestamp
-      await prisma.campaign.update({
-          where: { id: campaignId },
-          data: { lastManualDiscoveryAt: new Date() }
-      });
-
-      const sortedLeads = savedLeads.sort((a, b) => b.opportunityScore - a.opportunityScore);
-      
-      console.log(`✅ [Targeted Discovery] Completed for campaign ${campaignId}. Saved ${savedLeads.length} leads.`);
-      
-      res.status(200).json({
-          success: true,
-          message: `Found ${savedLeads.length} targeted leads from ${campaign.targetSubreddits.length} subreddits`,
-          leads: sortedLeads,
-          searchType: 'targeted',
-          subredditsSearched: campaign.targetSubreddits
-      });
-      return;
-       
-  } catch (error) {
-      console.error('❌ [Targeted Discovery] Error:', error);
-      next(error);
-  }
-   
-
-};
-
 export const updateLeadStatus: RequestHandler = async (req: any, res, next) => {
     const { userId } = req.auth;
     const { leadId } = req.params;

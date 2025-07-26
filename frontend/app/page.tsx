@@ -23,8 +23,9 @@ export default function Home() {
          <FeaturesStart />
           <WhyReddit />    
           <HowToDo/>
-         
+          <div id="pricing" className="bg-black py-20">
           <PricingComponent/>
+          </div>
           
           <div>
        

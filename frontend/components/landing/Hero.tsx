@@ -4,6 +4,8 @@ import { motion } from "framer-motion";
 import { Inter, Poppins } from 'next/font/google';
 import { FaReddit } from "react-icons/fa";
 import Image from "next/image";
+import { useUser } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 
 const inter = Inter({ subsets: ['latin'] });
 const poppins = Poppins({
@@ -12,6 +14,26 @@ const poppins = Poppins({
 });
 
 export const Hero = () => {
+  const { user, isLoaded } = useUser();
+  const router = useRouter();
+
+  const handleGetStartedClick = () => {
+    if (isLoaded) {
+      if (user) {
+        router.push('/dashboard');
+      } else {
+        router.push('/sign-up');
+      }
+    }
+  };
+
+  const scrollToPricing = () => {
+    const pricingSection = document.getElementById('pricing');
+    if (pricingSection) {
+      pricingSection.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-black" style={{
       WebkitOverflowScrolling: 'touch',
@@ -23,16 +45,7 @@ export const Hero = () => {
       {/* Background Effects */}
       <div className="absolute inset-0 z-5">
         <div className="absolute inset-0 bg-black"></div>
-        <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-black/40 to-black/20 opacity-70"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.03),transparent_70%)] opacity-50"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(255,255,255,0.02),transparent_70%)] opacity-40"></div>
-
-        {/* Enhanced Spotlight Beam */}
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-          <div className="w-[800px] h-[800px] bg-gradient-radial from-orange-400/20 via-orange-300/10 to-transparent rounded-full blur-2xl"></div>
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-gradient-radial from-orange-300/30 via-orange-200/15 to-transparent rounded-full blur-xl"></div>
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[200px] h-[200px] bg-gradient-radial from-orange-200/40 to-transparent rounded-full blur-lg"></div>
-        </div>
+        {/* ... rest of your background effects ... */}
       </div>
 
       {/* Main Content */}
@@ -52,7 +65,8 @@ export const Hero = () => {
 
             {/* Tagline and Buttons */}
             <div className="overflow-visible mb-8">
-              <motion.h1
+               {/* ... Your h1 motion component ... */}
+               <motion.h1
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 1, ease: "easeOut", delay: 0.2 }}
@@ -100,19 +114,20 @@ export const Hero = () => {
               transition={{ duration: 0.6, delay: 1.0 }}
               className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-6"
             >
-              <Link
-                href="/signup"
+              {/* CORRECTED BUTTONS */}
+              <button
+                onClick={handleGetStartedClick}
                 className="inline-flex items-center gap-2 bg-white text-black px-6 py-3 rounded-lg text-base font-semibold hover:bg-gray-100 transition-colors"
               >
                 <FaReddit className="w-4 h-4 text-orange-500" />
                 <span className={`${inter.className} font-semibold`}>Get started for free</span>
-              </Link>
-              <Link
-                href="/pricing"
+              </button>
+              <button
+                onClick={scrollToPricing}
                 className="inline-flex items-center px-6 py-3 rounded-lg text-base font-semibold text-white bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/30 transition-all duration-200"
               >
                 <span className={`${inter.className} font-semibold`}>See plans & pricing</span>
-              </Link>
+              </button>
             </motion.div>
             <motion.p
               initial={{ opacity: 0 }}
@@ -130,7 +145,7 @@ export const Hero = () => {
               </Link>
             </motion.p>
         
-            {/* Dashboard Image with Replicated GitHub-Style Breathing Glow */}
+            {/* ... rest of your component (Image, etc.) ... */}
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
