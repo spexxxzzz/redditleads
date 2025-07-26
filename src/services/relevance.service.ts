@@ -37,54 +37,48 @@ export const calculateContentRelevance = (
     
     const title = lead.title.toLowerCase();
     const body = lead.body?.toLowerCase() || '';
+    const combinedText = `${title} ${body}`;
 
     // 1. Strongest Signal: Campaign keywords in the title
     businessKeywords.forEach(keyword => {
         if (title.includes(keyword.toLowerCase())) {
-            score += 35;
-            reasons.push(`+35 (Title contains campaign keyword: "${keyword}")`);
+            score += 30; // Adjusted from 35
+            reasons.push(`+30 (Title contains campaign keyword: "${keyword}")`);
         }
     });
 
     // 2. Strong Signal: Intent keywords in the title
     INTENT_KEYWORDS.forEach(keyword => {
         if (title.includes(keyword)) {
-            score += 25;
-            reasons.push(`+25 (Title contains intent keyword: "${keyword}")`);
+            score += 20; // Adjusted from 25
+            reasons.push(`+20 (Title contains intent keyword: "${keyword}")`);
         }
     });
 
-    // 3. Medium Signal: Pain point keywords in the title or body
-    PAIN_POINT_KEYWORDS.forEach(keyword => {
-        // Use a flag to avoid adding points for the same keyword multiple times
-        let alreadyScored = false;
-        if ((title.includes(keyword) || body.includes(keyword)) && !alreadyScored) {
-            score += 20;
-            reasons.push(`+20 (Contains pain point: "${keyword}")`);
-            alreadyScored = true;
-        }
-    });
+    // 3. Medium Signal: Pain point keywords are present
+    if (PAIN_POINT_KEYWORDS.some(keyword => combinedText.includes(keyword))) {
+        score += 15; // Adjusted from 20
+        reasons.push(`+15 (Contains a pain point)`);
+    }
 
-    // 4. Lower Signal: Campaign keywords in the body
+    // 4. Medium Signal: Campaign keywords in the body
     businessKeywords.forEach(keyword => {
         if (body.includes(keyword.toLowerCase())) {
-            score += 10;
-            reasons.push(`+10 (Body contains campaign keyword: "${keyword}")`);
+            score += 15; // Increased from 10 to give more value to body content
+            reasons.push(`+15 (Body contains campaign keyword: "${keyword}")`);
         }
     });
 
-    // 5. Penalty: Negative keywords that indicate low relevance (e.g., job postings, tutorials)
-    NEGATIVE_KEYWORDS.forEach(keyword => {
-        if (title.includes(keyword)) {
-            score -= 40;
-            reasons.push(`-40 (Title contains negative keyword: "${keyword}")`);
-        }
-    });
+    // 5. Penalty: Negative keywords that indicate low relevance
+    if (NEGATIVE_KEYWORDS.some(keyword => title.includes(keyword))) {
+        score -= 30; // Adjusted from -40
+        reasons.push(`-30 (Contains a negative keyword in title)`);
+    }
 
     // 6. Bonus for engagement (indicates an active, valuable discussion)
-    if (lead.numComments > 10) {
+    if (lead.numComments > 5) { // Lowered threshold from 10
         score += 5;
-        reasons.push(`+5 (High engagement: ${lead.numComments} comments)`);
+        reasons.push(`+5 (Good engagement: ${lead.numComments} comments)`);
     }
 
     // Normalize the score to be between 0 and 100
@@ -95,6 +89,6 @@ export const calculateContentRelevance = (
     return {
         score: finalScore,
         reasons: reasons,
-        isRelevant: finalScore >= 45 // A higher threshold to ensure only quality leads pass
+        isRelevant: finalScore >= 30 // Lowered threshold from 45 to 30
     };
 };
