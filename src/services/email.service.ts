@@ -5,7 +5,7 @@ import { Lead, User } from '@prisma/client';
 dotenv.config();
 
 const resendApiKey = process.env.RESEND_API_KEY;
-const fromEmail = process.env.FROM_EMAIL || 'leads@redlead.app';
+const fromEmail = process.env.FROM_EMAIL || 'leads@redlead.net';
 const appUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 
 // --- DIAGNOSTIC LOGGING ---
