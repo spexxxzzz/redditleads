@@ -32,6 +32,7 @@ const poppins = Poppins({
   weight: ['400', '500', '600', '700', '800']
 });
 
+// The Lead interface should include the isGoogleRanked property
 interface Lead {
   id: string;
   title: string;
@@ -46,6 +47,7 @@ interface Lead {
   summary?: string | null;
   opportunityScore: number;
   status?: "new" | "replied" | "saved" | "ignored";
+  isGoogleRanked?: boolean; // Add this property
 }
 
 interface LeadFeedProps {
