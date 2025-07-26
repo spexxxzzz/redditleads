@@ -13,7 +13,8 @@ import { Button } from "@/components/ui/button";
 import PulsatingDotsLoaderDashboard from '../loading/LoadingDashboard';
 import { DeleteLeadsModal } from "./DeleteLead";
 import { DiscoveryButtons } from './DiscoveryOptions';
-import { useReplyModal, Lead } from '@/hooks/useReplyModal';
+import { useReplyModal } from '@/hooks/useReplyModal';
+import { Lead } from "./LeadCard";
 import { ReplyModal } from './ReplyModal';
 import { Menu, X } from 'lucide-react';
 import { TrashIcon } from '@heroicons/react/24/outline';
@@ -103,9 +104,22 @@ export const DashboardLayout = () => {
         limit: 1000,
       }, token);
       
+      // CORRECTED: Explicitly map the properties to ensure isGoogleRanked is always included.
       const leadsData: Lead[] = (allLeadsResponse.data || []).map((lead: any) => ({
-          ...lead,
-          status: lead.status || 'new'
+          id: lead.id,
+          title: lead.title,
+          author: lead.author,
+          subreddit: lead.subreddit,
+          url: lead.url,
+          body: lead.body,
+          createdAt: lead.createdAt,
+          intent: lead.intent,
+          summary: lead.summary,
+          opportunityScore: lead.opportunityScore,
+          status: lead.status || 'new',
+          numComments: lead.numComments,
+          upvoteRatio: lead.upvoteRatio,
+          isGoogleRanked: lead.isGoogleRanked ?? false,
       }));
       setAllLeads(leadsData);
       
@@ -298,7 +312,6 @@ export const DashboardLayout = () => {
         </div>
       </div>
       
-      {/* 🎯 FIX: Modals are now rendered directly and control their own visibility. */}
       <ReplyModal
         isOpen={isReplyModalOpen}
         onClose={onReplyModalClose}
