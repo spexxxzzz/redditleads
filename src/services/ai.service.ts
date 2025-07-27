@@ -1,140 +1,227 @@
 // src/services/ai.service.ts
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { perplexity } from '@ai-sdk/perplexity';
+import { generateText } from 'ai';
+import OpenAI from 'openai';
 import { PrismaClient } from '@prisma/client';
 import { AIUsageService } from './aitracking.service';
+import { getAppAuthenticatedInstance } from './reddit.service';
 
 const prisma = new PrismaClient();
 
-// Get API key from your .env file
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
-
-// --- OPTIMIZATION: In-memory cache to store AI responses ---
-// In a production, multi-server environment, you might replace this with a shared cache like Redis.
+// --- In-memory cache for AI responses ---
 const aiCache = new Map<string, any>();
-import { getAppAuthenticatedInstance } from './reddit.service'; // <-- IMPORT THE REDDIT SERVICE
+
+// --- OPTIMIZED: Centralized AI Provider Configuration with CHEAPEST Models ---
+const aiProviders = [
+    {
+        name: 'Gemini',
+        generate: async function(prompt: string): Promise<string> {
+            if (!process.env.GEMINI_API_KEY) {
+                throw new Error("Gemini API key is not set in .env file.");
+            }
+            const client = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+            // Using gemini-1.5-flash - cheapest and fastest model
+            const model = client.getGenerativeModel({ 
+                model: 'gemini-1.5-flash',
+                generationConfig: {
+                    maxOutputTokens: 500, // Limit tokens to reduce cost
+                    temperature: 0.3, // Lower temperature for more focused responses
+                }
+            });
+            const result = await model.generateContent(prompt);
+            return result.response.text();
+        }
+    },
+    {
+        name: 'Perplexity',
+        generate: async function(prompt: string): Promise<string> {
+            if (!process.env.PERPLEXITY_API_KEY) {
+                throw new Error("Perplexity API key is not set in .env file.");
+            }
+            
+            const { text } = await generateText({
+                model: perplexity('sonar'), // Cheapest Perplexity model (not sonar-pro)
+                prompt: prompt,
+                temperature: 0.3, // Lower temperature for cost efficiency
+                maxTokens: 500, // Limit tokens to reduce cost
+            });
+            
+            return text;
+        }
+    },
+    {
+        name: 'OpenAI',
+        generate: async function(prompt: string): Promise<string> {
+            if (!process.env.OPENAI_API_KEY) {
+                throw new Error("OpenAI API key is not set in .env file.");
+            }
+            const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+            const response = await client.chat.completions.create({
+                model: 'gpt-3.5-turbo', // Cheapest OpenAI model (even cheaper than gpt-4o-mini)
+                messages: [{ role: 'user', content: prompt }],
+                temperature: 0.3, // Lower temperature for cost efficiency
+                max_tokens: 500, // Limit tokens to reduce cost
+                frequency_penalty: 0.1, // Reduce repetition
+                presence_penalty: 0.1, // Encourage conciseness
+            });
+            return response.choices[0]?.message?.content ?? "";
+        }
+    }
+];
 
 /**
- * --- NEW & IMPROVED ---
- * Generates a list of relevant and *verified* subreddit suggestions.
- * It uses AI to get ideas and the Reddit API to confirm they are real.
+ * Smart Fallback Function with Enhanced Caching and Optimization
+ */
+const generateContentWithFallback = async (prompt: string): Promise<string> => {
+    // Enhanced cache key with prompt hash for better caching
+    const cacheKey = `ai_response:${Buffer.from(prompt).toString('base64').slice(0, 50)}`;
+    
+    // Check cache first to avoid API calls
+    if (aiCache.has(cacheKey)) {
+        console.log('[CACHE HIT] Returning cached AI response');
+        return aiCache.get(cacheKey);
+    }
+
+    let lastError: Error | null = null;
+    for (const provider of aiProviders) {
+        try {
+            console.log(`[AI Service] Attempting to use ${provider.name}...`);
+            const text = await provider.generate(prompt);
+            
+            if (!text) {
+                throw new Error("Received an empty response from the API.");
+            }
+            
+            console.log(`[AI Service] Successfully received response from ${provider.name}.`);
+            
+            // Cache the successful response
+            aiCache.set(cacheKey, text);
+            
+            return text;
+        } catch (error) {
+            lastError = error instanceof Error ? error : new Error("An unknown error occurred");
+            console.error(`[AI Service] ${provider.name} failed:`, lastError.message);
+        }
+    }
+    
+    throw new Error(`All AI services are currently unavailable. Last error: ${lastError?.message}`);
+};
+
+/**
+ * OPTIMIZED: Generates verified subreddit suggestions with cost optimization
  */
 export const generateSubredditSuggestions = async (businessDescription: string): Promise<string[]> => {
     console.log('[Subreddit Suggestions] Starting process...');
-    const cacheKey = `verified_subreddits_v2:${businessDescription.slice(0, 200)}`;
+    const cacheKey = `verified_subreddits_v4:${businessDescription.slice(0, 200)}`;
+    
     if (aiCache.has(cacheKey)) {
         console.log('[CACHE HIT] for verified subreddit suggestions.');
         return aiCache.get(cacheKey);
     }
 
-    // Step 1: Use AI to brainstorm a list of potential subreddits.
-    const prompt = `You are a Reddit marketing expert. Based on the following business description, brainstorm a list of 15 to 20 potential subreddits where customers might be found. Include a mix of large and niche communities. Return the list as a simple comma-separated string of just the subreddit names (e.g., "gaming,playtoearn,web3"). Do not include "r/" or any other text. Business Description: "${businessDescription}"`;
-    
-    const result = await model.generateContent(prompt);
-    const candidateSubreddits = result.response.text().split(',').map(s => s.trim()).filter(Boolean);
+    // Optimized prompt - shorter and more direct to reduce token usage
+    const prompt = `List 15-20 subreddits for this business. Return only subreddit names, comma-separated, no "r/" prefix: "${businessDescription.slice(0, 300)}"`;
+
+    const rawText = await generateContentWithFallback(prompt);
+    const candidateSubreddits = rawText.split(',').map(s => s.trim()).filter(Boolean).slice(0, 20); // Limit to 20 max
     console.log(`[Subreddit Suggestions] AI suggested ${candidateSubreddits.length} candidates.`);
 
-    // Step 2: Use the Reddit API to verify which of these subreddits actually exist.
     const snoowrap = await getAppAuthenticatedInstance();
-    const verifiedSubreddits: string[] = [];
-
     const verificationPromises = candidateSubreddits.map(async (name) => {
         try {
             //@ts-expect-error
             await snoowrap.getSubreddit(name).fetch();
-            return name; // If fetch succeeds, the subreddit exists.
+            return name;
         } catch (error) {
-            return null; // If fetch fails, it doesn't exist or is private/banned.
+            return null;
         }
     });
 
     const results = await Promise.all(verificationPromises);
-    
-    // Filter out the null results (non-existent subreddits)
     const finalSubreddits = results.filter((name): name is string => name !== null);
 
     console.log(`[Subreddit Suggestions] Verified ${finalSubreddits.length} real subreddits.`);
     
+    // Cache with expiration (24 hours)
     aiCache.set(cacheKey, finalSubreddits);
+    setTimeout(() => aiCache.delete(cacheKey), 24 * 60 * 60 * 1000);
+    
     return finalSubreddits;
 };
 
-// --- All other functions remain the same ---
-// ... (generateKeywords, generateDescription, etc.)
 /**
- * Generates a list of keywords based on website text.
+ * OPTIMIZED: Generates keywords with reduced token usage
  */
 export const generateKeywords = async (websiteText: string): Promise<string[]> => {
-    const cacheKey = `keywords:${websiteText.slice(0, 200)}`;
+    const cacheKey = `keywords_v2:${websiteText.slice(0, 200)}`;
     if (aiCache.has(cacheKey)) {
         console.log(`[CACHE HIT] for keywords.`);
         return aiCache.get(cacheKey);
     }
 
-    const prompt = `Based on the following website text, Generate keywords that real Reddit users would naturally use in casual conversation, not technical marketing terms. Focus on problems people have and simple language    Return the list as a simple comma-separated string. Do not include any other text or explanation. Website Text: "${websiteText}"`;
+    // Shortened prompt and input text to reduce costs
+    const truncatedText = websiteText.slice(0, 500); // Limit input size
+    const prompt = `Extract casual Reddit keywords from: "${truncatedText}". Return comma-separated list only.`;
+
+    const text = await generateContentWithFallback(prompt);
+    const keywords = text.split(',').map(k => k.trim()).filter(Boolean).slice(0, 15); // Limit to 15 keywords
+
+    aiCache.set(cacheKey, keywords);
+    setTimeout(() => aiCache.delete(cacheKey), 24 * 60 * 60 * 1000);
     
-    const result = await model.generateContent(prompt);
-    const response = result.response;
-    const text = response.text();
-    const keywords = text.split(',').map(k => k.trim());
-    
-    aiCache.set(cacheKey, keywords); // Store result in cache
     return keywords;
 };
 
 /**
- * Generates a company description based on website text.
+ * OPTIMIZED: Generates company description with cost efficiency
  */
 export const generateDescription = async (websiteText: string): Promise<string> => {
-    const cacheKey = `description:${websiteText.slice(0, 200)}`;
+    const cacheKey = `description_v2:${websiteText.slice(0, 200)}`;
     if (aiCache.has(cacheKey)) {
         console.log(`[CACHE HIT] for description.`);
         return aiCache.get(cacheKey);
     }
 
-    const prompt = `You are a marketing expert. Based on the following website text, write a compelling, one-paragraph company description. Website Text: "${websiteText}"`;
-    
-    const result = await model.generateContent(prompt);
-    const response = result.response;
-    const description = response.text();
+    // Shortened input and prompt
+    const truncatedText = websiteText.slice(0, 400);
+    const prompt = `Write a 2-sentence company description for: "${truncatedText}"`;
 
-    aiCache.set(cacheKey, description); // Store result in cache
+    const description = await generateContentWithFallback(prompt);
+
+    aiCache.set(cacheKey, description);
+    setTimeout(() => aiCache.delete(cacheKey), 24 * 60 * 60 * 1000);
+    
     return description;
 };
 
- 
 /**
- * Analyzes a subreddit's rules and description to generate a summary of its culture.
+ * OPTIMIZED: Generates culture notes with minimal token usage
  */
 export const generateCultureNotes = async (description: string, rules: string[]): Promise<string> => {
-    const cacheKey = `culture:${description.slice(0, 100)}:${rules.join(',')}`;
+    const cacheKey = `culture_v2:${description.slice(0, 100)}:${rules.join(',').slice(0, 100)}`;
     if (aiCache.has(cacheKey)) {
         console.log(`[CACHE HIT] for culture notes.`);
         return aiCache.get(cacheKey);
     }
+
+    // Limit rules and description length
+    const limitedRules = rules.slice(0, 5).map((rule, index) => `${index + 1}. ${rule.slice(0, 100)}`).join('\n');
+    const limitedDescription = description.slice(0, 200);
     
-    const rulesText = rules.map((rule, index) => `${index + 1}. ${rule}`).join('\n');
-    const prompt = `You are a Reddit community analyst. Based on the following subreddit description and rules, provide a brief, one-paragraph summary of the community's culture and posting etiquette. Focus on the general vibe (e.g., "highly technical," "meme-friendly," "strictly moderated") and what a new user should know before posting.
+    const prompt = `Summarize subreddit culture in 1 paragraph. Description: "${limitedDescription}" Rules: "${limitedRules}"`;
 
-Subreddit Description:
-"${description}"
+    const cultureNotes = await generateContentWithFallback(prompt);
 
-Subreddit Rules:
-"${rulesText}"
-
-Cultural Summary:`;
-
-    const result = await model.generateContent(prompt);
-    const cultureNotes = result.response.text().trim();
-
-    aiCache.set(cacheKey, cultureNotes); // Store result in cache
-    return cultureNotes;
+    aiCache.set(cacheKey, cultureNotes.trim());
+    setTimeout(() => aiCache.delete(cacheKey), 24 * 60 * 60 * 1000);
+    
+    return cultureNotes.trim();
 };
 
 /**
- * Generates multiple, context-aware reply options for a given lead.
- * This is user-initiated, so caching is less critical but can prevent accidental duplicate requests.
+ * OPTIMIZED: Generates AI replies with cost-effective approach
  */
 export const generateAIReplies = async (
     leadTitle: string,
@@ -143,106 +230,87 @@ export const generateAIReplies = async (
     subredditCultureNotes: string,
     subredditRules: string[]
 ): Promise<string[]> => {
-    const rulesText = subredditRules.map((rule, index) => `${index + 1}. ${rule}`).join('\n');
-    const prompt = `
-You are a world-class Reddit marketing expert who specializes in subtle, helpful, and non-spammy engagement. Your primary goal is to be helpful to the user first, and promotional second.
-
-**Your Task:**
-Generate 3 distinct, high-quality response options to the following Reddit post.
-
-**Context:**
-1.  **The Lead's Post:**
-    * Title: "${leadTitle}"
-    * Body: "${leadBody}"
-
-2.  **My Product/Company:**
-    * Description: "${companyDescription}"
-
-3.  **Subreddit Intelligence (CRITICAL):**
-    * Culture & Vibe: "${subredditCultureNotes}"
-    * Rules to Follow:
-${rulesText}
-
-**Instructions for Replies:**
--   Acknowledge the user's post directly.
--   Subtly connect their need to a feature of "My Product/Company".
--   Adhere strictly to the subreddit's culture and rules. If the culture is technical, be technical. If it's casual, be casual.
--   Do NOT use corporate jargon or sound like a press release.
--   Each reply option should have a slightly different tone (e.g., one purely helpful, one more direct, one asking a question).
--   Return the response as a JSON array of strings. Example: ["Response 1", "Response 2", "Response 3"]
-`;
-    // Since this is a highly dynamic prompt, we won't cache it to ensure fresh replies.
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
+    // Truncate inputs to reduce token usage
+    const truncatedTitle = leadTitle.slice(0, 150);
+    const truncatedBody = (leadBody || '').slice(0, 300);
+    const truncatedDescription = companyDescription.slice(0, 200);
+    const truncatedCulture = subredditCultureNotes.slice(0, 150);
+    const limitedRules = subredditRules.slice(0, 3).map(rule => rule.slice(0, 50));
     
+    const prompt = `Generate 3 Reddit replies for:
+Title: "${truncatedTitle}"
+Body: "${truncatedBody}"
+Product: "${truncatedDescription}"
+Culture: "${truncatedCulture}"
+Rules: ${limitedRules.join('; ')}
+
+Return JSON array: ["reply1", "reply2", "reply3"]`;
+
+    const responseText = await generateContentWithFallback(prompt);
+
     try {
-        const cleanedText = responseText.replace(/```json\n?|\n?```/g, '');
-        return JSON.parse(cleanedText);
+        const cleanedText = responseText.replace(/``````/g, '');
+        const replies = JSON.parse(cleanedText);
+        return Array.isArray(replies) ? replies.slice(0, 3) : [replies];
     } catch (error) {
         console.error("Failed to parse AI response as JSON:", responseText);
-        return ["Sorry, I couldn't generate a valid response. Please try again."];
+        return ["I'd be happy to help! Let me know if you'd like more information about our solution."];
     }
 };
 
 /**
- * Refines a given text based on a specific instruction.
+ * OPTIMIZED: Refines AI reply with minimal tokens
  */
 export const refineAIReply = async (originalText: string, instruction: string): Promise<string> => {
-    const prompt = `
-You are a text editing assistant. Your task is to rewrite the following text based on the user's instruction.
-Do not add any commentary or explanation. Only return the refined text.
+    const truncatedText = originalText.slice(0, 300);
+    const truncatedInstruction = instruction.slice(0, 100);
+    
+    const prompt = `Rewrite: "${truncatedText}" 
+Instruction: "${truncatedInstruction}"
+New version:`;
 
-**Original Text:**
-"${originalText}"
-
-**User's Instruction:**
-"${instruction}"
-
-**Refined Text:**`;
-
-    const result = await model.generateContent(prompt);
-    return result.response.text().trim();
+    const refinedText = await generateContentWithFallback(prompt);
+    return refinedText.trim();
 };
 
 /**
- * Discovers potential competitor products or companies mentioned in a text.
+ * OPTIMIZED: Discovers competitors with cost efficiency
  */
 export const discoverCompetitorsInText = async (text: string, ownProductDescription: string): Promise<string[]> => {
-    const cacheKey = `competitors:${text.slice(0, 200)}:${ownProductDescription.slice(0,100)}`;
+    const cacheKey = `competitors_v2:${text.slice(0, 200)}:${ownProductDescription.slice(0, 100)}`;
     if (aiCache.has(cacheKey)) {
         console.log(`[CACHE HIT] for competitor discovery.`);
         return aiCache.get(cacheKey);
     }
 
-    const prompt = `
-You are a market intelligence analyst. Your task is to identify potential competitor products or companies mentioned in the provided text.
-
-**My Product:**
-"${ownProductDescription}"
-
-**Text to Analyze:**
-"${text}"
-
-Based on my product description, analyze the text and extract the names of any other products or companies mentioned that seem to be in a similar market.
-Return the list as a simple JSON array of strings. Example: ["Competitor A", "Product B"]. If no competitors are found, return an empty array [].
-`;
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text().replace(/```json\n?|\n?```/g, '');
+    const truncatedText = text.slice(0, 400);
+    const truncatedProduct = ownProductDescription.slice(0, 150);
+    
+    const prompt = `Find competitors in text. My product: "${truncatedProduct}" Text: "${truncatedText}" Return JSON array of competitor names or [].`;
+    
+    const responseText = await generateContentWithFallback(prompt);
     try {
-        const competitors = JSON.parse(responseText);
-        const competitorList = Array.isArray(competitors) ? competitors : [];
-        aiCache.set(cacheKey, competitorList); // Store result in cache
+        const cleanedText = responseText.replace(/``````/g, '');
+        const competitors = JSON.parse(cleanedText);
+        const competitorList = Array.isArray(competitors) ? competitors.slice(0, 5) : [];
+        
+        aiCache.set(cacheKey, competitorList);
+        setTimeout(() => aiCache.delete(cacheKey), 24 * 60 * 60 * 1000);
+        
         return competitorList;
     } catch {
-        return []; // Return empty array if parsing fails
+        return [];
     }
 };
-// Replace the existing generateReplyOptions function (around line 140-170):
+
+/**
+ * OPTIMIZED: Generate reply options with usage tracking
+ */
 export const generateReplyOptions = async (leadId: string): Promise<string[]> => {
     const lead = await prisma.lead.findUnique({
         where: { id: leadId },
         include: {
-            campaign: { 
+            campaign: {
                 include: { user: true }
             }
         }
@@ -255,96 +323,81 @@ export const generateReplyOptions = async (leadId: string): Promise<string[]> =>
     const user = lead.campaign.user;
     const aiUsage = AIUsageService.getInstance();
 
-    // Check if user has AI reply quota
     const canUseAI = await aiUsage.trackAIUsage(user.id, 'manual_discovery', user.plan);
     if (!canUseAI) {
         throw new Error('AI reply quota exceeded. Upgrade your plan or wait for next month.');
     }
 
-    // Generate replies only if quota allows
     const subredditProfile = await prisma.subredditProfile.findUnique({
         where: { name: lead.subreddit }
     });
 
-    const companyDescription = lead.campaign.generatedDescription;
+    const companyDescription = lead.campaign.generatedDescription || "No description available.";
     const cultureNotes = subredditProfile?.cultureNotes ?? "Be respectful and helpful.";
     const rules = subredditProfile?.rules ?? ["No spam."];
 
-    const replies = await generateAIReplies(
+    return await generateAIReplies(
         lead.title,
         lead.body,
-        companyDescription || "No company description available.",
+        companyDescription,
         cultureNotes,
         rules
     );
-
-    return replies;
 };
 
 /**
- * --- NEW: Fun Mode Reply Generator ---
- * Generates witty, off-topic replies that pivot back to the product.
+ * OPTIMIZED: Fun replies with cost efficiency
  */
 export const generateFunReplies = async (
     leadTitle: string,
     leadBody: string | null,
     companyDescription: string
 ): Promise<string[]> => {
-    const prompt = `
-    You are a hilarious and slightly unhinged AI marketing assistant running in "Fun Mode".
-    Your task is to respond to a Reddit post that is COMPLETELY UNRELATED to the product you're promoting, but you must still promote the product.
+    const truncatedTitle = leadTitle.slice(0, 100);
+    const truncatedBody = (leadBody || '').slice(0, 200);
+    const truncatedDescription = companyDescription.slice(0, 150);
+    
+    const prompt = `Create 3 funny promotional replies for unrelated post:
+Title: "${truncatedTitle}"
+Body: "${truncatedBody}"  
+Product: "${truncatedDescription}"
+Return JSON: ["funny reply 1", "funny reply 2", "funny reply 3"]`;
 
-    Here's the formula:
-    1.  Acknowledge how hilariously unrelated the user's post is to your product.
-    2.  Give some funny, slightly absurd, but well-meaning advice about their actual problem.
-    3.  Seamlessly and absurdly pivot to promoting the product.
-
-    **The Lead's Unrelated Post:**
-    * **Title:** "${leadTitle}"
-    * **Body:** "${leadBody}"
-
-    **My Product to Promote:**
-    * **Description:** "${companyDescription}"
-
-    Generate 3 distinct, funny, and creative replies following this formula. Return the response as a JSON array of strings.
-    Example Format: ["Reply 1", "Reply 2", "Reply 3"]
-    `;
-
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
+    const responseText = await generateContentWithFallback(prompt);
 
     try {
-        const cleanedText = responseText.replace(/```json\n?|\n?```/g, '');
+        const cleanedText = responseText.replace(/``````/g, '');
         return JSON.parse(cleanedText);
     } catch (error) {
         console.error("Failed to parse AI response as JSON:", responseText);
-        // Fallback with a fun, generic reply
         return [
-            `I have absolutely no idea what's going on in your post about "${leadTitle}", but I can tell you that RedLead is the best way to get Reddit leads. You should check it out!`
+            `I have no idea what "${truncatedTitle}" is about, but have you heard of our amazing product? You should totally check it out!`
         ];
     }
 };
 
-
-// Also update the analyzeLeadIntent function to track usage:
+/**
+ * OPTIMIZED: Analyze lead intent with basic fallback
+ */
 export const analyzeLeadIntent = async (title: string, body: string | null, userId: string, userPlan: string): Promise<string> => {
     const aiUsage = AIUsageService.getInstance();
     const canUseAI = await aiUsage.trackAIUsage(userId, 'intent', userPlan);
-    
+
     if (!canUseAI) {
-        // Fallback to basic intent analysis
         return determineBasicIntent(title, body);
     }
+
+    const truncatedTitle = title.slice(0, 100);
+    const truncatedBody = (body || '').slice(0, 200);
     
-    const prompt = `Analyze the following Reddit post for user intent. Classify it as 'pain_point', 'solution_seeking', 'brand_comparison', or 'general_discussion'. Return only the single classification. Post Title: "${title}". Post Body: "${body}"`;
-    const result = await model.generateContent(prompt);
-    return result.response.text().trim();
+    const prompt = `Classify intent as: pain_point, solution_seeking, brand_comparison, or general_discussion. Title: "${truncatedTitle}" Body: "${truncatedBody}"`;
+    
+    const intent = await generateContentWithFallback(prompt);
+    return intent.trim().toLowerCase();
 };
 
-// Add this helper function for basic intent analysis:
 function determineBasicIntent(title: string, body: string | null): string {
     const text = `${title} ${body || ''}`.toLowerCase();
-    
     if (text.includes('help') || text.includes('recommend') || text.includes('suggest') || text.includes('looking for')) {
         return 'solution_seeking';
     }
@@ -354,36 +407,46 @@ function determineBasicIntent(title: string, body: string | null): string {
     if (text.includes('problem') || text.includes('issue') || text.includes('struggling') || text.includes('broken')) {
         return 'pain_point';
     }
-    
     return 'general_discussion';
 }
 
-// Update analyzeSentiment to track usage:
+/**
+ * OPTIMIZED: Analyze sentiment with basic fallback
+ */
 export const analyzeSentiment = async (title: string, body: string | null, userId: string, userPlan: string): Promise<string> => {
     const aiUsage = AIUsageService.getInstance();
     const canUseAI = await aiUsage.trackAIUsage(userId, 'competitor', userPlan);
-    
+
     if (!canUseAI) {
-        // Fallback to basic sentiment analysis
         return determineBasicSentiment(title, body);
     }
+
+    const truncatedTitle = title.slice(0, 100);
+    const truncatedBody = (body || '').slice(0, 200);
     
-    const prompt = `Analyze the sentiment of the following Reddit post. Is the user expressing a 'positive', 'negative', or 'neutral' opinion? Return only the single classification. Post Title: "${title}". Post Body: "${body}"`;
-    const result = await model.generateContent(prompt);
-    return result.response.text().trim().toLowerCase();
+    const prompt = `Classify sentiment as: positive, negative, or neutral. Title: "${truncatedTitle}" Body: "${truncatedBody}"`;
+    
+    const sentiment = await generateContentWithFallback(prompt);
+    return sentiment.trim().toLowerCase();
 };
 
-// Add basic sentiment analysis helper:
 function determineBasicSentiment(title: string, body: string | null): string {
     const text = `${title} ${body || ''}`.toLowerCase();
-    
     const positiveWords = ['love', 'great', 'awesome', 'excellent', 'amazing', 'perfect', 'good', 'best', 'fantastic'];
     const negativeWords = ['hate', 'terrible', 'awful', 'bad', 'worst', 'sucks', 'broken', 'useless', 'disappointed'];
-    
+
     const positiveCount = positiveWords.filter(word => text.includes(word)).length;
     const negativeCount = negativeWords.filter(word => text.includes(word)).length;
-    
+
     if (positiveCount > negativeCount) return 'positive';
     if (negativeCount > positiveCount) return 'negative';
     return 'neutral';
 }
+
+// Cache cleanup to prevent memory leaks
+setInterval(() => {
+    if (aiCache.size > 1000) {
+        console.log('[AI Service] Cleaning up cache...');
+        aiCache.clear();
+    }
+}, 60 * 60 * 1000); // Every hour
