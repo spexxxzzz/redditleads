@@ -79,10 +79,10 @@ export const handleClerkWebhook: RequestHandler = async (req, res, next) => {
                 data: {
                     id: id,
                     email: primaryEmail,
-                    firstName: first_name? first_name : null,
-                    lastName: last_name? last_name : null,
+                    firstName: first_name ? first_name : '',
+                    lastName: last_name? last_name : '',
+                    subscriptionStatus : 'active',
                     plan: 'pro', // Set the plan to 'pro' for the trial
-                    subscriptionStatus: 'active', // Set the initial status to active
                     subscriptionEndsAt: trialEndsAt, // Set the trial expiration date
                 },
             });
