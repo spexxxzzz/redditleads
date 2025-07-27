@@ -1,6 +1,8 @@
 "use client";
-import React, { useState } from "react";
+import React from "react";
 import { motion, Variants } from "framer-motion";
+import { useUser } from "@clerk/nextjs"; // 👈 NEW: Import Clerk's useUser hook
+import Link from "next/link"; // 👈 NEW: Import Next.js Link component
 import { Check, X, Zap, Crown, Building, Gift, Star, ArrowRight } from "lucide-react";
 import { Inter, Poppins } from 'next/font/google';
 
@@ -10,6 +12,7 @@ const poppins = Poppins({
   weight: ['400', '600', '700', '800', '900'] 
 });
 
+// Interfaces and variants remain the same...
 interface PricingPlan {
   name: string;
   description: string;
@@ -49,8 +52,10 @@ const itemVariants: Variants = {
   }
 };
 
+
 const PricingComponent: React.FC = () => {
-  const [isYearly, setIsYearly] = useState(false);
+  const [isYearly, setIsYearly] = React.useState(false);
+  const { isSignedIn } = useUser(); // 👈 NEW: Get user's sign-in status
 
   const plans: PricingPlan[] = [
     {
@@ -147,37 +152,26 @@ const PricingComponent: React.FC = () => {
     return { amount: savings, percentage };
   };
 
+  // 👈 NEW: Helper function to determine the correct link for the CTA button
+  const getCtaLink = (planName: string) => {
+    if (planName === "Enterprise") {
+      return "mailto:sales@redlead.com"; // Or your sales email
+    }
+    return isSignedIn ? "/dashboard" : "/sign-up";
+  };
+
   return (
     <section className="relative py-20 sm:py-32 overflow-hidden bg-black">
       {/* Background Elements */}
       <div className="absolute inset-0">
-        {/* Animated background orbs - Orange only, no blue */}
         <motion.div
-          animate={{ 
-            x: [0, 30, 0],
-            y: [0, -20, 0],
-            scale: [1, 1.1, 1]
-          }}
-          transition={{ 
-            duration: 20, 
-            repeat: Infinity, 
-            ease: "easeInOut" 
-          }}
+          animate={{ x: [0, 30, 0], y: [0, -20, 0], scale: [1, 1.1, 1] }}
+          transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
           className="absolute top-1/4 left-1/3 w-48 h-48 sm:w-96 sm:h-96 bg-gradient-to-br from-orange-500/10 to-orange-400/5 rounded-full blur-3xl opacity-50"
         />
-        
         <motion.div
-          animate={{ 
-            x: [0, -40, 0],
-            y: [0, 25, 0],
-            scale: [1, 0.9, 1]
-          }}
-          transition={{ 
-            duration: 25, 
-            repeat: Infinity, 
-            ease: "easeInOut",
-            delay: 5
-          }}
+          animate={{ x: [0, -40, 0], y: [0, 25, 0], scale: [1, 0.9, 1] }}
+          transition={{ duration: 25, repeat: Infinity, ease: "easeInOut", delay: 5 }}
           className="absolute bottom-1/3 right-1/4 w-40 h-40 sm:w-80 sm:h-80 bg-gradient-to-tl from-orange-500/8 to-orange-400/4 rounded-full blur-3xl opacity-30"
         />
       </div>
@@ -193,10 +187,7 @@ const PricingComponent: React.FC = () => {
           {/* Header */}
           <motion.div variants={itemVariants} className="text-center">
             <h2 className={`text-4xl sm:text-5xl lg:text-6xl font-black text-white mb-6 leading-tight ${poppins.className}`}>
-              Simple, Transparent{" "}
-              <span className="text-orange-500">
-                Pricing
-              </span>
+              Simple, Transparent <span className="text-orange-500">Pricing</span>
             </h2>
             <p className={`text-lg text-gray-300 max-w-2xl mx-auto leading-relaxed ${inter.className}`}>
               Choose the perfect plan to supercharge your Reddit lead generation
@@ -209,9 +200,7 @@ const PricingComponent: React.FC = () => {
               <button
                 onClick={() => setIsYearly(false)}
                 className={`relative px-6 py-3 text-sm font-medium transition-all duration-300 ${
-                  !isYearly
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-300 hover:text-white'
+                  !isYearly ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-300 hover:text-white'
                 } ${inter.className}`}
               >
                 Monthly
@@ -219,9 +208,7 @@ const PricingComponent: React.FC = () => {
               <button
                 onClick={() => setIsYearly(true)}
                 className={`relative px-6 py-3 text-sm font-medium transition-all duration-300 ${
-                  isYearly
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-300 hover:text-white'
+                  isYearly ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-300 hover:text-white'
                 } ${inter.className}`}
               >
                 Yearly (save 20%)
@@ -231,14 +218,15 @@ const PricingComponent: React.FC = () => {
 
           {/* Pricing Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {plans.map((plan, index) => {
-              const savings = getSavings(plan);
-              const IconComponent = plan.icon;
+            {plans.map((plan) => {
               const price = getPrice(plan);
+              
+              // Determine the correct component: Link for internal nav, <a> for external
+              const CtaWrapper = plan.name === 'Enterprise' ? 'a' : Link;
               
               return (
                 <motion.div
-                  key={index}
+                  key={plan.name}
                   variants={itemVariants}
                   className={`relative h-full rounded-2xl border transition-all duration-300 hover:shadow-xl ${
                     plan.popular
@@ -247,72 +235,61 @@ const PricingComponent: React.FC = () => {
                   }`}
                 >
                   <div className="relative flex h-full flex-col justify-between p-6">
-                    {/* Plan Header */}
                     <div className="flex flex-col gap-4">
+                      {/* ... Plan Header and Features ... */}
                       <div className="flex flex-col gap-3">
                         <h3 className={`text-lg font-semibold text-white ${poppins.className}`}>
                           {plan.name}
                         </h3>
-                        
-                        {/* Price */}
                         <div className="flex items-baseline gap-1">
                           <span className={`text-3xl font-semibold text-white ${poppins.className}`}>
                             {price === "Custom" ? "Custom" : (price === 0 ? "Free" : `$${price}`)}
                           </span>
                           {price !== "Custom" && price !== 0 && (
-                            <span className={`text-sm text-gray-400 ${inter.className}`}>
-                              /mo
-                            </span>
+                            <span className={`text-sm text-gray-400 ${inter.className}`}>/mo</span>
                           )}
                         </div>
                       </div>
-
                       <hr className="border-gray-700" />
-
-                      {/* Features Section */}
                       <div className="flex flex-col gap-4">
                         <p className={`text-sm font-semibold text-gray-400 ${inter.className}`}>
-                          {plan.name === "Free" ? "Includes" : `Everything in ${index === 1 ? "Free" : plans[index-1]?.name}, plus`}
+                          {plan.name === "Free" ? "Includes" : `Everything in ${plans[plans.findIndex(p => p.name === plan.name) - 1]?.name}, plus`}
                         </p>
-                        
                         <div className="flex flex-col gap-2">
                           {plan.features.map((feature, featureIndex) => (
                             <div key={featureIndex} className="flex items-center gap-2">
                               <Check className="w-3 h-3 text-green-400 flex-shrink-0" />
-                              <span className={`text-sm text-gray-200 ${inter.className}`}>
-                                {feature}
-                              </span>
+                              <span className={`text-sm text-gray-200 ${inter.className}`}>{feature}</span>
                             </div>
                           ))}
-                          
                           {plan.limitations.map((limitation, limitIndex) => (
                             <div key={limitIndex} className="flex items-center gap-2">
                               <X className="w-3 h-3 text-red-400 flex-shrink-0" />
-                              <span className={`text-sm text-gray-500 ${inter.className}`}>
-                                {limitation}
-                              </span>
+                              <span className={`text-sm text-gray-500 ${inter.className}`}>{limitation}</span>
                             </div>
                           ))}
                         </div>
                       </div>
                     </div>
 
-                    {/* CTA Button */}
+                    {/* --- CORRECTED: CTA Button wrapped in Link/a tag --- */}
                     <div className="mt-6">
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        className={`w-full rounded-lg py-3 px-4 text-sm font-medium transition-all duration-300 flex items-center justify-center gap-2 ${
-                          plan.popular
-                            ? 'bg-gradient-to-r from-orange-600 via-orange-500 to-orange-400 text-white hover:from-orange-700 hover:via-orange-600 hover:to-orange-500 shadow-lg shadow-orange-500/25'
-                            : plan.name === 'Free'
-                            ? 'bg-white text-gray-900 hover:bg-gray-100 shadow-sm'
-                            : 'bg-gray-800 text-white border border-gray-600 hover:border-gray-500 hover:bg-gray-700'
-                        } ${poppins.className}`}
-                      >
-                        {plan.cta}
-                        <ArrowRight className="w-4 h-4" />
-                      </motion.button>
+                       <CtaWrapper href={getCtaLink(plan.name)}>
+                         <motion.div
+                           whileHover={{ scale: 1.02 }}
+                           whileTap={{ scale: 0.98 }}
+                           className={`w-full rounded-lg py-3 px-4 text-sm font-medium transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer ${
+                            plan.popular
+                              ? 'bg-gradient-to-r from-orange-600 via-orange-500 to-orange-400 text-white hover:from-orange-700 hover:via-orange-600 hover:to-orange-500 shadow-lg shadow-orange-500/25'
+                              : plan.name === 'Free'
+                              ? 'bg-white text-gray-900 hover:bg-gray-100 shadow-sm'
+                              : 'bg-gray-800 text-white border border-gray-600 hover:border-gray-500 hover:bg-gray-700'
+                          } ${poppins.className}`}
+                        >
+                          {plan.cta}
+                          <ArrowRight className="w-4 h-4" />
+                        </motion.div>
+                      </CtaWrapper>
                     </div>
                   </div>
                 </motion.div>
