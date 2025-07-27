@@ -1,9 +1,9 @@
 import cron from 'node-cron';
 import { runLeadDiscoveryWorker } from '../workers/lead.worker';
 import { runSubredditAnalysisWorker } from '../workers/subreddit.worker';
-// FIX: Import the two new, specific worker functions instead of the old one
 import { findPendingRepliesWorker, trackPostedReplyPerformanceWorker } from '../workers/replyTracking.worker';
 import { runMarketInsightWorker } from '../workers/marketInsight.worker';
+import { expireUserTrials } from '../services/subscription.service'; // 👈 NEW: Import the trial expiration service
 
 /**
  * Initializes and starts all scheduled background jobs for the application.
@@ -16,7 +16,7 @@ export const initializeScheduler = () => {
     cron.schedule('*/15 * * * *', () => {
         console.log('-------------------------------------');
         console.log('Triggering scheduled lead discovery run...');
-        runLeadDiscoveryWorker().catch((err: any) => { // FIX: Add type to err
+        runLeadDiscoveryWorker().catch((err: any) => {
             console.error('A critical error occurred during the lead discovery worker run:', err);
         });
     });
@@ -26,7 +26,7 @@ export const initializeScheduler = () => {
     cron.schedule('0 2 * * *', () => {
         console.log('-------------------------------------');
         console.log('Triggering daily subreddit intelligence analysis...');
-        runSubredditAnalysisWorker().catch((err: any) => { // FIX: Add type to err
+        runSubredditAnalysisWorker().catch((err: any) => {
             console.error('A critical error occurred during the subreddit analysis worker run:', err);
         });
     });
@@ -36,7 +36,7 @@ export const initializeScheduler = () => {
     cron.schedule('* * * * *', () => {
         console.log('-------------------------------------');
         console.log('⚡ Triggering high-frequency reply finder...');
-        findPendingRepliesWorker().catch((err: any) => { // FIX: Add type to err
+        findPendingRepliesWorker().catch((err: any) => {
             console.error('A critical error occurred during the pending reply finder run:', err);
         });
     });
@@ -46,7 +46,7 @@ export const initializeScheduler = () => {
     cron.schedule('0 * * * *', () => {
         console.log('-------------------------------------');
         console.log('📊 Triggering hourly reply performance tracking...');
-        trackPostedReplyPerformanceWorker().catch((err: any) => { // FIX: Add type to err
+        trackPostedReplyPerformanceWorker().catch((err: any) => {
             console.error('A critical error occurred during the reply performance tracking run:', err);
         });
     });
@@ -56,10 +56,21 @@ export const initializeScheduler = () => {
     cron.schedule('5 * * * *', () => {
         console.log('-------------------------------------');
         console.log('Triggering hourly market insight discovery...');
-        runMarketInsightWorker().catch((err: any) => { // FIX: Add type to err
+        runMarketInsightWorker().catch((err: any) => {
             console.error('A critical error occurred during the market insight worker run:', err);
         });
     });
+
+    // --- NEW JOB 6: Expire User Trials ---
+    // Runs once per day at 3:00 AM to check for and end expired trials.
+    cron.schedule('0 3 * * *', () => {
+        console.log('-------------------------------------');
+        console.log('💳 Triggering daily check for expired user trials...');
+        expireUserTrials().catch((err: any) => {
+            console.error('A critical error occurred during the user trial expiration job:', err);
+        });
+    });
+
 
     console.log('✅ Scheduler initialized with all jobs.');
 };

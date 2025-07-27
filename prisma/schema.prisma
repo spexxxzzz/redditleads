@@ -29,6 +29,7 @@ model User {
   scheduledReplies        ScheduledReply[]
   webhooks                Webhook[]
   emailNotificationSetting EmailNotificationSetting?
+  subscriptionEndsAt       DateTime?
 }
 // ✨ NEW MODEL ADDED FOR EMAIL NOTIFICATIONS ✨
 model EmailNotificationSetting {

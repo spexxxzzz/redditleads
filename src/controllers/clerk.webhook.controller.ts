@@ -17,6 +17,8 @@ interface UserWebhookEventData {
     first_name: string | null;
     last_name: string | null;
     image_url: string;
+    // We add username here as it's used in the creation logic now
+    username: string | null;
 }
 
 export const handleClerkWebhook: RequestHandler = async (req, res, next) => {
@@ -24,7 +26,7 @@ export const handleClerkWebhook: RequestHandler = async (req, res, next) => {
     if (!WEBHOOK_SECRET) {
         console.error('Error: CLERK_WEBHOOK_SECRET is not set in .env file.');
         res.status(500).send('Server configuration error: Webhook secret not found.');
-        return; // Use a simple return
+        return;
     }
 
     const headers = req.headers;
@@ -35,7 +37,7 @@ export const handleClerkWebhook: RequestHandler = async (req, res, next) => {
     const svix_signature = headers['svix-signature'] as string;
 
     if (!svix_id || !svix_timestamp || !svix_signature) {
-        res.status(400).send('Error occured -- no svix headers');
+        res.status(400).send('Error occurred -- no svix headers');
         return;
     }
 
@@ -50,15 +52,16 @@ export const handleClerkWebhook: RequestHandler = async (req, res, next) => {
         }) as { data: any; type: string };
     } catch (err: any) {
         console.error('Error verifying webhook:', err.message);
-        res.status(400).send('Error occured during verification');
+        res.status(400).send('Error occurred during verification');
         return;
     }
 
     const eventType = evt.type;
     console.log(`✅ Clerk Webhook received: ${eventType}`);
 
+    // --- MODIFIED: USER CREATION LOGIC WITH 7-DAY PRO TRIAL ---
     if (eventType === 'user.created') {
-        const { id, email_addresses }: UserWebhookEventData = evt.data;
+        const { id, email_addresses, first_name, last_name, image_url, username }: UserWebhookEventData = evt.data;
         const primaryEmail = email_addresses.find(e => e.verification?.status === 'verified')?.email_address;
         
         if (!primaryEmail) {
@@ -68,10 +71,22 @@ export const handleClerkWebhook: RequestHandler = async (req, res, next) => {
         }
 
         try {
+            // Calculate the trial end date: 7 days from now
+            const trialEndsAt = new Date();
+            trialEndsAt.setDate(trialEndsAt.getDate() + 7);
+
             await prisma.user.create({
-                data: { id: id, email: primaryEmail },
+                data: {
+                    id: id,
+                    email: primaryEmail,
+                    firstName: first_name? first_name : null,
+                    lastName: last_name? last_name : null,
+                    plan: 'pro', // Set the plan to 'pro' for the trial
+                    subscriptionStatus: 'active', // Set the initial status to active
+                    subscriptionEndsAt: trialEndsAt, // Set the trial expiration date
+                },
             });
-            console.log(`✅ New user ${id} successfully synced to database.`);
+            console.log(`✅ New user ${id} successfully synced to database with a 7-day pro trial.`);
         } catch (dbError) {
             console.error('Database error while creating user:', dbError);
             res.status(500).send('Failed to create user in database.');
@@ -79,14 +94,20 @@ export const handleClerkWebhook: RequestHandler = async (req, res, next) => {
         }
     }
     
+    // --- NO CHANGES to user.deleted logic ---
     if (eventType === 'user.deleted') {
         try {
             const { id } = evt.data;
-            await prisma.user.delete({ where: { id } });
-            console.log(`✅ User ${id} successfully deleted from database.`);
+            // Use findUnique to ensure we don't error on an already-deleted user
+            const userExists = await prisma.user.findUnique({ where: { id } });
+            if (userExists) {
+                await prisma.user.delete({ where: { id } });
+                console.log(`✅ User ${id} successfully deleted from database.`);
+            } else {
+                 console.log(`Webhook info: Attempted to delete user ${id}, but they were not found in the DB.`);
+            }
         } catch (dbError) {
-            // It's safe to ignore errors here if the user might already be deleted.
-            console.warn('Could not delete user from DB, they may have already been removed.');
+            console.warn('Could not delete user from DB, they may have already been removed.', dbError);
         }
     }
 
