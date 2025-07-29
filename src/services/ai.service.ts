@@ -263,7 +263,7 @@ Generate 3 distinct replies. Each reply MUST:
 "Hey, that's a tough spot to be in. I've dealt with [similar problem] before and found that [helpful advice]. It took a bit of tweaking but worked out. On a related note, you might find [Your Product] helpful for the [specific task] part of it. It's designed to make that a bit easier. Hope this helps!"
 
 **Output:**
-Return ONLY a valid JSON array of strings, like this: ["reply1", "reply2", "reply3"]`;
+Return ONLY a valid JSON array of strings, like this: ["reply1", "reply2", "reply3"]. Do not include any other text, markdown, or explanations outside of the JSON array itself.`;
 
     const responseText = await generateContentWithFallback(prompt);
 
@@ -274,8 +274,8 @@ Return ONLY a valid JSON array of strings, like this: ["reply1", "reply2", "repl
         return Array.isArray(replies) ? replies.slice(0, 3) : [replies.toString()];
     } catch (error) {
         console.error("Failed to parse AI response as JSON:", responseText);
-        // A more conversational and helpful fallback
-        return [`I saw you were asking about "${truncatedTitle}". I might have some ideas, but could you clarify a bit more on what you've tried so far? Also, my company builds a tool for this, but I want to make sure it's a good fit before recommending.`];
+        // A more conversational and helpful fallback, now using the company description
+        return [`I saw you were asking about "${truncatedTitle}". I might have some ideas, but could you clarify a bit more on what you've tried so far? Also, we're building a tool that helps with this (${truncatedDescription}), but I want to make sure it's a good fit before recommending.`];
     }
 };
 
@@ -311,8 +311,9 @@ export const discoverCompetitorsInText = async (text: string, ownProductDescript
     
     const responseText = await generateContentWithFallback(prompt);
     try {
-        const cleanedText = responseText.replace(/```/g, '');
-        const competitors = JSON.parse(cleanedText);
+        // Use the more robust JSON extraction method
+        const jsonString = responseText.match(/\[.*\]/s)?.[0] || responseText;
+        const competitors = JSON.parse(jsonString);
         const competitorList = Array.isArray(competitors) ? competitors.slice(0, 5) : [];
         
         aiCache.set(cacheKey, competitorList);
@@ -387,8 +388,9 @@ Return JSON: ["funny reply 1", "funny reply 2", "funny reply 3"]`;
     const responseText = await generateContentWithFallback(prompt);
 
     try {
-        const cleanedText = responseText.replace(/```/g, '');
-        return JSON.parse(cleanedText);
+        // Use the more robust JSON extraction method
+        const jsonString = responseText.match(/\[.*\]/s)?.[0] || responseText;
+        return JSON.parse(jsonString);
     } catch (error) {
         console.error("Failed to parse AI response as JSON:", responseText);
         return [
