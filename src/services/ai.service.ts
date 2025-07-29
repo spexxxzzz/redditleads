@@ -69,12 +69,14 @@ const aiProviders = [
 
 /**
  * Smart Fallback Function with Enhanced Caching and Optimization
+ * UPDATED: Now accepts an explicit cacheKey for more granular cache control.
  */
-const generateContentWithFallback = async (prompt: string): Promise<string> => {
-    const cacheKey = `ai_response:${Buffer.from(prompt).toString('base64').slice(0, 50)}`;
-    if (aiCache.has(cacheKey)) {
-        console.log('[CACHE HIT] Returning cached AI response');
-        return aiCache.get(cacheKey);
+const generateContentWithFallback = async (prompt: string, cacheKey?: string): Promise<string> => {
+    const finalCacheKey = cacheKey || `ai_response:${Buffer.from(prompt).toString('base64').slice(0, 50)}`;
+    
+    if (aiCache.has(finalCacheKey)) {
+        console.log(`[CACHE HIT] Returning cached AI response for key: ${finalCacheKey}`);
+        return aiCache.get(finalCacheKey);
     }
 
     let lastError: Error | null = null;
@@ -84,7 +86,7 @@ const generateContentWithFallback = async (prompt: string): Promise<string> => {
             const text = await provider.generate(prompt);
             if (!text) throw new Error("Received an empty response from the API.");
             console.log(`[AI Service] Successfully received response from ${provider.name}.`);
-            aiCache.set(cacheKey, text);
+            aiCache.set(finalCacheKey, text);
             return text;
         } catch (error) {
             lastError = error instanceof Error ? error : new Error("An unknown error occurred");
@@ -110,6 +112,9 @@ export const generateAIReplies = async (
     const truncatedCulture = subredditCultureNotes.slice(0, 200);
     const limitedRules = subredditRules.slice(0, 4).map(rule => rule.slice(0, 70));
     
+    // UPDATED: Create a highly specific cache key for this unique lead.
+    const cacheKey = `replies_v3:${truncatedTitle}:${truncatedBody.slice(0, 100)}`;
+
     const prompt = `You are an expert Reddit commenter. Your goal is to write 3 helpful and natural-sounding replies to a Reddit post. You must sound like a real person, not a corporate bot.
 
 **The Post:**
@@ -134,11 +139,9 @@ Generate 3 distinct replies. Each reply MUST:
 **Output:**
 Return ONLY a valid JSON object with a single key "replies" which contains an array of 3 strings. Example: {"replies": ["reply1", "reply2", "reply3"]}. Do not include any other text, markdown, or explanations.`;
 
-    const responseText = await generateContentWithFallback(prompt);
+    const responseText = await generateContentWithFallback(prompt, cacheKey);
 
     try {
-        // FINAL FIX: Use a regular expression to find the JSON object within the raw text.
-        // This is highly robust and will strip out markdown fences, logs, and other text.
         const jsonMatch = responseText.match(/{[\s\S]*}/);
         if (!jsonMatch || !jsonMatch[0]) {
             throw new Error("No valid JSON object found in the AI response.");
@@ -180,7 +183,7 @@ export const generateSubredditSuggestions = async (businessDescription: string):
 
     const prompt = `List 15-20 subreddits for this business. Return only subreddit names, comma-separated, no "r/" prefix: "${businessDescription.slice(0, 300)}"`;
 
-    const rawText = await generateContentWithFallback(prompt);
+    const rawText = await generateContentWithFallback(prompt, cacheKey);
     const candidateSubreddits = rawText.split(',').map(s => s.trim()).filter(Boolean).slice(0, 20);
     console.log(`[Subreddit Suggestions] AI suggested ${candidateSubreddits.length} candidates.`);
 
@@ -200,7 +203,7 @@ export const generateSubredditSuggestions = async (businessDescription: string):
 
     console.log(`[Subreddit Suggestions] Verified ${finalSubreddits.length} real subreddits.`);
     
-    aiCache.set(cacheKey, finalSubreddits);
+    // No need to set cache here, generateContentWithFallback does it.
     setTimeout(() => aiCache.delete(cacheKey), 24 * 60 * 60 * 1000);
     
     return finalSubreddits;
@@ -211,18 +214,12 @@ export const generateSubredditSuggestions = async (businessDescription: string):
  */
 export const generateKeywords = async (websiteText: string): Promise<string[]> => {
     const cacheKey = `keywords_v2:${websiteText.slice(0, 200)}`;
-    if (aiCache.has(cacheKey)) {
-        console.log(`[CACHE HIT] for keywords.`);
-        return aiCache.get(cacheKey);
-    }
-
     const truncatedText = websiteText.slice(0, 500);
     const prompt = `Extract casual Reddit keywords from: "${truncatedText}". Return comma-separated list only.`;
 
-    const text = await generateContentWithFallback(prompt);
+    const text = await generateContentWithFallback(prompt, cacheKey);
     const keywords = text.split(',').map(k => k.trim()).filter(Boolean).slice(0, 15);
 
-    aiCache.set(cacheKey, keywords);
     setTimeout(() => aiCache.delete(cacheKey), 24 * 60 * 60 * 1000);
     
     return keywords;
@@ -233,17 +230,11 @@ export const generateKeywords = async (websiteText: string): Promise<string[]> =
  */
 export const generateDescription = async (websiteText: string): Promise<string> => {
     const cacheKey = `description_v2:${websiteText.slice(0, 200)}`;
-    if (aiCache.has(cacheKey)) {
-        console.log(`[CACHE HIT] for description.`);
-        return aiCache.get(cacheKey);
-    }
-
     const truncatedText = websiteText.slice(0, 400);
     const prompt = `Write a 2-sentence company description for: "${truncatedText}"`;
 
-    const description = await generateContentWithFallback(prompt);
-
-    aiCache.set(cacheKey, description);
+    const description = await generateContentWithFallback(prompt, cacheKey);
+    
     setTimeout(() => aiCache.delete(cacheKey), 24 * 60 * 60 * 1000);
     
     return description;
@@ -254,19 +245,13 @@ export const generateDescription = async (websiteText: string): Promise<string> 
  */
 export const generateCultureNotes = async (description: string, rules: string[]): Promise<string> => {
     const cacheKey = `culture_v2:${description.slice(0, 100)}:${rules.join(',').slice(0, 100)}`;
-    if (aiCache.has(cacheKey)) {
-        console.log(`[CACHE HIT] for culture notes.`);
-        return aiCache.get(cacheKey);
-    }
-
     const limitedRules = rules.slice(0, 5).map((rule, index) => `${index + 1}. ${rule.slice(0, 100)}`).join('\n');
     const limitedDescription = description.slice(0, 200);
     
     const prompt = `Summarize subreddit culture in 1 paragraph. Description: "${limitedDescription}" Rules: "${limitedRules}"`;
 
-    const cultureNotes = await generateContentWithFallback(prompt);
+    const cultureNotes = await generateContentWithFallback(prompt, cacheKey);
 
-    aiCache.set(cacheKey, cultureNotes.trim());
     setTimeout(() => aiCache.delete(cacheKey), 24 * 60 * 60 * 1000);
     
     return cultureNotes.trim();
@@ -283,7 +268,7 @@ export const refineAIReply = async (originalText: string, instruction: string): 
 Instruction: "${truncatedInstruction}"
 New version:`;
 
-    const refinedText = await generateContentWithFallback(prompt);
+    const refinedText = await generateContentWithFallback(prompt); // Uses generic cache key
     return refinedText.trim();
 };
 
@@ -292,23 +277,17 @@ New version:`;
  */
 export const discoverCompetitorsInText = async (text: string, ownProductDescription: string): Promise<string[]> => {
     const cacheKey = `competitors_v2:${text.slice(0, 200)}:${ownProductDescription.slice(0, 100)}`;
-    if (aiCache.has(cacheKey)) {
-        console.log(`[CACHE HIT] for competitor discovery.`);
-        return aiCache.get(cacheKey);
-    }
-
     const truncatedText = text.slice(0, 400);
     const truncatedProduct = ownProductDescription.slice(0, 150);
     
     const prompt = `Find competitors in text. My product: "${truncatedProduct}" Text: "${truncatedText}" Return JSON array of competitor names or [].`;
     
-    const responseText = await generateContentWithFallback(prompt);
+    const responseText = await generateContentWithFallback(prompt, cacheKey);
     try {
         const jsonString = responseText.match(/\[.*\]/s)?.[0] || responseText;
         const competitors = JSON.parse(jsonString);
         const competitorList = Array.isArray(competitors) ? competitors.slice(0, 5) : [];
         
-        aiCache.set(cacheKey, competitorList);
         setTimeout(() => aiCache.delete(cacheKey), 24 * 60 * 60 * 1000);
         
         return competitorList;
@@ -377,7 +356,7 @@ Body: "${truncatedBody}"
 Product: "${truncatedDescription}"
 Return JSON: ["funny reply 1", "funny reply 2", "funny reply 3"]`;
 
-    const responseText = await generateContentWithFallback(prompt);
+    const responseText = await generateContentWithFallback(prompt); // Uses generic cache key
 
     try {
         const jsonString = responseText.match(/\[.*\]/s)?.[0] || responseText;
@@ -406,7 +385,7 @@ export const analyzeLeadIntent = async (title: string, body: string | null, user
     
     const prompt = `Classify intent as: pain_point, solution_seeking, brand_comparison, or general_discussion. Title: "${truncatedTitle}" Body: "${truncatedBody}"`;
     
-    const intent = await generateContentWithFallback(prompt);
+    const intent = await generateContentWithFallback(prompt); // Uses generic cache key
     return intent.trim().toLowerCase();
 };
 
@@ -440,7 +419,7 @@ export const analyzeSentiment = async (title: string, body: string | null, userI
     
     const prompt = `Classify sentiment as: positive, negative, or neutral. Title: "${truncatedTitle}" Body: "${truncatedBody}"`;
     
-    const sentiment = await generateContentWithFallback(prompt);
+    const sentiment = await generateContentWithFallback(prompt); // Uses generic cache key
     return sentiment.trim().toLowerCase();
 };
 
