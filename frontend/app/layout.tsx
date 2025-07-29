@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ClerkProvider } from "@clerk/nextjs"; // Import ClerkProvider
+import { Analytics } from "@vercel/analytics/next";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,7 +15,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
- // --- MODIFIED METADATA OBJECT ---
+// --- MODIFIED METADATA OBJECT ---
 export const metadata: Metadata = {
   title: "RedLead - AI-Powered Reddit Lead Generation",
   description: "Revolutionize your lead generation with RedLead's AI-driven platform, leveraging Reddit's vast community to find warm prospects and automate outreach.",
@@ -25,8 +26,7 @@ export const metadata: Metadata = {
     siteName: "RedLead",
     images: [
       {
-      
-        url: "https://www.redlead.net/Landing.png", 
+        url: "https://www.redlead.net/Landing.png",
         width: 1200,
         height: 630,
         alt: "RedLead Application Dashboard",
@@ -39,11 +39,9 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "RedLead - AI-Powered Reddit Lead Generation",
     description: "Find warm prospects and automate outreach with AI.",
-  
-    images: ["https://www.redlead.net/Landing.png"], 
+    images: ["https://www.redlead.net/Landing.png"],
   },
 };
-
 
 export default function RootLayout({
   children,
@@ -52,10 +50,10 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
-    <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <html lang="en" suppressHydrationWarning>
+        <body
+          className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        >
           <ThemeProvider
             attribute="class"
             defaultTheme="system"
@@ -64,8 +62,9 @@ export default function RootLayout({
           >
             {children}
           </ThemeProvider>
-      </body>
-    </html>
+          <Analytics />
+        </body>
+      </html>
     </ClerkProvider>
   );
 }

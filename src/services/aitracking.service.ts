@@ -2,14 +2,15 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// Define limits for different usage types and plans
 const USAGE_LIMITS = {
-    competitor: { free: 0, starter: 0, pro: 1 },
-    sentiment: { free: 50, starter: 200, pro: 1000 },
-    intent: { free: 25, starter: 100, pro: 500 },
-    // FIX: Added limits for manual discovery runs
-    manual_discovery: { free: 5, starter: 20, pro: 100 }
-};
+    reply:    { free: 0, starter: 75, pro: 300 },
+    intent:   { free: 0, starter: 200, pro: 1000 },
+    sentiment:{ free: 0, starter: 200, pro: 1000 },
+    keywords: { free: 5, starter: 15, pro: 50 },
+    competitor: { free: 0, starter: 0, pro: 1000 },
+    manual_discovery: { free: 1, starter: 10, pro: 30 }
+    // ...add more as needed
+  };
 
 type UsageType = keyof typeof USAGE_LIMITS;
 
