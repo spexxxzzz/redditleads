@@ -13,7 +13,6 @@ import { Button } from "@/components/ui/button";
 import PulsatingDotsLoaderDashboard from '../loading/LoadingDashboard';
 import { DeleteLeadsModal } from "./DeleteLead";
 import { DiscoveryButtons } from './DiscoveryOptions';
-// CORRECTED: The Lead type is now imported ONLY from the centralized hook
 import { useReplyModal, Lead } from '@/hooks/useReplyModal';
 import { ReplyModal } from './ReplyModal';
 import { Menu, X } from 'lucide-react';
@@ -50,7 +49,7 @@ export const DashboardLayout = () => {
   const [isRunningDiscovery, setIsRunningDiscovery] = useState(false);
   const [activeCampaign, setActiveCampaign] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false); // Default to expanded on desktop
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -63,13 +62,15 @@ export const DashboardLayout = () => {
 
   const { isOpen: isReplyModalOpen, lead: replyModalLead, onClose: onReplyModalClose } = useReplyModal();
 
+  // Effect to handle screen size changes for responsive layout
   useEffect(() => {
     const checkScreenSize = () => {
-      const mobile = window.innerWidth < 768;
+      const mobile = window.innerWidth < 768; // Tailwind's `md` breakpoint
       setIsMobile(mobile);
       if (mobile) {
-        setIsSidebarCollapsed(true);
-        setIsMobileMenuOpen(false);
+        setIsMobileMenuOpen(false); // Ensure menu is closed when resizing to mobile
+      } else {
+        setIsSidebarCollapsed(false); // Default to expanded sidebar on desktop
       }
     };
     checkScreenSize();
@@ -127,7 +128,7 @@ export const DashboardLayout = () => {
       } else {
         setLeads(leadsData);
       }
-    } catch (err: any) { // CORRECTED: Added the missing opening brace for the catch block
+    } catch (err: any) {
       setError(`Failed to load leads: ${err.message}`);
       setLeads([]);
       setAllLeads([]);
@@ -156,11 +157,13 @@ export const DashboardLayout = () => {
       fetchCampaigns();
     }
   };
+
   const handleLeadDelete = (leadId: string) => {
     const updateLeadList = (list: Lead[]) => list.filter(lead => lead.id !== leadId);
     setLeads(updateLeadList(leads));
     setAllLeads(updateLeadList(allLeads));
   };
+
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
@@ -196,7 +199,6 @@ export const DashboardLayout = () => {
   const currentCampaign = campaigns.find(c => c.id === activeCampaign);
 
   if (error && campaigns.length === 0) {
-    // Error state UI
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-4">
         <Card className="w-full max-w-md bg-black/60 border-white/10">
@@ -219,12 +221,27 @@ export const DashboardLayout = () => {
       <div className="relative z-10">
         <RedLeadHeader />
         
+        {/* Mobile Menu Button */}
+        <div className="md:hidden fixed top-5 right-5 z-50">
+          <Button
+            onClick={toggleMobileMenu}
+            variant="ghost"
+            size="icon"
+            className="bg-black/50 text-white backdrop-blur-sm rounded-full"
+            aria-label="Toggle menu"
+          >
+            {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </Button>
+        </div>
+
         <div className="flex relative">
           <motion.aside 
-            animate={{ x: isMobile && !isMobileMenuOpen ? -280 : 0, width: isSidebarCollapsed ? 80 : 280 }} 
-            transition={{ duration: 0.4, ease: "easeOut" }} 
-            className={`flex-shrink-0 border-r border-white/10 bg-black/40 backdrop-blur-sm z-40 ${isMobile ? 'fixed h-full' : 'relative'}`}
-            style={{ height: isMobile ? '100vh' : 'auto', top: isMobile ? 0 : 'auto' }}
+            animate={{ 
+              width: isMobile ? 280 : (isSidebarCollapsed ? 80 : 280),
+              x: isMobile ? (isMobileMenuOpen ? 0 : -280) : 0
+            }} 
+            transition={{ duration: 0.3, ease: "easeInOut" }} 
+            className={`flex-shrink-0 border-r border-white/10 bg-black/60 backdrop-blur-lg z-40 h-screen top-0 ${isMobile ? 'fixed' : 'sticky'}`}
           >
             <DashboardSidebar 
               campaigns={campaigns} 
@@ -236,13 +253,14 @@ export const DashboardLayout = () => {
                 if (isMobile) setIsMobileMenuOpen(false);
               }} 
               stats={leadStats} 
-              isCollapsed={isSidebarCollapsed} 
+              isCollapsed={isMobile ? false : isSidebarCollapsed}
               setIsCollapsed={setIsSidebarCollapsed}
               activeView={activeView}
               setActiveView={(view) => {
                 setActiveView(view);
                 if (isMobile) setIsMobileMenuOpen(false);
               }}
+              isMobile={isMobile}
             />
           </motion.aside>
 
@@ -253,12 +271,12 @@ export const DashboardLayout = () => {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30"
+                className="fixed inset-0 bg-black/60 z-30"
               />
             )}
           </AnimatePresence>
           
-          <main className={`flex-1 min-h-screen relative ${isMobile ? 'w-full' : ''}`}>
+          <main className="flex-1 min-h-screen relative">
             <AnimatePresence mode="wait">
               {activeView === 'dashboard' ? (
                 <motion.div key="dashboard" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.4, ease: "easeOut" }} className="relative z-10">

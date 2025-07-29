@@ -54,6 +54,7 @@ interface Props {
   setIsCollapsed: (collapsed: boolean) => void;
   activeView: 'dashboard' | 'leads';
   setActiveView: (view: 'dashboard' | 'leads') => void;
+  isMobile: boolean; // Prop to indicate mobile view
 }
 
 export const DashboardSidebar = ({
@@ -66,15 +67,11 @@ export const DashboardSidebar = ({
   isCollapsed,
   setIsCollapsed,
   activeView,
-  setActiveView
+  setActiveView,
+  isMobile
 }: Props) => {
   const { isLoaded, isSignedIn, user } = useUser();
   const pathname = usePathname();
-  const [expandedSections, setExpandedSections] = useState({
-    main: true,
-    inbox: true,
-    campaigns: true
-  });
 
   if (!isLoaded) {
     return (
@@ -154,7 +151,7 @@ export const DashboardSidebar = ({
     <div className="h-screen flex flex-col bg-black border-r border-zinc-800 sticky top-0 z-20">
       {/* User Profile Section */}
       <div className="p-4 border-b border-zinc-800 bg-black">
-        {isCollapsed ? (
+        {(isCollapsed && !isMobile) ? (
           <div className="flex flex-col items-center space-y-2">
             <Avatar className="h-8 w-8">
               <AvatarImage src={user.imageUrl} alt={user.fullName || 'User'} />
@@ -190,14 +187,17 @@ export const DashboardSidebar = ({
                   </p>
                 )}
               </div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setIsCollapsed(true)}
-                className="p-1 h-6 w-6 hover:bg-zinc-900 text-gray-400 hover:text-white"
-              >
-                <ChevronLeft className="h-3 w-3" />
-              </Button>
+              {/* Hide collapse button on mobile */}
+              {!isMobile && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setIsCollapsed(true)}
+                  className="p-1 h-6 w-6 hover:bg-zinc-900 text-gray-400 hover:text-white"
+                >
+                  <ChevronLeft className="h-3 w-3" />
+                </Button>
+              )}
             </div>
             <Badge className="bg-orange-500 hover:bg-orange-600 text-white border-0">
               <Crown className="h-3 w-3 mr-1" />
