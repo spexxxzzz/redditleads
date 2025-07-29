@@ -36,11 +36,11 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
       setIsRunningGlobal(true);
       const token = await getToken();
       const result = await api.runManualDiscovery(campaignId, token);
-      
+
       toast.success(`Found ${result.length} global leads!`, {
         description: 'Discovered leads from across Reddit using global search'
       });
-      
+
       onLeadsDiscovered();
     } catch (error: any) {
       console.error('Global discovery failed:', error);
@@ -57,16 +57,16 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
       setIsRunningTargeted(true);
       const token = await getToken();
       const result = await api.runTargetedDiscovery(campaignId, token);
-      
+
       toast.success(`Found ${result.leads?.length || 0} targeted leads!`, {
         description: `Searched ${result.subredditsSearched?.length || 0} specific subreddits`
       });
-      
+
       onLeadsDiscovered();
     } catch (error: any) {
       console.error('Targeted discovery failed:', error);
-      
-      if (error.message.includes('No target subreddits')) {
+
+      if (error.message?.includes('No target subreddits')) {
         toast.error('No target subreddits configured', {
           description: 'Please add target subreddits to your campaign first'
         });
@@ -90,32 +90,31 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="grid grid-cols-1 lg:grid-cols-2 gap-4"
+        className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6"
       >
         {/* Global Discovery */}
         <motion.div
-          whileHover={{ scale: 1.01 }}
-          whileTap={{ scale: 0.99 }}
-          className="group relative"
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className="group relative h-full flex flex-col"
         >
-          <div className="bg-black/40 backdrop-blur-sm border border-white/10 rounded-lg p-4 space-y-3">
-            <div className="space-y-2">
-              <h3 className={`text-lg font-bold text-white ${poppins.className}`}>
+          <div className="bg-black/40 backdrop-blur-sm border border-white/10 rounded-lg p-3 sm:p-4 flex flex-col h-full min-h-[210px]">
+            <div className="space-y-2 flex-1">
+              <h3 className={`text-base sm:text-lg font-bold text-white ${poppins.className}`}>
                 Global Search
               </h3>
               <p className={`text-white/60 text-sm ${inter.className}`}>
                 AI-powered search across the entire Reddit platform for discovering new opportunities.
               </p>
             </div>
-
             <Button
               onClick={handleGlobalDiscovery}
               disabled={isAnyRunning}
               className={`
-                w-full bg-white text-blue-600 hover:bg-gray-50 
-                border-0 shadow-sm hover:shadow-md transition-all duration-200
+                w-full bg-white text-blue-600 hover:bg-gray-50 border-0
+                shadow-sm hover:shadow-md transition-all duration-200
                 disabled:opacity-50 disabled:cursor-not-allowed
-                font-semibold
+                font-semibold h-9 sm:h-10 px-3 sm:px-4 text-sm sm:text-base rounded-md
               `}
             >
               {isRunningGlobal ? (
@@ -129,14 +128,14 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
 
         {/* Targeted Discovery */}
         <motion.div
-          whileHover={{ scale: 1.01 }}
-          whileTap={{ scale: 0.99 }}
-          className="group relative"
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className="group relative h-full flex flex-col"
         >
-          <div className="bg-black/40 backdrop-blur-sm border border-white/10 rounded-lg p-4 space-y-3">
-            <div className="space-y-2">
+          <div className="bg-black/40 backdrop-blur-sm border border-white/10 rounded-lg p-3 sm:p-4 flex flex-col h-full min-h-[210px]">
+            <div className="space-y-2 flex-1">
               <div className="flex items-center justify-between">
-                <h3 className={`text-lg font-bold text-white ${poppins.className}`}>
+                <h3 className={`text-base sm:text-lg font-bold text-white ${poppins.className}`}>
                   Targeted Search
                 </h3>
                 <ArrowRight className="w-4 h-4 text-red-400 group-hover:translate-x-1 transition-transform duration-300" />
@@ -148,15 +147,14 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
                 }
               </p>
             </div>
-
             <Button
               onClick={handleTargetedDiscovery}
               disabled={isAnyRunning || !hasTargetSubreddits}
               className={`
-                w-full bg-white text-red-600 hover:bg-gray-50 
-                border-0 shadow-sm hover:shadow-md transition-all duration-200
+                w-full bg-white text-red-600 hover:bg-gray-50 border-0 
+                shadow-sm hover:shadow-md transition-all duration-200
                 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-200
-                font-semibold
+                font-semibold h-9 sm:h-10 px-3 sm:px-4 text-sm sm:text-base rounded-md
               `}
             >
               {isRunningTargeted ? (
@@ -171,7 +169,8 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
         </motion.div>
       </motion.div>
 
-      {/* Progress Indicator */}
+      {/* Progress Indicator ...unchanged... */}
+
       {isAnyRunning && (
         <motion.div
           initial={{ opacity: 0, height: 0 }}
@@ -182,14 +181,14 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
           <div className="relative h-1.5 bg-white/10 rounded-full overflow-hidden">
             <motion.div
               className="absolute inset-y-0 left-0 bg-gradient-to-r from-orange-400 to-orange-500 rounded-full"
-              animate={{ 
+              animate={{
                 width: ['0%', '100%'],
                 opacity: [0.5, 1, 0.5]
               }}
-              transition={{ 
-                duration: 2, 
-                repeat: Infinity, 
-                ease: "easeInOut" 
+              transition={{
+                duration: 2,
+                repeat: Infinity,
+                ease: "easeInOut"
               }}
             />
           </div>
@@ -202,7 +201,7 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
         </motion.div>
       )}
 
-      {/* Last Discovery Info */}
+      {/* Last Discovery Info ...unchanged... */}
       {lastDiscoveryAt && (
         <motion.div
           initial={{ opacity: 0 }}

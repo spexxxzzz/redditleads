@@ -1,27 +1,10 @@
 "use client";
 import React, { useState } from "react";
 import {
-  MessageSquare,
-  Bookmark,
-  MoreHorizontal,
-  ExternalLink,
-  Clock,
-  Target,
-  Loader2,
-  Globe2,
-  ChevronDown,
-  ChevronUp,
-  Star,
-  User,
-  XCircle,
-  BookmarkCheck,
-  CheckCircle,
-  RotateCcw,
-  Copy,
-  Check,
-  Sparkles,
-  Trash2,
-  TrendingUp, // Make sure to import the TrendingUp icon
+  MessageSquare, Bookmark, MoreHorizontal, ExternalLink, Clock,
+  Target, Loader2, Globe2, ChevronDown, ChevronUp, Star, User,
+  XCircle, BookmarkCheck, CheckCircle, RotateCcw, Copy, Check,
+  Sparkles, Trash2, TrendingUp,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ReplyModal } from "./ReplyModal";
@@ -34,11 +17,8 @@ import { Badge } from "@/components/ui/badge";
 import { useReplyModal } from "@/hooks/useReplyModal";
 import { toast } from "sonner";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
 // Define ApiError for local use
@@ -72,7 +52,7 @@ export interface Lead {
   status?: "new" | "replied" | "saved" | "ignored";
   numComments: number;
   upvoteRatio: number;
-  isGoogleRanked?: boolean; // Add this property
+  isGoogleRanked?: boolean;
 }
 
 interface LeadCardProps {
@@ -91,11 +71,10 @@ export const LeadCard = ({ lead, onStatusChange, onDelete }: LeadCardProps) => {
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [isCopied, setIsCopied] = useState(false);
-  
+
   const [status, setStatus] = useState<Lead['status']>(lead.status || 'new');
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
-
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const timeAgo = (timestamp: number) => {
@@ -123,7 +102,7 @@ export const LeadCard = ({ lead, onStatusChange, onDelete }: LeadCardProps) => {
       default: return "bg-gray-500/10 text-gray-400 border-gray-500/20";
     }
   };
-  
+
   const getStatusStyle = (s: Lead['status']) => {
     switch (s) {
       case 'saved': return { icon: BookmarkCheck, color: 'bg-blue-500/10 text-blue-400 border-blue-500/20' };
@@ -152,7 +131,6 @@ export const LeadCard = ({ lead, onStatusChange, onDelete }: LeadCardProps) => {
 
   const copyToClipboard = async () => {
     if (!summary) return;
-    
     try {
       await navigator.clipboard.writeText(summary);
       setIsCopied(true);
@@ -204,48 +182,50 @@ export const LeadCard = ({ lead, onStatusChange, onDelete }: LeadCardProps) => {
         exit={{ opacity: 0, y: -20 }} 
         className="bg-black rounded-lg border border-zinc-800 hover:border-zinc-700 transition-all duration-200 overflow-hidden"
       >
-        <div className="p-6">
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center gap-3 flex-1 min-w-0">
+        <div className="p-4 sm:p-6">
+
+          {/* Header block: subreddit/author and status/time */}
+          <div className="flex flex-col sm:flex-row gap-y-2 items-start sm:items-center justify-between mb-4 w-full">
+            <div className="flex flex-col sm:flex-row gap-1 sm:gap-3 flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-shrink-0">
                 <Globe2 className="w-4 h-4 text-orange-500" />
-                <span className={`text-sm font-medium text-orange-400 ${inter.className}`}>
-                  r/{lead.subreddit}
-                </span>
+                <span className={`text-sm font-medium text-orange-400 ${inter.className}`}>r/{lead.subreddit}</span>
               </div>
               <div className="flex items-center gap-2 text-sm text-gray-400 truncate">
                 <User className="w-3 h-3 flex-shrink-0" />
                 <span className={`truncate ${inter.className}`}>u/{lead.author}</span>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1 sm:gap-3 mt-2 sm:mt-0">
               {statusStyle && (
-                <Badge variant="outline" className={`${statusStyle.color}`}>
+                <Badge variant="outline" className={`${statusStyle.color} min-w-[85px] flex items-center`}>
                   <statusStyle.icon className="w-3.5 h-3.5 mr-1.5" />
                   <span className={inter.className}>
                     {(status ?? 'New').charAt(0).toUpperCase() + (status ?? 'New').slice(1)}
                   </span>
                 </Badge>
               )}
-              <div className="flex items-center gap-2 text-sm text-gray-400">
+              <div className="flex items-center gap-1 text-sm text-gray-400">
                 <Clock className="w-3 h-3" />
                 <span className={inter.className}>{timeAgo(lead.createdAt)}</span>
               </div>
             </div>
           </div>
 
+          {/* Post Title */}
           <a 
             href={lead.url} 
             target="_blank" 
             rel="noopener noreferrer" 
-            className="block mb-3 group"
+            className="block mb-2 group"
           >
-            <h3 className={`text-lg font-bold text-white group-hover:text-orange-400 transition-colors duration-200 leading-tight ${poppins.className}`}>
+            <h3 className={`text-base sm:text-lg font-bold text-white group-hover:text-orange-400 transition-colors duration-200 leading-tight ${poppins.className} truncate`}>
               {lead.title}
             </h3>
           </a>
 
-          <div className="flex flex-wrap items-center gap-2 mb-4">
+          {/* Chips: Opportunity, Intent, Google Ranked */}
+          <div className="flex flex-wrap items-center gap-2 mb-3">
             <div className="flex items-center gap-2">
               <Target className="w-4 h-4 text-orange-400" />
               <span className={`text-sm font-medium ${getOpportunityColor(lead.opportunityScore)} ${inter.className}`}>
@@ -257,17 +237,17 @@ export const LeadCard = ({ lead, onStatusChange, onDelete }: LeadCardProps) => {
                 {lead.intent.replace(/_/g, ' ')}
               </span>
             </Badge>
-            {/* INTEGRATED GOOGLE RANKED BADGE HERE */}
             {lead.isGoogleRanked && (
-                <Badge variant="default" className="bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500/20">
-                    <TrendingUp className="w-3.5 h-3.5 mr-1.5" />
-                    Google Ranked
-                </Badge>
+              <Badge variant="default" className="bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500/20">
+                <TrendingUp className="w-3.5 h-3.5 mr-1.5" />
+                Google Ranked
+              </Badge>
             )}
           </div>
 
+          {/* Body/Post */}
           {lead.body && (
-            <div className="mb-4">
+            <div className="mb-3 sm:mb-4">
               <div className={`text-gray-300 leading-relaxed ${isExpanded ? '' : 'line-clamp-3'} ${inter.className}`}>
                 {lead.body}
               </div>
@@ -276,7 +256,7 @@ export const LeadCard = ({ lead, onStatusChange, onDelete }: LeadCardProps) => {
                   variant="ghost"
                   size="sm"
                   onClick={() => setIsExpanded(!isExpanded)} 
-                  className="text-orange-500 hover:text-orange-400 hover:bg-orange-500/10 mt-2 p-0 h-auto font-normal"
+                  className="text-orange-500 hover:text-orange-400 hover:bg-orange-500/10 mt-1 p-0 h-auto font-normal"
                 >
                   {isExpanded ? <ChevronUp className="w-4 h-4 mr-1" /> : <ChevronDown className="w-4 h-4 mr-1" />}
                   <span className={inter.className}>
@@ -287,13 +267,14 @@ export const LeadCard = ({ lead, onStatusChange, onDelete }: LeadCardProps) => {
             </div>
           )}
 
+          {/* AI Summary */}
           {shouldShowSummary && (
             <div className="mb-4">
               {!summary && !isSummarizing && (
                 <div className="relative group inline-block">
                   <div className="absolute -inset-0.5 bg-gradient-to-r from-orange-500 to-amber-500 rounded-lg opacity-20 group-hover:opacity-30 transition duration-300"></div>
                   <Card className="relative bg-black border-zinc-800 hover:border-orange-500/50 transition-all duration-300">
-                    <CardContent className="p-1.5">
+                    <CardContent className="p-2 sm:p-3">
                       <Button 
                         variant="ghost"
                         size="sm"
@@ -313,11 +294,8 @@ export const LeadCard = ({ lead, onStatusChange, onDelete }: LeadCardProps) => {
                  <Card className="bg-black border-zinc-800">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-center gap-3 text-orange-400">
-                      <div className="relative">
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        <div className="absolute inset-0 w-5 h-5 rounded-full border-2 border-orange-500/20 border-t-orange-500 animate-spin"></div>
-                      </div>
-                      <div className="text-center">
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <div>
                         <div className={`font-medium ${poppins.className}`}>
                           Generating AI Summary
                         </div>
@@ -329,7 +307,6 @@ export const LeadCard = ({ lead, onStatusChange, onDelete }: LeadCardProps) => {
                   </CardContent>
                 </Card>
               )}
-
               {summary && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
@@ -349,12 +326,8 @@ export const LeadCard = ({ lead, onStatusChange, onDelete }: LeadCardProps) => {
                             <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-400 rounded-full animate-pulse"></div>
                           </div>
                           <div>
-                            <span className={`text-orange-400 font-semibold ${poppins.className}`}>
-                              AI Summary
-                            </span>
-                            <div className={`text-xs text-gray-500 font-normal ${inter.className}`}>
-                              Generated insights
-                            </div>
+                            <span className={`text-orange-400 font-semibold ${poppins.className}`}>AI Summary</span>
+                            <div className={`text-xs text-gray-500 font-normal ${inter.className}`}>Generated insights</div>
                           </div>
                         </CardTitle>
                         <Button
@@ -375,9 +348,7 @@ export const LeadCard = ({ lead, onStatusChange, onDelete }: LeadCardProps) => {
                     <CardContent className="pt-0">
                       <div className="relative">
                         <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-orange-500 to-amber-500 rounded-full"></div>
-                        <p className={`text-gray-300 text-sm leading-relaxed pl-4 ${inter.className}`}>
-                          {summary}
-                        </p>
+                        <p className={`text-gray-300 text-sm leading-relaxed pl-4 ${inter.className}`}>{summary}</p>
                       </div>
                       {isCopied && (
                         <motion.div
@@ -394,7 +365,6 @@ export const LeadCard = ({ lead, onStatusChange, onDelete }: LeadCardProps) => {
                   </Card>
                 </motion.div>
               )}
-
               {summaryError && (
                 <Card className="bg-red-500/5 border-red-500/20">
                   <CardContent className="p-4">
@@ -412,7 +382,8 @@ export const LeadCard = ({ lead, onStatusChange, onDelete }: LeadCardProps) => {
             </div>
           )}
 
-          <div className="flex items-center gap-2 pt-4 border-t border-zinc-800">
+          {/* Action buttons */}
+          <div className="flex flex-wrap items-center gap-2 pt-4 border-t border-zinc-800">
             {status !== 'replied' && (
               <Button 
                 onClick={() => onOpenReplyModal(lead)}
@@ -483,7 +454,6 @@ export const LeadCard = ({ lead, onStatusChange, onDelete }: LeadCardProps) => {
                 <span className={inter.className}>Ignore</span>
               </Button>
             )}
-
             <div className="flex-1" />
             <div className="flex items-center gap-2">
               <DropdownMenu>
@@ -518,6 +488,7 @@ export const LeadCard = ({ lead, onStatusChange, onDelete }: LeadCardProps) => {
         </div>
       </motion.div>
 
+      {/* Delete confirmation modal */}
       <AnimatePresence>
         {isConfirmingDelete && (
           <motion.div
@@ -532,7 +503,7 @@ export const LeadCard = ({ lead, onStatusChange, onDelete }: LeadCardProps) => {
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 w-full max-w-sm"
+              className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 w-full max-w-sm mx-2"
             >
               <h3 className="text-lg font-bold text-white">Confirm Deletion</h3>
               <p className="text-zinc-400 mt-2 mb-6">Are you sure you want to permanently delete this lead? This action cannot be undone.</p>
@@ -544,19 +515,16 @@ export const LeadCard = ({ lead, onStatusChange, onDelete }: LeadCardProps) => {
           </motion.div>
         )}
       </AnimatePresence>
-      
+
+      {/* Upgrade Modal */}
       {showUpgradeModal && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center">
           <Card className="max-w-md mx-4 bg-black border-zinc-800">
             <CardHeader>
-              <CardTitle className={`text-white ${poppins.className}`}>
-                Upgrade Required
-              </CardTitle>
+              <CardTitle className={`text-white ${poppins.className}`}>Upgrade Required</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className={`text-gray-400 ${inter.className}`}>
-                This feature requires a Pro plan.
-              </p>
+              <p className={`text-gray-400 ${inter.className}`}>This feature requires a Pro plan.</p>
               <Button 
                 onClick={() => setShowUpgradeModal(false)} 
                 className="w-full bg-orange-500 hover:bg-orange-600"

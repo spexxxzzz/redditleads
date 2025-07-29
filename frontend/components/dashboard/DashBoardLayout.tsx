@@ -49,7 +49,7 @@ export const DashboardLayout = () => {
   const [isRunningDiscovery, setIsRunningDiscovery] = useState(false);
   const [activeCampaign, setActiveCampaign] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false); // Default to expanded on desktop
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -59,18 +59,17 @@ export const DashboardLayout = () => {
   const [intentFilter, setIntentFilter] = useState("all");
   const [sortBy, setSortBy] = useState("opportunityScore");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-
   const { isOpen: isReplyModalOpen, lead: replyModalLead, onClose: onReplyModalClose } = useReplyModal();
 
-  // Effect to handle screen size changes for responsive layout
+  // Responsive
   useEffect(() => {
     const checkScreenSize = () => {
-      const mobile = window.innerWidth < 768; // Tailwind's `md` breakpoint
+      const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
       if (mobile) {
-        setIsMobileMenuOpen(false); // Ensure menu is closed when resizing to mobile
+        setIsMobileMenuOpen(false);
       } else {
-        setIsSidebarCollapsed(false); // Default to expanded sidebar on desktop
+        setIsSidebarCollapsed(false);
       }
     };
     checkScreenSize();
@@ -83,11 +82,8 @@ export const DashboardLayout = () => {
       const token = await getToken();
       const data = await api.getCampaigns(token);
       setCampaigns(data || []);
-      if (data && data.length > 0 && !activeCampaign) {
-        setActiveCampaign(data[0].id);
-      } else if (!data || data.length === 0) {
-        setIsLoading(false);
-      }
+      if (data && data.length > 0 && !activeCampaign) setActiveCampaign(data[0].id);
+      else if (!data || data.length === 0) setIsLoading(false);
     } catch (err: any) {
       setError(`Failed to load campaigns: ${err.message}`);
     }
@@ -104,25 +100,24 @@ export const DashboardLayout = () => {
         page: 1,
         limit: 1000,
       }, token);
-      
       const leadsData: Lead[] = (allLeadsResponse.data || []).map((lead: any) => ({
-          id: lead.id,
-          title: lead.title,
-          author: lead.author,
-          subreddit: lead.subreddit,
-          url: lead.url,
-          body: lead.body,
-          createdAt: lead.createdAt,
-          intent: lead.intent,
-          summary: lead.summary,
-          opportunityScore: lead.opportunityScore,
-          status: lead.status || 'new',
-          numComments: lead.numComments,
-          upvoteRatio: lead.upvoteRatio,
-          isGoogleRanked: lead.isGoogleRanked ?? false,
+        id: lead.id,
+        title: lead.title,
+        author: lead.author,
+        subreddit: lead.subreddit,
+        url: lead.url,
+        body: lead.body,
+        createdAt: lead.createdAt,
+        intent: lead.intent,
+        summary: lead.summary,
+        opportunityScore: lead.opportunityScore,
+        status: lead.status || 'new',
+        numComments: lead.numComments,
+        upvoteRatio: lead.upvoteRatio,
+        isGoogleRanked: lead.isGoogleRanked ?? false,
       }));
       setAllLeads(leadsData);
-      
+
       if (activeFilter !== "all") {
         setLeads(leadsData.filter((lead) => lead.status === activeFilter));
       } else {
@@ -191,7 +186,6 @@ export const DashboardLayout = () => {
       list.map(lead =>
         lead.id === leadId ? { ...lead, status } : lead
       );
-      
     setLeads(updateLeadList(leads));
     setAllLeads(updateLeadList(allLeads));
   };
@@ -220,7 +214,7 @@ export const DashboardLayout = () => {
     <div className="min-h-screen bg-black">
       <div className="relative z-10">
         <RedLeadHeader />
-        
+
         {/* Mobile Menu Button */}
         <div className="md:hidden fixed top-5 right-5 z-50">
           <Button
@@ -235,24 +229,25 @@ export const DashboardLayout = () => {
         </div>
 
         <div className="flex relative">
-          <motion.aside 
-            animate={{ 
-              width: isMobile ? 280 : (isSidebarCollapsed ? 80 : 280),
-              x: isMobile ? (isMobileMenuOpen ? 0 : -280) : 0
-            }} 
-            transition={{ duration: 0.3, ease: "easeInOut" }} 
+          <motion.aside
+            animate={{
+              width: isMobile ? 260 : (isSidebarCollapsed ? 72 : 260),
+              x: isMobile ? (isMobileMenuOpen ? 0 : -260) : 0
+            }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
             className={`flex-shrink-0 border-r border-white/10 bg-black/60 backdrop-blur-lg z-40 h-screen top-0 ${isMobile ? 'fixed' : 'sticky'}`}
+            style={{ minWidth: isMobile ? undefined : (isSidebarCollapsed ? 72 : 260) }}
           >
-            <DashboardSidebar 
-              campaigns={campaigns} 
-              activeCampaign={activeCampaign} 
-              setActiveCampaign={setActiveCampaign} 
-              activeFilter={activeFilter ?? "all"} 
+            <DashboardSidebar
+              campaigns={campaigns}
+              activeCampaign={activeCampaign}
+              setActiveCampaign={setActiveCampaign}
+              activeFilter={activeFilter ?? "all"}
               setActiveFilter={(filter) => {
                 setActiveFilter(filter as Lead['status'] | 'all');
                 if (isMobile) setIsMobileMenuOpen(false);
-              }} 
-              stats={leadStats} 
+              }}
+              stats={leadStats}
               isCollapsed={isMobile ? false : isSidebarCollapsed}
               setIsCollapsed={setIsSidebarCollapsed}
               activeView={activeView}
@@ -275,31 +270,64 @@ export const DashboardLayout = () => {
               />
             )}
           </AnimatePresence>
-          
-          <main className="flex-1 min-h-screen relative">
+
+          {/* Main Content */}
+          <main className="flex-1 min-h-screen relative bg-black/80 px-0 py-0">
             <AnimatePresence mode="wait">
               {activeView === 'dashboard' ? (
-                <motion.div key="dashboard" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.4, ease: "easeOut" }} className="relative z-10">
+                <motion.div
+                  key="dashboard"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.4, ease: "easeOut" }}
+                  className="relative z-10"
+                >
                   <AnalyticalDashboard campaigns={campaigns} activeCampaign={activeCampaign} leadStats={leadStats} allLeads={allLeads} />
                 </motion.div>
               ) : (
-                <motion.div key="leads" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.4, ease: "easeOut" }} className="p-4 md:p-8 relative z-10">
-                  <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.1 }} className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-6">
+                <motion.div
+                  key="leads"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.4, ease: "easeOut" }}
+                  className="p-2 sm:p-4 md:p-8 relative z-10 max-w-7xl mx-auto w-full"
+                >
+                  <motion.div
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: 0.1 }}
+                    className="flex flex-col md:flex-row md:items-center justify-between mb-5 md:mb-8 gap-4 md:gap-8"
+                  >
                     <div className="space-y-2">
-                      <h1 className={`text-3xl md:text-4xl font-black tracking-tight text-white ${poppins.className}`}>
+                      <h1 className={`text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-white ${poppins.className}`}>
                         Lead <span className="bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 bg-clip-text text-transparent">Management</span>
                       </h1>
-                      <p className={`text-white/70 text-lg ${inter.className} font-medium`}>Discover and manage potential customers from Reddit</p>
+                      <p className={`text-white/70 text-base sm:text-lg ${inter.className} font-medium`}>
+                        Discover and manage potential customers from Reddit
+                      </p>
                     </div>
-                    <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4, delay: 0.3 }}>
-                      <Button onClick={() => setShowDeleteModal(true)} className="bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20">
+                    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4, delay: 0.3 }}>
+                      <Button 
+                        onClick={() => setShowDeleteModal(true)}
+                        className="bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20
+                          h-9 sm:h-10 px-4 text-sm sm:text-base font-semibold transition rounded-lg flex items-center
+                        "
+                      >
                         <TrashIcon className="w-4 h-4 mr-2" />
                         Delete Leads
                       </Button>
                     </motion.div>
                   </motion.div>
 
-                  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.2 }} className="mb-8">
+                  {/* Discovery Buttons */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: 0.2 }}
+                    className="mb-6 sm:mb-8"
+                  >
                     <DiscoveryButtons
                       campaignId={activeCampaign || ''}
                       targetSubreddits={currentCampaign?.targetSubreddits || []}
@@ -308,16 +336,21 @@ export const DashboardLayout = () => {
                     />
                   </motion.div>
 
-                  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.3 }}>
+                  {/* The Main Lead Feed */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: 0.3 }}
+                  >
                     {isLoading ? (
-                      <PulsatingDotsLoaderDashboard/>
+                      <PulsatingDotsLoaderDashboard />
                     ) : (
-                      <LeadFeed 
+                      <LeadFeed
                         leads={leads}
                         onManualDiscovery={handleManualDiscovery}
                         isRunningDiscovery={isRunningDiscovery}
                         onDelete={handleLeadDelete}
-                        onLeadUpdate={handleLeadUpdate} 
+                        onLeadUpdate={handleLeadUpdate}
                         activeFilter={activeFilter ?? "all"}
                       />
                     )}
@@ -328,7 +361,7 @@ export const DashboardLayout = () => {
           </main>
         </div>
       </div>
-      
+
       <ReplyModal
         isOpen={isReplyModalOpen}
         onClose={onReplyModalClose}
