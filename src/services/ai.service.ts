@@ -1,5 +1,3 @@
-// src/services/ai.service.ts
-
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { perplexity } from '@ai-sdk/perplexity';
 import { generateText } from 'ai';
@@ -221,7 +219,7 @@ export const generateCultureNotes = async (description: string, rules: string[])
 };
 
 /**
- * OPTIMIZED: Generates AI replies with cost-effective approach
+ * REFINED: Generates high-quality, contextual AI replies.
  */
 export const generateAIReplies = async (
     leadTitle: string,
@@ -231,30 +229,53 @@ export const generateAIReplies = async (
     subredditRules: string[]
 ): Promise<string[]> => {
     // Truncate inputs to reduce token usage
-    const truncatedTitle = leadTitle.slice(0, 150);
-    const truncatedBody = (leadBody || '').slice(0, 300);
-    const truncatedDescription = companyDescription.slice(0, 200);
-    const truncatedCulture = subredditCultureNotes.slice(0, 150);
-    const limitedRules = subredditRules.slice(0, 3).map(rule => rule.slice(0, 50));
+    const truncatedTitle = leadTitle.slice(0, 250);
+    const truncatedBody = (leadBody || '').slice(0, 400);
+    const truncatedDescription = companyDescription.slice(0, 250);
+    const truncatedCulture = subredditCultureNotes.slice(0, 200);
+    const limitedRules = subredditRules.slice(0, 4).map(rule => rule.slice(0, 70));
     
-    const prompt = `Generate 3 Reddit replies for:
-Title: "${truncatedTitle}"
-Body: "${truncatedBody}"
-Product: "${truncatedDescription}"
-Culture: "${truncatedCulture}"
-Rules: ${limitedRules.join('; ')}
+    const prompt = `You are an expert Reddit commenter. Your goal is to write 3 helpful and natural-sounding replies to a Reddit post. You must sound like a real person, not a corporate bot.
 
-Return JSON array: ["reply1", "reply2", "reply3"]`;
+**The Post:**
+* **Title:** "${truncatedTitle}"
+* **Body:** "${truncatedBody}"
+
+**Your Product:**
+* **Description:** "${truncatedDescription}"
+
+**Subreddit Context:**
+* **Culture:** "${truncatedCulture}"
+* **Key Rules to Follow:** ${limitedRules.join('; ')}
+
+**Your Task:**
+Generate 3 distinct replies. Each reply MUST:
+1.  **Be Helpful First:** Directly address the user's question or problem in the post. Provide value.
+2.  **Sound Human:** Use a casual, conversational tone. Use "I" or "we" naturally.
+3.  **Subtly Promote:** After being helpful, you can *casually* mention how your product might be a good fit. Don't be pushy. Frame it as a friendly suggestion. For example: "Oh, and for something like this, I've had good luck with [Your Product]. It's pretty good at [solving the specific problem]." or "Full disclosure, I'm part of the team behind [Your Product], but it might be genuinely useful for you here because..."
+4.  **Respect the Rules:** Your reply must not violate the subreddit rules.
+5.  **Vary the Style:** Create three different styles of replies (e.g., one very direct, one more story-based, one more inquisitive).
+
+**Bad Reply (What NOT to do):**
+"Check out our amazing product! It solves all your problems. Buy now at [link]!"
+
+**Good Reply (Example to follow):**
+"Hey, that's a tough spot to be in. I've dealt with [similar problem] before and found that [helpful advice]. It took a bit of tweaking but worked out. On a related note, you might find [Your Product] helpful for the [specific task] part of it. It's designed to make that a bit easier. Hope this helps!"
+
+**Output:**
+Return ONLY a valid JSON array of strings, like this: ["reply1", "reply2", "reply3"]`;
 
     const responseText = await generateContentWithFallback(prompt);
 
     try {
-        const cleanedText = responseText.replace(/``````/g, '');
-        const replies = JSON.parse(cleanedText);
-        return Array.isArray(replies) ? replies.slice(0, 3) : [replies];
+        // More robust JSON cleaning/extraction
+        const jsonString = responseText.match(/\[.*\]/s)?.[0] || responseText;
+        const replies = JSON.parse(jsonString);
+        return Array.isArray(replies) ? replies.slice(0, 3) : [replies.toString()];
     } catch (error) {
         console.error("Failed to parse AI response as JSON:", responseText);
-        return ["I'd be happy to help! Let me know if you'd like more information about our solution."];
+        // A more conversational and helpful fallback
+        return [`I saw you were asking about "${truncatedTitle}". I might have some ideas, but could you clarify a bit more on what you've tried so far? Also, my company builds a tool for this, but I want to make sure it's a good fit before recommending.`];
     }
 };
 
@@ -290,7 +311,7 @@ export const discoverCompetitorsInText = async (text: string, ownProductDescript
     
     const responseText = await generateContentWithFallback(prompt);
     try {
-        const cleanedText = responseText.replace(/``````/g, '');
+        const cleanedText = responseText.replace(/```/g, '');
         const competitors = JSON.parse(cleanedText);
         const competitorList = Array.isArray(competitors) ? competitors.slice(0, 5) : [];
         
@@ -366,7 +387,7 @@ Return JSON: ["funny reply 1", "funny reply 2", "funny reply 3"]`;
     const responseText = await generateContentWithFallback(prompt);
 
     try {
-        const cleanedText = responseText.replace(/``````/g, '');
+        const cleanedText = responseText.replace(/```/g, '');
         return JSON.parse(cleanedText);
     } catch (error) {
         console.error("Failed to parse AI response as JSON:", responseText);
