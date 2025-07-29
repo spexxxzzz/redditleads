@@ -3,9 +3,17 @@ import React, { useEffect, useState, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { RedditConnection } from '@/components/dashboard/RedditSettings';
-import { CheckCircle, Loader, SkipForward, ArrowRight } from 'lucide-react';
+import { 
+  CheckCircleIcon, 
+  ArrowRightIcon,
+  ForwardIcon 
+} from '@heroicons/react/24/outline';
 import { useUser } from '@clerk/nextjs';
 import { Inter, Poppins } from 'next/font/google';
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { LoaderFive } from "@/components/ui/loader";
 
 const inter = Inter({ subsets: ['latin'] });
 const poppins = Poppins({
@@ -75,35 +83,49 @@ function ConnectRedditContent() {
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-lg relative group"
+          className="w-full max-w-lg"
         >
-          {/* Glow effects */}
-          <div className="absolute -inset-4 bg-gradient-radial from-green-500/20 via-green-400/10 to-transparent rounded-full blur-2xl opacity-60 group-hover:opacity-80 transition-opacity duration-700" />
-          
-          <div className="relative bg-[#1a1a1b] rounded-xl border border-white/10 p-8 text-center backdrop-blur-sm">
-            <CheckCircle className="w-16 h-16 text-green-400 mx-auto mb-4" />
-            <h1 className={`text-3xl font-black text-white mb-2 ${poppins.className}`}>Success!</h1>
-            <p className={`text-white/70 mb-6 ${inter.className}`}>
-              Your Reddit account is connected. Syncing your session...
-            </p>
-            <Loader className="w-8 h-8 text-orange-400 mx-auto animate-spin mb-6" />
-            
-            {/* Countdown and manual redirect */}
-            <div className="space-y-4">
-              <div className={`flex items-center justify-center gap-3 text-orange-300 font-medium ${inter.className}`}>
-                <div className="w-3 h-3 bg-orange-400 rounded-full animate-pulse"></div>
-                <span>Redirecting to dashboard in {countdown} seconds...</span>
+          <Card className="bg-black border-zinc-800 hover:border-zinc-700 transition-all duration-300">
+            <CardContent className="p-8 text-center">
+              {/* Success Badge */}
+              <div className="mb-6">
+                <Badge className="bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20">
+                  Connection Successful
+                </Badge>
+              </div>
+
+              <div className="mb-6">
+                <CheckCircleIcon className="w-16 h-16 text-green-400 mx-auto mb-4" />
+                <h1 className={`text-3xl font-black text-white mb-2 ${poppins.className}`}>
+                  Success!
+                </h1>
+                <p className={`text-gray-400 mb-6 ${inter.className}`}>
+                  Your Reddit account is connected. Syncing your session...
+                </p>
+              </div>
+
+              {/* Loading State */}
+              <div className="mb-6">
+                <LoaderFive text="Syncing your session..." />
               </div>
               
-              <button
-                onClick={handleDashboardRedirect}
-                className={`group inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-400 to-orange-600 text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-xl hover:shadow-orange-500/30 transition-all duration-300 hover:scale-[1.02] ${inter.className}`}
-              >
-                <span>Go to Dashboard Now</span>
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </button>
-            </div>
-          </div>
+              {/* Countdown and manual redirect */}
+              <div className="space-y-4">
+                <div className={`flex items-center justify-center gap-3 text-orange-400 font-medium ${inter.className}`}>
+                  <div className="w-3 h-3 bg-orange-400 rounded-full animate-pulse"></div>
+                  <span>Redirecting to dashboard in {countdown} seconds...</span>
+                </div>
+                
+                <Button
+                  onClick={handleDashboardRedirect}
+                  className="group inline-flex items-center gap-2 px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-xl hover:shadow-orange-500/30 transition-all duration-300 hover:scale-[1.02]"
+                >
+                  <span>Go to Dashboard Now</span>
+                  <ArrowRightIcon className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </motion.div>
       </div>
     );
@@ -115,51 +137,61 @@ function ConnectRedditContent() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-lg relative group"
+        className="w-full max-w-lg"
       >
-        {/* Glow effects */}
-        <div className="absolute -inset-4 bg-gradient-radial from-orange-500/20 via-orange-400/10 to-transparent rounded-full blur-2xl opacity-60 group-hover:opacity-80 transition-opacity duration-700" />
-        
-        <div className="relative bg-[#1a1a1b] rounded-xl border border-white/10 p-8 text-center backdrop-blur-sm">
-          <h1 className={`text-3xl font-black text-white mb-2 ${poppins.className}`}>Final Step!</h1>
-          <p className={`text-white/70 mb-6 ${inter.className}`}>
-            Connect your Reddit account to start discovering leads.
-          </p>
-          
-          <div className="mb-6">
-            <RedditConnection />
-          </div>
-          
-          {/* Countdown and action buttons */}
-          <div className="space-y-4">
-            <div className={`flex items-center justify-center gap-3 text-orange-300 font-medium ${inter.className}`}>
-              <div className="w-3 h-3 bg-orange-400 rounded-full animate-pulse"></div>
-              <span>Auto-redirect to dashboard in {countdown} seconds</span>
-            </div>
+        <Card className="bg-black border-zinc-800 hover:border-zinc-700 transition-all duration-300">
+          <CardContent className="p-8 text-center">
             
-            <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
-              <button
-                onClick={handleDashboardRedirect}
-                className={`group inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-400 to-orange-600 text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-xl hover:shadow-orange-500/30 transition-all duration-300 hover:scale-[1.02] ${inter.className}`}
-              >
-                <span>Go to Dashboard</span>
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </button>
-              
-              <button
-                onClick={handleDashboardRedirect}
-                className={`group inline-flex items-center gap-2 px-4 py-2 text-white/70 hover:text-white border border-white/20 rounded-lg hover:border-white/40 hover:bg-white/5 transition-all duration-200 ${inter.className}`}
-              >
-                <SkipForward className="w-4 h-4" />
-                <span>Skip Connection</span>
-              </button>
+            {/* Header Badge */}
+            <div className="mb-6">
+              <Badge className="bg-orange-500/10 text-orange-400 border-orange-500/20 hover:bg-orange-500/20">
+                Final Step
+              </Badge>
             </div>
-            
-            <p className={`text-white/50 text-sm ${inter.className}`}>
-              You can connect your Reddit account later in settings
+
+            <h1 className={`text-3xl font-black text-white mb-2 ${poppins.className}`}>
+              Connect Your Reddit Account
+            </h1>
+            <p className={`text-gray-400 mb-6 ${inter.className}`}>
+              Connect your Reddit account to start discovering leads.
             </p>
-          </div>
-        </div>
+            
+            <div className="mb-6">
+              <RedditConnection />
+            </div>
+            
+            {/* Countdown and action buttons */}
+            <div className="space-y-4">
+              <div className={`flex items-center justify-center gap-3 text-orange-400 font-medium ${inter.className}`}>
+                <div className="w-3 h-3 bg-orange-400 rounded-full animate-pulse"></div>
+                <span>Auto-redirect to dashboard in {countdown} seconds</span>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
+                <Button
+                  onClick={handleDashboardRedirect}
+                  className="group inline-flex items-center gap-2 px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-xl hover:shadow-orange-500/30 transition-all duration-300 hover:scale-[1.02]"
+                >
+                  <span>Go to Dashboard</span>
+                  <ArrowRightIcon className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </Button>
+                
+                <Button
+                  onClick={handleDashboardRedirect}
+                  variant="outline"
+                  className="group inline-flex items-center gap-2 px-4 py-2 text-gray-400 hover:text-white border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900 transition-all duration-200"
+                >
+                  <ForwardIcon className="w-4 h-4" />
+                  <span>Skip Connection</span>
+                </Button>
+              </div>
+              
+              <p className={`text-gray-500 text-sm ${inter.className}`}>
+                You can connect your Reddit account later in settings
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </motion.div>
     </div>
   );
@@ -172,13 +204,21 @@ function ConnectRedditLoading() {
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-lg bg-[#1a1a1b] rounded-xl border border-white/10 p-8 text-center backdrop-blur-sm"
+        className="w-full max-w-lg"
       >
-        <Loader className="w-8 h-8 text-orange-400 mx-auto animate-spin mb-4" />
-        <h1 className={`text-2xl font-black text-white mb-2 ${poppins.className}`}>Loading...</h1>
-        <p className={`text-white/70 ${inter.className}`}>
-          Preparing your Reddit connection...
-        </p>
+        <Card className="bg-black border-zinc-800">
+          <CardContent className="p-8 text-center">
+            <div className="mb-4">
+              <LoaderFive text="Loading..." />
+            </div>
+            <h1 className={`text-2xl font-black text-white mb-2 ${poppins.className}`}>
+              Preparing Connection
+            </h1>
+            <p className={`text-gray-400 ${inter.className}`}>
+              Setting up your Reddit connection...
+            </p>
+          </CardContent>
+        </Card>
       </motion.div>
     </div>
   );
