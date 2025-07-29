@@ -21,7 +21,7 @@ const aiProviders = [
             }
             const client = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
             // Using gemini-1.5-flash - cheapest and fastest model
-            const model = client.getGenerativeModel({ 
+            const model = client.getGenerativeModel({
                 model: 'gemini-1.5-flash',
                 generationConfig: {
                     maxOutputTokens: 500, // Limit tokens to reduce cost
@@ -38,14 +38,14 @@ const aiProviders = [
             if (!process.env.PERPLEXITY_API_KEY) {
                 throw new Error("Perplexity API key is not set in .env file.");
             }
-            
+
             const { text } = await generateText({
                 model: perplexity('sonar'), // Cheapest Perplexity model (not sonar-pro)
                 prompt: prompt,
                 temperature: 0.3, // Lower temperature for cost efficiency
                 maxTokens: 500, // Limit tokens to reduce cost
             });
-            
+
             return text;
         }
     },
@@ -58,10 +58,10 @@ const aiProviders = [
             const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
             // UPDATED: Use a model version that guarantees JSON mode support and enable it.
             const response = await client.chat.completions.create({
-                model: 'gpt-3.5-turbo-1106', 
+                model: 'gpt-3.5-turbo-1106',
                 messages: [{ role: 'user', content: prompt }],
                 response_format: { type: "json_object" }, // Enforce JSON output
-                temperature: 0.3, 
+                temperature: 0.3,
                 max_tokens: 500,
                 frequency_penalty: 0.1,
                 presence_penalty: 0.1,
@@ -77,7 +77,7 @@ const aiProviders = [
 const generateContentWithFallback = async (prompt: string): Promise<string> => {
     // Enhanced cache key with prompt hash for better caching
     const cacheKey = `ai_response:${Buffer.from(prompt).toString('base64').slice(0, 50)}`;
-    
+
     // Check cache first to avoid API calls
     if (aiCache.has(cacheKey)) {
         console.log('[CACHE HIT] Returning cached AI response');
@@ -89,23 +89,23 @@ const generateContentWithFallback = async (prompt: string): Promise<string> => {
         try {
             console.log(`[AI Service] Attempting to use ${provider.name}...`);
             const text = await provider.generate(prompt);
-            
+
             if (!text) {
                 throw new Error("Received an empty response from the API.");
             }
-            
+
             console.log(`[AI Service] Successfully received response from ${provider.name}.`);
-            
+
             // Cache the successful response
             aiCache.set(cacheKey, text);
-            
+
             return text;
         } catch (error) {
             lastError = error instanceof Error ? error : new Error("An unknown error occurred");
             console.error(`[AI Service] ${provider.name} failed:`, lastError.message);
         }
     }
-    
+
     throw new Error(`All AI services are currently unavailable. Last error: ${lastError?.message}`);
 };
 
@@ -115,7 +115,7 @@ const generateContentWithFallback = async (prompt: string): Promise<string> => {
 export const generateSubredditSuggestions = async (businessDescription: string): Promise<string[]> => {
     console.log('[Subreddit Suggestions] Starting process...');
     const cacheKey = `verified_subreddits_v4:${businessDescription.slice(0, 200)}`;
-    
+
     if (aiCache.has(cacheKey)) {
         console.log('[CACHE HIT] for verified subreddit suggestions.');
         return aiCache.get(cacheKey);
@@ -143,11 +143,11 @@ export const generateSubredditSuggestions = async (businessDescription: string):
     const finalSubreddits = results.filter((name): name is string => name !== null);
 
     console.log(`[Subreddit Suggestions] Verified ${finalSubreddits.length} real subreddits.`);
-    
+
     // Cache with expiration (24 hours)
     aiCache.set(cacheKey, finalSubreddits);
     setTimeout(() => aiCache.delete(cacheKey), 24 * 60 * 60 * 1000);
-    
+
     return finalSubreddits;
 };
 
@@ -170,7 +170,7 @@ export const generateKeywords = async (websiteText: string): Promise<string[]> =
 
     aiCache.set(cacheKey, keywords);
     setTimeout(() => aiCache.delete(cacheKey), 24 * 60 * 60 * 1000);
-    
+
     return keywords;
 };
 
@@ -192,7 +192,7 @@ export const generateDescription = async (websiteText: string): Promise<string> 
 
     aiCache.set(cacheKey, description);
     setTimeout(() => aiCache.delete(cacheKey), 24 * 60 * 60 * 1000);
-    
+
     return description;
 };
 
@@ -209,14 +209,14 @@ export const generateCultureNotes = async (description: string, rules: string[])
     // Limit rules and description length
     const limitedRules = rules.slice(0, 5).map((rule, index) => `${index + 1}. ${rule.slice(0, 100)}`).join('\n');
     const limitedDescription = description.slice(0, 200);
-    
+
     const prompt = `Summarize subreddit culture in 1 paragraph. Description: "${limitedDescription}" Rules: "${limitedRules}"`;
 
     const cultureNotes = await generateContentWithFallback(prompt);
 
     aiCache.set(cacheKey, cultureNotes.trim());
     setTimeout(() => aiCache.delete(cacheKey), 24 * 60 * 60 * 1000);
-    
+
     return cultureNotes.trim();
 };
 
@@ -236,7 +236,7 @@ export const generateAIReplies = async (
     const truncatedDescription = companyDescription.slice(0, 250);
     const truncatedCulture = subredditCultureNotes.slice(0, 200);
     const limitedRules = subredditRules.slice(0, 4).map(rule => rule.slice(0, 70));
-    
+
     // UPDATED: Prompt now asks for a JSON object to work with OpenAI's JSON mode.
     const prompt = `You are an expert Reddit commenter. Your goal is to write 3 helpful and natural-sounding replies to a Reddit post. You must sound like a real person, not a corporate bot.
 
@@ -271,16 +271,25 @@ Return ONLY a valid JSON object with a single key "replies" which contains an ar
     const responseText = await generateContentWithFallback(prompt);
 
     try {
-        // UPDATED: Logic now expects a JSON object and extracts the 'replies' array.
-        const responseObject = JSON.parse(responseText);
+        // UPDATED: More robust logic to find and parse the JSON object from the response string.
+        const startIndex = responseText.indexOf('{');
+        const endIndex = responseText.lastIndexOf('}');
+
+        if (startIndex === -1 || endIndex === -1) {
+            throw new Error("AI response did not contain a valid JSON object.");
+        }
+
+        const jsonString = responseText.substring(startIndex, endIndex + 1);
+        const responseObject = JSON.parse(jsonString);
         const replies = responseObject.replies;
+
         if (!Array.isArray(replies)) {
             throw new Error("AI response did not contain a 'replies' array.");
         }
         return replies.slice(0, 3);
     } catch (error) {
         console.error("Failed to parse AI response as JSON:", responseText, error);
-        
+
         // UPDATED: Fallback message is more graceful if the description is missing.
         let fallbackDescription = `we're building a tool that helps with this`;
         if (truncatedDescription && truncatedDescription !== "No description available.") {
@@ -296,8 +305,8 @@ Return ONLY a valid JSON object with a single key "replies" which contains an ar
 export const refineAIReply = async (originalText: string, instruction: string): Promise<string> => {
     const truncatedText = originalText.slice(0, 300);
     const truncatedInstruction = instruction.slice(0, 100);
-    
-    const prompt = `Rewrite: "${truncatedText}" 
+
+    const prompt = `Rewrite: "${truncatedText}"
 Instruction: "${truncatedInstruction}"
 New version:`;
 
@@ -317,19 +326,19 @@ export const discoverCompetitorsInText = async (text: string, ownProductDescript
 
     const truncatedText = text.slice(0, 400);
     const truncatedProduct = ownProductDescription.slice(0, 150);
-    
+
     const prompt = `Find competitors in text. My product: "${truncatedProduct}" Text: "${truncatedText}" Return JSON array of competitor names or [].`;
-    
+
     const responseText = await generateContentWithFallback(prompt);
     try {
         // Use the more robust JSON extraction method
         const jsonString = responseText.match(/\[.*\]/s)?.[0] || responseText;
         const competitors = JSON.parse(jsonString);
         const competitorList = Array.isArray(competitors) ? competitors.slice(0, 5) : [];
-        
+
         aiCache.set(cacheKey, competitorList);
         setTimeout(() => aiCache.delete(cacheKey), 24 * 60 * 60 * 1000);
-        
+
         return competitorList;
     } catch {
         return [];
@@ -389,10 +398,10 @@ export const generateFunReplies = async (
     const truncatedTitle = leadTitle.slice(0, 100);
     const truncatedBody = (leadBody || '').slice(0, 200);
     const truncatedDescription = companyDescription.slice(0, 150);
-    
+
     const prompt = `Create 3 funny promotional replies for unrelated post:
 Title: "${truncatedTitle}"
-Body: "${truncatedBody}"  
+Body: "${truncatedBody}"
 Product: "${truncatedDescription}"
 Return JSON: ["funny reply 1", "funny reply 2", "funny reply 3"]`;
 
@@ -423,9 +432,9 @@ export const analyzeLeadIntent = async (title: string, body: string | null, user
 
     const truncatedTitle = title.slice(0, 100);
     const truncatedBody = (body || '').slice(0, 200);
-    
+
     const prompt = `Classify intent as: pain_point, solution_seeking, brand_comparison, or general_discussion. Title: "${truncatedTitle}" Body: "${truncatedBody}"`;
-    
+
     const intent = await generateContentWithFallback(prompt);
     return intent.trim().toLowerCase();
 };
@@ -457,9 +466,9 @@ export const analyzeSentiment = async (title: string, body: string | null, userI
 
     const truncatedTitle = title.slice(0, 100);
     const truncatedBody = (body || '').slice(0, 200);
-    
+
     const prompt = `Classify sentiment as: positive, negative, or neutral. Title: "${truncatedTitle}" Body: "${truncatedBody}"`;
-    
+
     const sentiment = await generateContentWithFallback(prompt);
     return sentiment.trim().toLowerCase();
 };
