@@ -12,20 +12,37 @@ export interface EnrichedLead extends RawLead {
     sentiment?: string;
 }
 
-async function processInChunks<T, R>(items: T[], processor: (item: T) => Promise<R>, chunkSize: number, delay: number): Promise<R[]> {
+// Updated processInChunks to handle a maximum number of chunks
+async function processInChunks<T, R>(items: T[], processor: (item: T) => Promise<R>, chunkSize: number, delay: number, maxChunks?: number): Promise<R[]> {
     const results: R[] = [];
-    for (let i = 0; i < items.length; i += chunkSize) {
-        const chunk = items.slice(i, i + chunkSize);
+    const totalChunks = Math.ceil(items.length / chunkSize);
+    // Determine the number of chunks to iterate over, respecting the maxChunks limit
+    const chunksToProcess = maxChunks !== undefined ? Math.min(totalChunks, maxChunks) : totalChunks;
+
+    if (maxChunks !== undefined && totalChunks > maxChunks) {
+        console.log(`[Chunk Processing] Limiting processing to ${maxChunks} chunks out of ${totalChunks} total.`);
+    }
+
+    for (let i = 0; i < chunksToProcess; i++) {
+        const startIndex = i * chunkSize;
+        const endIndex = startIndex + chunkSize;
+        const chunk = items.slice(startIndex, endIndex);
+
         const chunkPromises = chunk.map(processor);
         const chunkResults = await Promise.all(chunkPromises);
         results.push(...chunkResults);
-        if (i + chunkSize < items.length) {
-            console.log(`  -> Processed chunk ${Math.floor(i / chunkSize) + 1}. Waiting ${delay / 1000}s before next chunk to respect rate limits.`);
+
+        // Delay if it's not the last chunk to be processed
+        if (i < chunksToProcess - 1) {
+            console.log(`  -> Processed chunk ${i + 1}/${chunksToProcess}. Waiting ${delay / 1000}s before next chunk.`);
             await new Promise(resolve => setTimeout(resolve, delay));
         }
     }
+    
+    console.log(`[Chunk Processing] Finished processing ${chunksToProcess} chunks.`);
     return results;
 }
+
 
 export const enrichLeadsForUser = async (rawLeads: RawLead[], user: User): Promise<EnrichedLead[]> => {
     const processLead = async (lead: RawLead): Promise<EnrichedLead> => {
@@ -70,8 +87,13 @@ export const enrichLeadsForUser = async (rawLeads: RawLead[], user: User): Promi
 
     const leadLimit = getUserLeadLimit(user.plan);
     const leadsToProcess = rawLeads.slice(0, leadLimit);
-    
-    return processInChunks(leadsToProcess, processLead, getChunkSize(user.plan), getDelay(user.plan));
+    const chunkSize = getChunkSize(user.plan);
+    const delay = getDelay(user.plan);
+    const MAX_CHUNKS = 10; // Hard limit on the number of chunks to process
+
+    console.log(`[Enrichment] Starting enrichment for ${leadsToProcess.length} leads, with a hard limit of ${MAX_CHUNKS} chunks.`);
+    // Pass the maxChunks limit to the processing function
+    return processInChunks(leadsToProcess, processLead, chunkSize, delay, MAX_CHUNKS);
 };
 
 const getUserLeadLimit = (plan: string): number => {
