@@ -56,13 +56,15 @@ const aiProviders = [
                 throw new Error("OpenAI API key is not set in .env file.");
             }
             const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+            // UPDATED: Use a model version that guarantees JSON mode support and enable it.
             const response = await client.chat.completions.create({
-                model: 'gpt-3.5-turbo', // Cheapest OpenAI model (even cheaper than gpt-4o-mini)
+                model: 'gpt-3.5-turbo-1106', 
                 messages: [{ role: 'user', content: prompt }],
-                temperature: 0.3, // Lower temperature for cost efficiency
-                max_tokens: 500, // Limit tokens to reduce cost
-                frequency_penalty: 0.1, // Reduce repetition
-                presence_penalty: 0.1, // Encourage conciseness
+                response_format: { type: "json_object" }, // Enforce JSON output
+                temperature: 0.3, 
+                max_tokens: 500,
+                frequency_penalty: 0.1,
+                presence_penalty: 0.1,
             });
             return response.choices[0]?.message?.content ?? "";
         }
@@ -235,6 +237,7 @@ export const generateAIReplies = async (
     const truncatedCulture = subredditCultureNotes.slice(0, 200);
     const limitedRules = subredditRules.slice(0, 4).map(rule => rule.slice(0, 70));
     
+    // UPDATED: Prompt now asks for a JSON object to work with OpenAI's JSON mode.
     const prompt = `You are an expert Reddit commenter. Your goal is to write 3 helpful and natural-sounding replies to a Reddit post. You must sound like a real person, not a corporate bot.
 
 **The Post:**
@@ -263,19 +266,27 @@ Generate 3 distinct replies. Each reply MUST:
 "Hey, that's a tough spot to be in. I've dealt with [similar problem] before and found that [helpful advice]. It took a bit of tweaking but worked out. On a related note, you might find [Your Product] helpful for the [specific task] part of it. It's designed to make that a bit easier. Hope this helps!"
 
 **Output:**
-Return ONLY a valid JSON array of strings, like this: ["reply1", "reply2", "reply3"]. Do not include any other text, markdown, or explanations outside of the JSON array itself.`;
+Return ONLY a valid JSON object with a single key "replies" which contains an array of 3 strings. Example: {"replies": ["reply1", "reply2", "reply3"]}. Do not include any other text, markdown, or explanations.`;
 
     const responseText = await generateContentWithFallback(prompt);
 
     try {
-        // More robust JSON cleaning/extraction
-        const jsonString = responseText.match(/\[.*\]/s)?.[0] || responseText;
-        const replies = JSON.parse(jsonString);
-        return Array.isArray(replies) ? replies.slice(0, 3) : [replies.toString()];
+        // UPDATED: Logic now expects a JSON object and extracts the 'replies' array.
+        const responseObject = JSON.parse(responseText);
+        const replies = responseObject.replies;
+        if (!Array.isArray(replies)) {
+            throw new Error("AI response did not contain a 'replies' array.");
+        }
+        return replies.slice(0, 3);
     } catch (error) {
-        console.error("Failed to parse AI response as JSON:", responseText);
-        // A more conversational and helpful fallback, now using the company description
-        return [`I saw you were asking about "${truncatedTitle}". I might have some ideas, but could you clarify a bit more on what you've tried so far? Also, we're building a tool that helps with this (${truncatedDescription}), but I want to make sure it's a good fit before recommending.`];
+        console.error("Failed to parse AI response as JSON:", responseText, error);
+        
+        // UPDATED: Fallback message is more graceful if the description is missing.
+        let fallbackDescription = `we're building a tool that helps with this`;
+        if (truncatedDescription && truncatedDescription !== "No description available.") {
+            fallbackDescription = `we're building a tool (${truncatedDescription}) that helps with this`;
+        }
+        return [`I saw you were asking about "${truncatedTitle}". I might have some ideas, but could you clarify a bit more on what you've tried so far? Also, ${fallbackDescription}, but I want to make sure it's a good fit before recommending.`];
     }
 };
 
