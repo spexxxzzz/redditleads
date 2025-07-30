@@ -89,7 +89,7 @@ export const enrichLeadsForUser = async (rawLeads: RawLead[], user: User): Promi
     const leadsToProcess = rawLeads.slice(0, leadLimit);
     const chunkSize = getChunkSize(user.plan);
     const delay = getDelay(user.plan);
-    const MAX_CHUNKS = 10; // Hard limit on the number of chunks to process
+    const MAX_CHUNKS = 6; // Hard limit on the number of chunks to process
 
     console.log(`[Enrichment] Starting enrichment for ${leadsToProcess.length} leads, with a hard limit of ${MAX_CHUNKS} chunks.`);
     // Pass the maxChunks limit to the processing function
@@ -109,7 +109,7 @@ const getChunkSize = (plan: string): number => {
     switch (plan) {
         case 'free': return 5;
         case 'starter': return 5;
-        case 'pro': return 5;
+        case 'pro': return 15;
         default: return 5;
     }
 };
