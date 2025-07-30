@@ -108,8 +108,8 @@ const getUserLeadLimit = (plan: string): number => {
 const getChunkSize = (plan: string): number => {
     switch (plan) {
         case 'free': return 5;
-        case 'starter': return 8;
-        case 'pro': return 15;
+        case 'starter': return 5;
+        case 'pro': return 5;
         default: return 5;
     }
 };
