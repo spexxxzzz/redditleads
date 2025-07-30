@@ -27,7 +27,8 @@ const PORT = process.env.PORT || 5000;
 const allowedOrigins = [
   'https://red-lead.vercel.app', // Your deployed frontend
   'http://localhost:3000',
-   'https://www.redlead.net'        // Your local frontend for development
+   'https://www.redlead.net',
+    'https://www.redlead.net'       // Your local frontend for development
 ];
 
 const corsOptions = {

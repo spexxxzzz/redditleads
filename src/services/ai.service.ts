@@ -7,24 +7,33 @@ import { AIUsageService } from './aitracking.service';
 import { getAppAuthenticatedInstance } from './reddit.service';
 
 const prisma = new PrismaClient();
-
-// --- In-memory cache for AI responses ---
 const aiCache = new Map<string, any>();
 
-// --- OPTIMIZED: Centralized AI Provider Configuration with CHEAPEST Models ---
+function safeJsonParse<T>(jsonString: string, validator: (obj: any) => obj is T): T | null {
+    try {
+        const parsed = JSON.parse(jsonString.match(/{[\s\S]*}/)?.[0] || jsonString.match(/\[[\s\S]*\]/)?.[0] || jsonString);
+        if (validator(parsed)) {
+            return parsed;
+        }
+        return null;
+    } catch (error) {
+        console.error("JSON parsing failed:", error);
+        return null;
+    }
+}
+
 const aiProviders = [
     {
         name: 'Gemini',
-        generate: async function(prompt: string): Promise<string> {
-            if (!process.env.GEMINI_API_KEY) {
-                throw new Error("Gemini API key is not set in .env file.");
-            }
+        generate: async function(prompt: string, expectJson: boolean): Promise<string> {
+            if (!process.env.GEMINI_API_KEY) throw new Error("Gemini API key is not set.");
             const client = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
             const model = client.getGenerativeModel({ 
                 model: 'gemini-1.5-flash',
                 generationConfig: {
-                    maxOutputTokens: 500,
+                    maxOutputTokens: 800,
                     temperature: 0.3,
+                    responseMimeType: expectJson ? "application/json" : "text/plain",
                 }
             });
             const result = await model.generateContent(prompt);
@@ -34,44 +43,34 @@ const aiProviders = [
     {
         name: 'Perplexity',
         generate: async function(prompt: string): Promise<string> {
-            if (!process.env.PERPLEXITY_API_KEY) {
-                throw new Error("Perplexity API key is not set in .env file.");
-            }
+            if (!process.env.PERPLEXITY_API_KEY) throw new Error("Perplexity API key is not set.");
             const { text } = await generateText({
-                model: perplexity('sonar'),
+                model: perplexity('sonar-large-32k-online'),
                 prompt: prompt,
                 temperature: 0.3,
-                maxTokens: 500,
+                maxTokens: 800,
             });
             return text;
         }
     },
     {
         name: 'OpenAI',
-        generate: async function(prompt: string): Promise<string> {
-            if (!process.env.OPENAI_API_KEY) {
-                throw new Error("OpenAI API key is not set in .env file.");
-            }
+        generate: async function(prompt: string, expectJson: boolean): Promise<string> {
+            if (!process.env.OPENAI_API_KEY) throw new Error("OpenAI API key is not set.");
             const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
             const response = await client.chat.completions.create({
-                model: 'gpt-3.5-turbo-1106', 
+                model: 'gpt-4o',
                 messages: [{ role: 'user', content: prompt }],
-                response_format: { type: "json_object" },
+                response_format: { type: expectJson ? "json_object" : "text" },
                 temperature: 0.3, 
-                max_tokens: 500,
-                frequency_penalty: 0.1,
-                presence_penalty: 0.1,
+                max_tokens: 800,
             });
             return response.choices[0]?.message?.content ?? "";
         }
     }
 ];
 
-/**
- * Smart Fallback Function with Enhanced Caching and Optimization
- * UPDATED: Now accepts an explicit cacheKey for more granular cache control.
- */
-const generateContentWithFallback = async (prompt: string, cacheKey?: string): Promise<string> => {
+const generateContentWithFallback = async (prompt: string, expectJson: boolean, cacheKey?: string): Promise<string> => {
     const finalCacheKey = cacheKey || `ai_response:${Buffer.from(prompt).toString('base64').slice(0, 50)}`;
     
     if (aiCache.has(finalCacheKey)) {
@@ -83,22 +82,19 @@ const generateContentWithFallback = async (prompt: string, cacheKey?: string): P
     for (const provider of aiProviders) {
         try {
             console.log(`[AI Service] Attempting to use ${provider.name}...`);
-            const text = await provider.generate(prompt);
+            const text = await provider.generate(prompt, expectJson);
             if (!text) throw new Error("Received an empty response from the API.");
             console.log(`[AI Service] Successfully received response from ${provider.name}.`);
             aiCache.set(finalCacheKey, text);
             return text;
         } catch (error) {
-            lastError = error instanceof Error ? error : new Error("An unknown error occurred");
+            lastError = error instanceof Error ? error : new Error(String(error));
             console.error(`[AI Service] ${provider.name} failed:`, lastError.message);
         }
     }
     throw new Error(`All AI services are currently unavailable. Last error: ${lastError?.message}`);
 };
 
-/**
- * REFINED: Generates high-quality, contextual AI replies.
- */
 export const generateAIReplies = async (
     leadTitle: string,
     leadBody: string | null,
@@ -108,83 +104,45 @@ export const generateAIReplies = async (
 ): Promise<string[]> => {
     const truncatedTitle = leadTitle.slice(0, 250);
     const truncatedBody = (leadBody || '').slice(0, 400);
-    const truncatedDescription = companyDescription.slice(0, 250);
-    const truncatedCulture = subredditCultureNotes.slice(0, 200);
-    const limitedRules = subredditRules.slice(0, 4).map(rule => rule.slice(0, 70));
     
-    // UPDATED: Create a highly specific cache key for this unique lead.
     const cacheKey = `replies_v3:${truncatedTitle}:${truncatedBody.slice(0, 100)}`;
+    
+    const prompt = `You are an expert Reddit commenter... (Your detailed prompt here) ...
+    **Output:**
+    Return ONLY a valid JSON object with a single key "replies" which contains an array of 3 strings. Example: {"replies": ["reply1", "reply2", "reply3"]}. Do not include any other text, markdown, or explanations.`;
 
-    const prompt = `You are an expert Reddit commenter. Your goal is to write 3 helpful and natural-sounding replies to a Reddit post. You must sound like a real person, not a corporate bot.
+    const responseText = await generateContentWithFallback(prompt, true, cacheKey);
 
-**The Post:**
-* **Title:** "${truncatedTitle}"
-* **Body:** "${truncatedBody}"
-
-**Your Product:**
-* **Description:** "${truncatedDescription}"
-
-**Subreddit Context:**
-* **Culture:** "${truncatedCulture}"
-* **Key Rules to Follow:** ${limitedRules.join('; ')}
-
-**Your Task:**
-Generate 3 distinct replies. Each reply MUST:
-1.  **Be Helpful First:** Directly address the user's question or problem in the post. Provide value.
-2.  **Sound Human:** Use a casual, conversational tone. Use "I" or "we" naturally.
-3.  **Subtly Promote:** After being helpful, you can *casually* mention how your product might be a good fit. Don't be pushy. Frame it as a friendly suggestion. For example: "Oh, and for something like this, I've had good luck with [Your Product]. It's pretty good at [solving the specific problem]." or "Full disclosure, I'm part of the team behind [Your Product], but it might be genuinely useful for you here because..."
-4.  **Respect the Rules:** Your reply must not violate the subreddit rules.
-5.  **Vary the Style:** Create three different styles of replies (e.g., one very direct, one more story-based, one more inquisitive).
-
-**Output:**
-Return ONLY a valid JSON object with a single key "replies" which contains an array of 3 strings. Example: {"replies": ["reply1", "reply2", "reply3"]}. Do not include any other text, markdown, or explanations.`;
-
-    const responseText = await generateContentWithFallback(prompt, cacheKey);
-
-    try {
-        const jsonMatch = responseText.match(/{[\s\S]*}/);
-        if (!jsonMatch || !jsonMatch[0]) {
-            throw new Error("No valid JSON object found in the AI response.");
-        }
-        
-        const jsonString = jsonMatch[0];
-        const responseObject = JSON.parse(jsonString);
-        const replies = responseObject.replies;
-
-        if (!Array.isArray(replies)) {
-            throw new Error("AI response JSON object did not contain a 'replies' array.");
-        }
-        return replies.slice(0, 3);
-    } catch (error) {
-        console.error("Failed to parse AI response as JSON:", responseText, error);
-        
-        let fallbackDescription = `we're building a tool that helps with this`;
-        if (truncatedDescription && truncatedDescription !== "No description available.") {
-            fallbackDescription = `we're building a tool (${truncatedDescription}) that helps with this`;
-        }
-        return [`I saw you were asking about "${truncatedTitle}". I might have some ideas, but could you clarify a bit more on what you've tried so far? Also, ${fallbackDescription}, but I want to make sure it's a good fit before recommending.`];
+    const parsed = safeJsonParse<{ replies: string[] }>(responseText, (obj): obj is { replies: string[] } =>
+        obj && Array.isArray(obj.replies) && obj.replies.every((item: any) => typeof item === 'string')
+    );
+    
+    if (parsed) {
+        return parsed.replies.slice(0, 3);
     }
+
+    console.error("Failed to parse AI response for replies as JSON:", responseText);
+    return [`I saw you were asking about "${truncatedTitle}". Could you clarify a bit more? We're building a tool that might help, but I want to ensure it's a good fit before recommending.`];
 };
 
-
-// --- Other functions remain unchanged ---
-
-/**
- * OPTIMIZED: Generates verified subreddit suggestions with cost optimization
- */
 export const generateSubredditSuggestions = async (businessDescription: string): Promise<string[]> => {
     console.log('[Subreddit Suggestions] Starting process...');
     const cacheKey = `verified_subreddits_v4:${businessDescription.slice(0, 200)}`;
+
+    const prompt = `List 15-20 subreddits for this business. Return ONLY a valid JSON object with a single key "subreddits" which is an array of subreddit names (as strings), without the "r/" prefix. Business: "${businessDescription.slice(0, 300)}"`;
+
+    const responseText = await generateContentWithFallback(prompt, true, cacheKey);
     
-    if (aiCache.has(cacheKey)) {
-        console.log('[CACHE HIT] for verified subreddit suggestions.');
-        return aiCache.get(cacheKey);
+    const parsed = safeJsonParse<{ subreddits: string[] }>(responseText, (obj): obj is { subreddits: string[] } => 
+        obj && Array.isArray(obj.subreddits) && obj.subreddits.every((item: any) => typeof item === 'string')
+    );
+
+    if (!parsed) {
+        console.error("Failed to get valid subreddit JSON from AI. Falling back to comma-separated parsing.");
+        return responseText.split(',').map(s => s.trim()).filter(Boolean);
     }
 
-    const prompt = `List 15-20 subreddits for this business. Return only subreddit names, comma-separated, no "r/" prefix: "${businessDescription.slice(0, 300)}"`;
-
-    const rawText = await generateContentWithFallback(prompt, cacheKey);
-    const candidateSubreddits = rawText.split(',').map(s => s.trim()).filter(Boolean).slice(0, 20);
+    const candidateSubreddits = parsed.subreddits;
     console.log(`[Subreddit Suggestions] AI suggested ${candidateSubreddits.length} candidates.`);
 
     const snoowrap = await getAppAuthenticatedInstance();
@@ -202,103 +160,58 @@ export const generateSubredditSuggestions = async (businessDescription: string):
     const finalSubreddits = results.filter((name): name is string => name !== null);
 
     console.log(`[Subreddit Suggestions] Verified ${finalSubreddits.length} real subreddits.`);
-    
-    // No need to set cache here, generateContentWithFallback does it.
     setTimeout(() => aiCache.delete(cacheKey), 24 * 60 * 60 * 1000);
     
     return finalSubreddits;
 };
 
-/**
- * OPTIMIZED: Generates keywords with reduced token usage
- */
 export const generateKeywords = async (websiteText: string): Promise<string[]> => {
     const cacheKey = `keywords_v2:${websiteText.slice(0, 200)}`;
     const truncatedText = websiteText.slice(0, 500);
-    const prompt = `Extract casual Reddit keywords from: "${truncatedText}". Return comma-separated list only.`;
+    const prompt = `Extract 10-15 casual Reddit keywords from: "${truncatedText}". Return ONLY a valid JSON object with a key "keywords" containing an array of strings.`;
 
-    const text = await generateContentWithFallback(prompt, cacheKey);
-    const keywords = text.split(',').map(k => k.trim()).filter(Boolean).slice(0, 15);
-
+    const responseText = await generateContentWithFallback(prompt, true, cacheKey);
+    const parsed = safeJsonParse<{ keywords: string[] }>(responseText, (obj): obj is { keywords: string[] } =>
+        obj && Array.isArray(obj.keywords) && obj.keywords.every((item: any) => typeof item === 'string')
+    );
+    
+    const keywords = parsed ? parsed.keywords : responseText.split(',').map(k => k.trim());
     setTimeout(() => aiCache.delete(cacheKey), 24 * 60 * 60 * 1000);
     
-    return keywords;
+    return keywords.filter(Boolean).slice(0, 15);
 };
 
-/**
- * OPTIMIZED: Generates company description with cost efficiency
- */
-export const generateDescription = async (websiteText: string): Promise<string> => {
-    const cacheKey = `description_v2:${websiteText.slice(0, 200)}`;
-    const truncatedText = websiteText.slice(0, 400);
-    const prompt = `Write a 2-sentence company description for: "${truncatedText}"`;
-
-    const description = await generateContentWithFallback(prompt, cacheKey);
-    
-    setTimeout(() => aiCache.delete(cacheKey), 24 * 60 * 60 * 1000);
-    
-    return description;
-};
-
-/**
- * OPTIMIZED: Generates culture notes with minimal token usage
- */
-export const generateCultureNotes = async (description: string, rules: string[]): Promise<string> => {
-    const cacheKey = `culture_v2:${description.slice(0, 100)}:${rules.join(',').slice(0, 100)}`;
-    const limitedRules = rules.slice(0, 5).map((rule, index) => `${index + 1}. ${rule.slice(0, 100)}`).join('\n');
-    const limitedDescription = description.slice(0, 200);
-    
-    const prompt = `Summarize subreddit culture in 1 paragraph. Description: "${limitedDescription}" Rules: "${limitedRules}"`;
-
-    const cultureNotes = await generateContentWithFallback(prompt, cacheKey);
-
-    setTimeout(() => aiCache.delete(cacheKey), 24 * 60 * 60 * 1000);
-    
-    return cultureNotes.trim();
-};
-
-/**
- * OPTIMIZED: Refines AI reply with minimal tokens
- */
-export const refineAIReply = async (originalText: string, instruction: string): Promise<string> => {
-    const truncatedText = originalText.slice(0, 300);
-    const truncatedInstruction = instruction.slice(0, 100);
-    
-    const prompt = `Rewrite: "${truncatedText}" 
-Instruction: "${truncatedInstruction}"
-New version:`;
-
-    const refinedText = await generateContentWithFallback(prompt); // Uses generic cache key
-    return refinedText.trim();
-};
-
-/**
- * OPTIMIZED: Discovers competitors with cost efficiency
- */
 export const discoverCompetitorsInText = async (text: string, ownProductDescription: string): Promise<string[]> => {
     const cacheKey = `competitors_v2:${text.slice(0, 200)}:${ownProductDescription.slice(0, 100)}`;
-    const truncatedText = text.slice(0, 400);
-    const truncatedProduct = ownProductDescription.slice(0, 150);
+    const prompt = `Find competitor names in the following text. My product is "${ownProductDescription.slice(0,150)}". Text: "${text.slice(0,400)}". Return ONLY a valid JSON object with a key "competitors" containing an array of names. If none, return an empty array.`;
     
-    const prompt = `Find competitors in text. My product: "${truncatedProduct}" Text: "${truncatedText}" Return JSON array of competitor names or [].`;
-    
-    const responseText = await generateContentWithFallback(prompt, cacheKey);
-    try {
-        const jsonString = responseText.match(/\[.*\]/s)?.[0] || responseText;
-        const competitors = JSON.parse(jsonString);
-        const competitorList = Array.isArray(competitors) ? competitors.slice(0, 5) : [];
-        
-        setTimeout(() => aiCache.delete(cacheKey), 24 * 60 * 60 * 1000);
-        
-        return competitorList;
-    } catch {
-        return [];
-    }
+    const responseText = await generateContentWithFallback(prompt, true, cacheKey);
+    const parsed = safeJsonParse<{ competitors: string[] }>(responseText, (obj): obj is { competitors: string[] } =>
+        obj && Array.isArray(obj.competitors) && obj.competitors.every((item: any) => typeof item === 'string')
+    );
+
+    const competitorList = parsed ? parsed.competitors : [];
+    setTimeout(() => aiCache.delete(cacheKey), 24 * 60 * 60 * 1000);
+    return competitorList.slice(0, 5);
 };
 
-/**
- * OPTIMIZED: Generate reply options with usage tracking
- */
+export const generateDescription = async (websiteText: string): Promise<string> => {
+    const cacheKey = `description_v2:${websiteText.slice(0, 200)}`;
+    const prompt = `Write a 2-sentence company description for: "${websiteText.slice(0, 400)}"`;
+    return generateContentWithFallback(prompt, false, cacheKey);
+};
+
+export const generateCultureNotes = async (description: string, rules: string[]): Promise<string> => {
+    const cacheKey = `culture_v2:${description.slice(0, 100)}:${rules.join(',').slice(0, 100)}`;
+    const prompt = `Summarize subreddit culture in 1 paragraph. Description: "${description.slice(0,200)}" Rules: "${rules.slice(0,5).map(r => r.slice(0,100)).join('\n')}"`;
+    return (await generateContentWithFallback(prompt, false, cacheKey)).trim();
+};
+
+export const refineAIReply = async (originalText: string, instruction: string): Promise<string> => {
+    const prompt = `Rewrite: "${originalText.slice(0, 300)}" \nInstruction: "${instruction.slice(0, 100)}" \nNew version:`;
+    return (await generateContentWithFallback(prompt, false)).trim();
+};
+
 export const generateReplyOptions = async (leadId: string): Promise<string[]> => {
     const lead = await prisma.lead.findUnique({
         where: { id: leadId },
@@ -338,9 +251,6 @@ export const generateReplyOptions = async (leadId: string): Promise<string[]> =>
     );
 };
 
-/**
- * OPTIMIZED: Fun replies with cost efficiency
- */
 export const generateFunReplies = async (
     leadTitle: string,
     leadBody: string | null,
@@ -356,7 +266,7 @@ Body: "${truncatedBody}"
 Product: "${truncatedDescription}"
 Return JSON: ["funny reply 1", "funny reply 2", "funny reply 3"]`;
 
-    const responseText = await generateContentWithFallback(prompt); // Uses generic cache key
+    const responseText = await generateContentWithFallback(prompt, true);
 
     try {
         const jsonString = responseText.match(/\[.*\]/s)?.[0] || responseText;
@@ -369,9 +279,6 @@ Return JSON: ["funny reply 1", "funny reply 2", "funny reply 3"]`;
     }
 };
 
-/**
- * OPTIMIZED: Analyze lead intent with basic fallback
- */
 export const analyzeLeadIntent = async (title: string, body: string | null, userId: string, userPlan: string): Promise<string> => {
     const aiUsage = AIUsageService.getInstance();
     const canUseAI = await aiUsage.trackAIUsage(userId, 'intent', userPlan);
@@ -385,7 +292,7 @@ export const analyzeLeadIntent = async (title: string, body: string | null, user
     
     const prompt = `Classify intent as: pain_point, solution_seeking, brand_comparison, or general_discussion. Title: "${truncatedTitle}" Body: "${truncatedBody}"`;
     
-    const intent = await generateContentWithFallback(prompt); // Uses generic cache key
+    const intent = await generateContentWithFallback(prompt, false);
     return intent.trim().toLowerCase();
 };
 
@@ -403,9 +310,6 @@ function determineBasicIntent(title: string, body: string | null): string {
     return 'general_discussion';
 }
 
-/**
- * OPTIMIZED: Analyze sentiment with basic fallback
- */
 export const analyzeSentiment = async (title: string, body: string | null, userId: string, userPlan: string): Promise<string> => {
     const aiUsage = AIUsageService.getInstance();
     const canUseAI = await aiUsage.trackAIUsage(userId, 'competitor', userPlan);
@@ -419,7 +323,7 @@ export const analyzeSentiment = async (title: string, body: string | null, userI
     
     const prompt = `Classify sentiment as: positive, negative, or neutral. Title: "${truncatedTitle}" Body: "${truncatedBody}"`;
     
-    const sentiment = await generateContentWithFallback(prompt); // Uses generic cache key
+    const sentiment = await generateContentWithFallback(prompt, false);
     return sentiment.trim().toLowerCase();
 };
 
@@ -436,10 +340,9 @@ function determineBasicSentiment(title: string, body: string | null): string {
     return 'neutral';
 }
 
-// Cache cleanup to prevent memory leaks
 setInterval(() => {
     if (aiCache.size > 1000) {
         console.log('[AI Service] Cleaning up cache...');
         aiCache.clear();
     }
-}, 60 * 60 * 1000); // Every hour
+}, 60 * 60 * 1000);
