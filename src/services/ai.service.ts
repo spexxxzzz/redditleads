@@ -46,7 +46,7 @@ const aiProviders = [
         generate: async function(prompt: string): Promise<string> {
             if (!process.env.PERPLEXITY_API_KEY) throw new Error("Perplexity API key is not set.");
             const { text } = await generateText({
-                model: perplexity('sonar-large-32k-online'),
+                model: perplexity('sonar'),
                 prompt: prompt,
                 temperature: 0.3,
                 maxTokens: 1024,
