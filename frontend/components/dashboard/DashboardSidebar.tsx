@@ -242,12 +242,6 @@ export const DashboardSidebar = ({
               isActive={pathname === '/dashboard/performance'} 
             />
             <NavButton 
-              href="/dashboard/analytics" 
-              icon={PieChart} 
-              label="Analytics" 
-              isActive={pathname === '/dashboard/analytics'} 
-            />
-            <NavButton 
               href="/dashboard/settings" 
               icon={Settings} 
               label="Settings" 
