@@ -11,7 +11,8 @@ const aiCache = new Map<string, any>();
 
 function safeJsonParse<T>(jsonString: string, validator: (obj: any) => obj is T): T | null {
     try {
-        const parsed = JSON.parse(jsonString.match(/{[\s\S]*}/)?.[0] || jsonString.match(/\[[\s\S]*\]/)?.[0] || jsonString);
+        const potentialJson = jsonString.match(/{[\s\S]*}/)?.[0] || jsonString.match(/\[[\s\S]*\]/)?.[0] || jsonString;
+        const parsed = JSON.parse(potentialJson);
         if (validator(parsed)) {
             return parsed;
         }
@@ -31,7 +32,7 @@ const aiProviders = [
             const model = client.getGenerativeModel({ 
                 model: 'gemini-1.5-flash',
                 generationConfig: {
-                    maxOutputTokens: 800,
+                    maxOutputTokens: 1024,
                     temperature: 0.3,
                     responseMimeType: expectJson ? "application/json" : "text/plain",
                 }
@@ -45,10 +46,10 @@ const aiProviders = [
         generate: async function(prompt: string): Promise<string> {
             if (!process.env.PERPLEXITY_API_KEY) throw new Error("Perplexity API key is not set.");
             const { text } = await generateText({
-                model: perplexity('sonar'),
+                model: perplexity('sonar-large-32k-online'),
                 prompt: prompt,
                 temperature: 0.3,
-                maxTokens: 800,
+                maxTokens: 1024,
             });
             return text;
         }
@@ -63,7 +64,7 @@ const aiProviders = [
                 messages: [{ role: 'user', content: prompt }],
                 response_format: { type: expectJson ? "json_object" : "text" },
                 temperature: 0.3, 
-                max_tokens: 800,
+                max_tokens: 1024,
             });
             return response.choices[0]?.message?.content ?? "";
         }
@@ -104,17 +105,40 @@ export const generateAIReplies = async (
 ): Promise<string[]> => {
     const truncatedTitle = leadTitle.slice(0, 250);
     const truncatedBody = (leadBody || '').slice(0, 400);
+    const truncatedDescription = companyDescription.slice(0, 250);
+    const truncatedCulture = subredditCultureNotes.slice(0, 200);
+    const limitedRules = subredditRules.slice(0, 4).map(rule => rule.slice(0, 70));
     
     const cacheKey = `replies_v3:${truncatedTitle}:${truncatedBody.slice(0, 100)}`;
     
-    const prompt = `You are an expert Reddit commenter... (Your detailed prompt here) ...
-    **Output:**
-    Return ONLY a valid JSON object with a single key "replies" which contains an array of 3 strings. Example: {"replies": ["reply1", "reply2", "reply3"]}. Do not include any other text, markdown, or explanations.`;
+    const prompt = `You are an expert Reddit commenter. Your goal is to write 3 helpful and natural-sounding replies to a Reddit post. You must sound like a real person, not a corporate bot.
+
+**The Post:**
+* **Title:** "${truncatedTitle}"
+* **Body:** "${truncatedBody}"
+
+**Your Product:**
+* **Description:** "${truncatedDescription}"
+
+**Subreddit Context:**
+* **Culture:** "${truncatedCulture}"
+* **Key Rules to Follow:** ${limitedRules.join('; ')}
+
+**Your Task:**
+Generate 3 distinct replies. Each reply MUST:
+1.  **Be Helpful First:** Directly address the user's question or problem in the post. Provide value.
+2.  **Sound Human:** Use a casual, conversational tone. Use "I" or "we" naturally.
+3.  **Subtly Promote:** After being helpful, you can *casually* mention how your product might be a good fit. Don't be pushy. Frame it as a friendly suggestion. For example: "Oh, and for something like this, I've had good luck with [Your Product]. It's pretty good at [solving the specific problem]." or "Full disclosure, I'm part of the team behind [Your Product], but it might be genuinely useful for you here because..."
+4.  **Respect the Rules:** Your reply must not violate the subreddit rules.
+5.  **Vary the Style:** Create three different styles of replies (e.g., one very direct, one more story-based, one more inquisitive).
+
+**Output:**
+Return ONLY a valid JSON object with a single key "replies" which contains an array of 3 strings. Example: {"replies": ["reply1", "reply2", "reply3"]}. Do not include any other text, markdown, or explanations.`;
 
     const responseText = await generateContentWithFallback(prompt, true, cacheKey);
 
     const parsed = safeJsonParse<{ replies: string[] }>(responseText, (obj): obj is { replies: string[] } =>
-        obj && Array.isArray(obj.replies) && obj.replies.every((item: any) => typeof item === 'string')
+        obj && typeof obj === 'object' && 'replies' in obj && Array.isArray(obj.replies) && obj.replies.every((item: any) => typeof item === 'string')
     );
     
     if (parsed) {
@@ -129,17 +153,19 @@ export const generateSubredditSuggestions = async (businessDescription: string):
     console.log('[Subreddit Suggestions] Starting process...');
     const cacheKey = `verified_subreddits_v4:${businessDescription.slice(0, 200)}`;
 
-    const prompt = `List 15-20 subreddits for this business. Return ONLY a valid JSON object with a single key "subreddits" which is an array of subreddit names (as strings), without the "r/" prefix. Business: "${businessDescription.slice(0, 300)}"`;
+    const prompt = `List 15-20 subreddits for this business: "${businessDescription.slice(0, 300)}".
+    
+    Return ONLY a valid JSON object with a single key "subreddits" which is an array of subreddit names (as strings), without the "r/" prefix.`;
 
     const responseText = await generateContentWithFallback(prompt, true, cacheKey);
     
     const parsed = safeJsonParse<{ subreddits: string[] }>(responseText, (obj): obj is { subreddits: string[] } => 
-        obj && Array.isArray(obj.subreddits) && obj.subreddits.every((item: any) => typeof item === 'string')
+        obj && typeof obj === 'object' && 'subreddits' in obj && Array.isArray(obj.subreddits) && obj.subreddits.every((item: any) => typeof item === 'string')
     );
 
     if (!parsed) {
         console.error("Failed to get valid subreddit JSON from AI. Falling back to comma-separated parsing.");
-        return responseText.split(',').map(s => s.trim()).filter(Boolean);
+        return responseText.split(',').map(s => s.trim().replace(/^r\//, '')).filter(Boolean);
     }
 
     const candidateSubreddits = parsed.subreddits;
@@ -168,11 +194,13 @@ export const generateSubredditSuggestions = async (businessDescription: string):
 export const generateKeywords = async (websiteText: string): Promise<string[]> => {
     const cacheKey = `keywords_v2:${websiteText.slice(0, 200)}`;
     const truncatedText = websiteText.slice(0, 500);
-    const prompt = `Extract 10-15 casual Reddit keywords from: "${truncatedText}". Return ONLY a valid JSON object with a key "keywords" containing an array of strings.`;
+    const prompt = `Extract 10-15 casual Reddit keywords from this text: "${truncatedText}".
+    
+    Return ONLY a valid JSON object with a key "keywords" containing an array of strings.`;
 
     const responseText = await generateContentWithFallback(prompt, true, cacheKey);
     const parsed = safeJsonParse<{ keywords: string[] }>(responseText, (obj): obj is { keywords: string[] } =>
-        obj && Array.isArray(obj.keywords) && obj.keywords.every((item: any) => typeof item === 'string')
+        obj && typeof obj === 'object' && 'keywords' in obj && Array.isArray(obj.keywords) && obj.keywords.every((item: any) => typeof item === 'string')
     );
     
     const keywords = parsed ? parsed.keywords : responseText.split(',').map(k => k.trim());
@@ -183,11 +211,13 @@ export const generateKeywords = async (websiteText: string): Promise<string[]> =
 
 export const discoverCompetitorsInText = async (text: string, ownProductDescription: string): Promise<string[]> => {
     const cacheKey = `competitors_v2:${text.slice(0, 200)}:${ownProductDescription.slice(0, 100)}`;
-    const prompt = `Find competitor names in the following text. My product is "${ownProductDescription.slice(0,150)}". Text: "${text.slice(0,400)}". Return ONLY a valid JSON object with a key "competitors" containing an array of names. If none, return an empty array.`;
+    const prompt = `Find competitor names in the following text. My product is "${ownProductDescription.slice(0,150)}". Text: "${text.slice(0,400)}".
+    
+    Return ONLY a valid JSON object with a key "competitors" containing an array of names. If none are found, return an empty array.`;
     
     const responseText = await generateContentWithFallback(prompt, true, cacheKey);
     const parsed = safeJsonParse<{ competitors: string[] }>(responseText, (obj): obj is { competitors: string[] } =>
-        obj && Array.isArray(obj.competitors) && obj.competitors.every((item: any) => typeof item === 'string')
+        obj && typeof obj === 'object' && 'competitors' in obj && Array.isArray(obj.competitors) && obj.competitors.every((item: any) => typeof item === 'string')
     );
 
     const competitorList = parsed ? parsed.competitors : [];
@@ -260,23 +290,27 @@ export const generateFunReplies = async (
     const truncatedBody = (leadBody || '').slice(0, 200);
     const truncatedDescription = companyDescription.slice(0, 150);
     
-    const prompt = `Create 3 funny promotional replies for unrelated post:
+    const prompt = `Create 3 funny promotional replies for an unrelated post.
 Title: "${truncatedTitle}"
 Body: "${truncatedBody}"  
 Product: "${truncatedDescription}"
-Return JSON: ["funny reply 1", "funny reply 2", "funny reply 3"]`;
+
+Return ONLY a valid JSON array of 3 strings. Example: ["funny reply 1", "funny reply 2", "funny reply 3"]`;
 
     const responseText = await generateContentWithFallback(prompt, true);
 
-    try {
-        const jsonString = responseText.match(/\[.*\]/s)?.[0] || responseText;
-        return JSON.parse(jsonString);
-    } catch (error) {
-        console.error("Failed to parse AI response as JSON:", responseText);
-        return [
-            `I have no idea what "${truncatedTitle}" is about, but have you heard of our amazing product? You should totally check it out!`
-        ];
+    const parsed = safeJsonParse<string[]>(responseText, (obj): obj is string[] => 
+        Array.isArray(obj) && obj.every(item => typeof item === 'string')
+    );
+
+    if (parsed) {
+        return parsed;
     }
+    
+    console.error("Failed to parse AI response as JSON for fun replies:", responseText);
+    return [
+        `I have no idea what "${truncatedTitle}" is about, but have you heard of our amazing product? You should totally check it out!`
+    ];
 };
 
 export const analyzeLeadIntent = async (title: string, body: string | null, userId: string, userPlan: string): Promise<string> => {
@@ -290,10 +324,10 @@ export const analyzeLeadIntent = async (title: string, body: string | null, user
     const truncatedTitle = title.slice(0, 100);
     const truncatedBody = (body || '').slice(0, 200);
     
-    const prompt = `Classify intent as: pain_point, solution_seeking, brand_comparison, or general_discussion. Title: "${truncatedTitle}" Body: "${truncatedBody}"`;
+    const prompt = `Classify intent as one of: pain_point, solution_seeking, brand_comparison, or general_discussion. Title: "${truncatedTitle}" Body: "${truncatedBody}"`;
     
     const intent = await generateContentWithFallback(prompt, false);
-    return intent.trim().toLowerCase();
+    return intent.trim().toLowerCase().replace(/_ /g, '_');
 };
 
 function determineBasicIntent(title: string, body: string | null): string {
@@ -321,7 +355,7 @@ export const analyzeSentiment = async (title: string, body: string | null, userI
     const truncatedTitle = title.slice(0, 100);
     const truncatedBody = (body || '').slice(0, 200);
     
-    const prompt = `Classify sentiment as: positive, negative, or neutral. Title: "${truncatedTitle}" Body: "${truncatedBody}"`;
+    const prompt = `Classify sentiment as one of: positive, negative, or neutral. Title: "${truncatedTitle}" Body: "${truncatedBody}"`;
     
     const sentiment = await generateContentWithFallback(prompt, false);
     return sentiment.trim().toLowerCase();
