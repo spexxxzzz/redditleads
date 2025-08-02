@@ -1,10 +1,11 @@
 import { RequestHandler } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { generateSubredditSuggestions } from '../services/ai.service';
 import { findLeadsOnReddit } from '../services/reddit.service';
 import { enrichLeadsForUser } from '../services/enrichment.service';
-import { calculateContentRelevance } from '../services/relevance.service';
+import { calculateContentRelevance } from '../services/relevance.service';import { generateKeywords, generateDescription, generateSubredditSuggestions } from '../services/ai.service';
 
+const MIN_CONTENT_LENGTH = 300;
+import { scrapeWebsiteTextSimple, scrapeWebsiteTextAdvanced } from '../services/scraper.service';
 const prisma = new PrismaClient();
 
 export const completeOnboarding: RequestHandler = async (req: any, res, next) => {
@@ -177,6 +178,45 @@ export const quickSetup: RequestHandler = async (req: any, res, next) => {
         res.json({ success: true, campaignId: campaign.id });
     } catch (error) {
         console.error('[Quick Setup] Error:', error);
+        next(error);
+    }
+};
+
+// This function can remain public as it's the first step of the onboarding
+// process and does not interact with user-specific data.
+export const analyzeWebsite: RequestHandler = async (req, res, next) => {
+    const { websiteUrl } = req.body;
+
+    if (!websiteUrl) {
+         res.status(400).json({ message: 'Website URL is required.' });
+         return;
+    }
+
+    try {
+        let scrapedText = '';
+        // First, try a simple scrape.
+        scrapedText = await scrapeWebsiteTextSimple(websiteUrl);
+
+        // If the content is too short, fall back to the advanced scraper.
+        if (scrapedText.length < MIN_CONTENT_LENGTH) {
+            scrapedText = await scrapeWebsiteTextAdvanced(websiteUrl);
+        }
+
+        // Generate keywords and description in parallel for efficiency.
+        const [keywords, description] = await Promise.all([
+            generateKeywords(scrapedText),
+            generateDescription(scrapedText)
+        ]);
+
+        res.status(200).json({
+            websiteUrl,
+            generatedKeywords: keywords,
+            generatedDescription: description
+        });
+        return;
+
+    } catch (error) {
+        // Pass any errors to the global error handler.
         next(error);
     }
 };
