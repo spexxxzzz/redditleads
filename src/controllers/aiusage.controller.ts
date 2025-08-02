@@ -60,9 +60,9 @@ export const getUserUsage = async (req: any, res: Response, next: NextFunction) 
 
 function getPlanLimits(plan: string) {
     switch (plan) {
-        case 'free': return { leads: 25, replies: 0, keywords: 5 };
-        case 'starter': return { leads: 200, replies: 75, keywords: 15 };
-        case 'pro': return { leads: 1000, replies: 300, keywords: 50 };
+        case 'free': return { leads: 25, replies: 10, keywords: 5 };
+        case 'starter': return { leads: 50, replies: 75, keywords: 15 };
+        case 'pro': return { leads: 100, replies: 150, keywords: 50 };
         default: return { leads: 25, replies: 0, keywords: 5 };
     }
 }

@@ -73,7 +73,8 @@ model Campaign {
   negativeKeywords      String[]        @default([])
   subredditBlacklist    String[]        @default([])
   lastManualDiscoveryAt DateTime?
-  lastGlobalSearchAt    DateTime?
+  lastGlobalDiscoverAt    DateTime?
+  lastTargetedDiscoveryAt  DateTime?
   user                  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   leads                 Lead[]
   MarketInsight         MarketInsight[]
@@ -108,6 +109,7 @@ model Lead {
   scheduledReplies   ScheduledReply[]
 
   @@unique([id, userId])
+    @@unique([redditId, campaignId])    
   @@index([userId])
   @@index([campaignId])
 }

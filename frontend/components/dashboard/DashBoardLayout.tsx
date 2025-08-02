@@ -35,6 +35,8 @@ interface Campaign {
   competitors: string[];
   createdAt: string;
   lastManualDiscoveryAt?: string | null;
+  lastGlobalDiscoveryAt?: string | null;
+  lastTargetedDiscoveryAt?: string | null;
   _count?: {
     leads: number;
   };
@@ -333,6 +335,8 @@ export const DashboardLayout = () => {
                       targetSubreddits={currentCampaign?.targetSubreddits || []}
                       onLeadsDiscovered={handleLeadsDiscovered}
                       lastDiscoveryAt={currentCampaign?.lastManualDiscoveryAt ? new Date(currentCampaign.lastManualDiscoveryAt) : null}
+                      lastGlobalDiscoveryAt={currentCampaign?.lastGlobalDiscoveryAt ? new Date(currentCampaign.lastGlobalDiscoveryAt) : null}
+                      lastTargetedDiscoveryAt={currentCampaign?.lastTargetedDiscoveryAt ? new Date(currentCampaign.lastTargetedDiscoveryAt) : null}
                     />
                   </motion.div>
 

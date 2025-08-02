@@ -100,3 +100,58 @@ export const getCampaignById: RequestHandler = async (req: any, res, next) => {
         next(error);
     }
 };
+
+
+export const updateCampaignById : RequestHandler = async (req : any, res, next) =>{
+    const {userId} = req.auth;
+    const {campaignId} = req.params;
+    const {generatedDescription,
+        generatedKeywords,
+        targetSubreddits,
+        competitors,
+        name} = req.body;
+     if(!userId){
+        res.status(401).json({message : "theres no user id, gng"})
+        return;
+     }
+
+     if(!campaignId){
+        res.status(401).json({message :"chat, please lemme know your campaign id, or sybau"})
+        return;
+     }
+      const updatedCampaign = await prisma.campaign.update({
+            where : { id : campaignId},
+            data : {
+                 generatedDescription,
+                 generatedKeywords,
+                 targetSubreddits,
+                 competitors,
+                 name,
+            }
+
+      })
+      return updatedCampaign;
+
+}
+
+export const deleteCampaignById : RequestHandler = async(req: any, res, next) =>{
+     const {userId} = req.auth;
+     const campaignId = req.params;
+
+     if(!userId){
+        res.status(200).json()
+     }
+      
+    prisma.campaign.delete({
+        where: {
+            id : campaignId,
+            userId : userId,
+        }
+    })
+
+    res.status(200).json({message :  "yo chat, deleted your campaign, happy now??? ts pmo icl whyd you delete your campaign"})
+  return;
+
+}
+
+

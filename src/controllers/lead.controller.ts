@@ -5,32 +5,27 @@ import { enrichLeadsForUser } from '../services/enrichment.service';
 import { summarizeTextContent } from '../services/summarisation.service';
 import { calculateContentRelevance } from '../services/relevance.service';
 import { AIUsageService } from '../services/aitracking.service';
-// Import the email notification service
 import { sendNewLeadsNotification } from '../services/email.service';
-
 
 const prisma = new PrismaClient();
 
 export const runManualDiscovery: RequestHandler = async (req: any, res, next) => {
-    // Get the authenticated user's ID from Clerk
     const { userId } = req.auth;
     const { campaignId } = req.params;
 
-    // Ensure the user is authenticated
     if (!userId) {
         res.status(401).json({ message: 'User not authenticated.' });
         return;
     }
 
     if (!campaignId) {
-         res.status(400).json({ message: 'Campaign ID is required.' });
-         return;
+        res.status(400).json({ message: 'Campaign ID is required.' });
+        return;
     }
 
     try {
-        console.log(`🔍 [Manual Discovery] User ${userId} starting for campaign: ${campaignId}`);
+        console.log(`🌍 [Global Discovery] User ${userId} starting for campaign: ${campaignId}`);
         
-        // Securely find the campaign, ensuring it belongs to the authenticated user
         const campaign = await prisma.campaign.findFirst({
             where: { 
                 id: campaignId,
@@ -40,36 +35,77 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
         });
 
         if (!campaign || !campaign.user) {
-             res.status(404).json({ message: 'Campaign not found or you do not have permission to access it.' });
-             return;
+            res.status(404).json({ message: 'Campaign not found or you do not have permission to access it.' });
+            return;
+        }
+
+        // Check cooldown for global discovery (using correct schema field name)
+        if (campaign.lastGlobalDiscoverAt) {
+            const lastGlobal = new Date(campaign.lastGlobalDiscoverAt);
+            const now = new Date();
+            const timeDiff = now.getTime() - lastGlobal.getTime();
+            const hoursDiff = timeDiff / (1000 * 60 * 60);
+            
+            if (hoursDiff < 10) {
+                const remainingTime = 10 - hoursDiff;
+                const hours = Math.floor(remainingTime);
+                const minutes = Math.floor((remainingTime - hours) * 60);
+                
+                res.status(429).json({ 
+                    message: `Global discovery is on cooldown. Please wait ${hours}h ${minutes}m before running again.`,
+                    cooldownRemaining: remainingTime * 60 * 60 * 1000 // in milliseconds
+                });
+                return;
+            }
         }
 
         const user = campaign.user;
         const usageService = AIUsageService.getInstance();
         const canRun = await usageService.trackAIUsage(userId, 'manual_discovery', user.plan);
         if (!canRun) {
-            return res.status(429).json({ message: "You've reached your monthly discovery limit. Please upgrade your plan for more." });
+            res.status(429).json({ message: "You've reached your monthly discovery limit. Please upgrade your plan for more." });
+            return;
         }
+
+        console.log(`[Global Discovery] Running GLOBAL search...`);
         
-        
-        console.log(`[Manual Discovery] Running GLOBAL search for campaign ${campaign.id}...`);
         const rawLeads = await findLeadsGlobally(
             campaign.generatedKeywords,
-            campaign.negativeKeywords || [],
-            campaign.subredditBlacklist || []
+            [],
+            ['test', 'circlejerk'], 
+            campaign.generatedDescription
         );
         
-        console.log(`[Manual Discovery] Found ${rawLeads.length} unique raw leads.`);
+        console.log(`[Global Discovery] Found ${rawLeads.length} unique global leads.`);
 
-        const enrichedLeads = await enrichLeadsForUser(rawLeads, user);
+        const relevantLeads = rawLeads.filter(lead => {
+            const relevance = calculateContentRelevance(
+                lead, 
+                campaign.generatedKeywords, 
+                campaign.generatedDescription
+            );
+            return relevance.score >= 25;
+        });
+
+        console.log(`[Global Discovery] Filtered to ${relevantLeads.length} relevant global leads`);
+
+        const enrichedLeads = await enrichLeadsForUser(relevantLeads, user);// 6 chunks for global
         
         const savedLeads = [];
         for (const lead of enrichedLeads) {
             try {
-                // Use upsert to avoid creating duplicate leads based on URL
                 const savedLead = await prisma.lead.upsert({
-                    where: { url: lead.url },
-                    update: {}, 
+                    where: { 
+                        redditId_campaignId: { 
+                            redditId: lead.id, 
+                            campaignId: campaignId 
+                        } 
+                    },
+                    update: {
+                        opportunityScore: lead.opportunityScore,
+                        intent: lead.intent,
+                        isGoogleRanked: lead.isGoogleRanked,
+                    },
                     create: {
                         redditId: lead.id,
                         title: lead.title,
@@ -87,22 +123,26 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
                     }
                 });
                 savedLeads.push(savedLead);
-            } catch (error) {
-                // Ignore unique constraint errors (P2002), but log others
-                if ((error as any).code !== 'P2002') {
-                    console.error(`❌ [Manual Discovery] Error saving lead "${lead.title}":`, error);
-                }
+            } catch (leadError) {
+                console.warn(`[Global Discovery] Failed to save lead ${lead.id}:`, leadError);
             }
         }
 
-        // ✨ SEND NOTIFICATION EMAIL IF NEW LEADS WERE FOUND ✨
         if (savedLeads.length > 0) {
-            console.log(`[Manual Discovery] Found ${savedLeads.length} new leads. Triggering email notification.`);
-            // Fire-and-forget the email notification
-            sendNewLeadsNotification(user, savedLeads, campaign.name).catch(err => {
-                console.error(`[Manual Discovery] Failed to send email notification for campaign ${campaign.id}:`, err);
+            console.log(`[Global Discovery] Found ${savedLeads.length} new leads. Triggering email notification.`);
+            sendNewLeadsNotification(user, savedLeads, campaign.name || 'Your Campaign').catch(err => {
+                console.error(`[Global Discovery] Failed to send email notification for campaign ${campaign.id}:`, err);
             });
         }
+
+        // Update discovery timestamps (using correct schema field names)
+        await prisma.campaign.update({
+            where: { id: campaignId },
+            data: { 
+                lastManualDiscoveryAt: new Date(),
+                lastGlobalDiscoverAt: new Date() // Correct field name from schema
+            }
+        });
 
         const sortedLeads = savedLeads.sort((a, b) => b.opportunityScore - a.opportunityScore);
         res.status(200).json(sortedLeads);
@@ -130,7 +170,6 @@ export const runTargetedDiscovery: RequestHandler = async (req: any, res, next) 
     try {
         console.log(`🎯 [Targeted Discovery] User ${userId} starting for campaign: ${campaignId}`);
         
-        // Securely find the campaign
         const campaign = await prisma.campaign.findFirst({
             where: { 
                 id: campaignId,
@@ -143,15 +182,35 @@ export const runTargetedDiscovery: RequestHandler = async (req: any, res, next) 
             res.status(404).json({ message: 'Campaign not found or you do not have permission to access it.' });
             return;
         }
+
+        // Check cooldown for targeted discovery
+        if (campaign.lastTargetedDiscoveryAt) {
+            const lastTargeted = new Date(campaign.lastTargetedDiscoveryAt);
+            const now = new Date();
+            const timeDiff = now.getTime() - lastTargeted.getTime();
+            const hoursDiff = timeDiff / (1000 * 60 * 60);
+            
+            if (hoursDiff < 10) {
+                const remainingTime = 10 - hoursDiff;
+                const hours = Math.floor(remainingTime);
+                const minutes = Math.floor((remainingTime - hours) * 60);
+                
+                res.status(429).json({ 
+                    message: `Targeted discovery is on cooldown. Please wait ${hours}h ${minutes}m before running again.`,
+                    cooldownRemaining: remainingTime * 60 * 60 * 1000 // in milliseconds
+                });
+                return;
+            }
+        }
   
         const user = campaign.user;
         const usageService = AIUsageService.getInstance();
         const canRun = await usageService.trackAIUsage(userId, 'manual_discovery', user.plan);
         if (!canRun) {
-            return res.status(429).json({ message: "You've reached your monthly discovery limit. Please upgrade your plan for more." });
+            res.status(429).json({ message: "You've reached your monthly discovery limit. Please upgrade your plan for more." });
+            return;
         }
   
-        // Check if campaign has target subreddits
         if (!campaign.targetSubreddits || campaign.targetSubreddits.length === 0) {
             res.status(400).json({ 
                 message: 'No target subreddits configured for this campaign. Please add target subreddits first.',
@@ -161,8 +220,7 @@ export const runTargetedDiscovery: RequestHandler = async (req: any, res, next) 
         }
         
         console.log(`[Targeted Discovery] Running TARGETED search in ${campaign.targetSubreddits.length} subreddits...`);
-        
-        // Use the targeted findLeadsOnReddit function
+  
         const rawLeads = await findLeadsOnReddit(
             campaign.generatedKeywords,
             campaign.targetSubreddits
@@ -170,28 +228,34 @@ export const runTargetedDiscovery: RequestHandler = async (req: any, res, next) 
         
         console.log(`[Targeted Discovery] Found ${rawLeads.length} unique targeted leads.`);
   
-        // Apply relevance filtering (but more lenient for targeted search)
         const relevantLeads = rawLeads.filter(lead => {
             const relevance = calculateContentRelevance(
                 lead, 
                 campaign.generatedKeywords, 
                 campaign.generatedDescription
             );
-            
-            // Lower threshold for targeted search since we're already in specific subreddits
-            return relevance.score >= 15; // Lower than global search threshold of 25
+            return relevance.score >= 15;
         });
   
         console.log(`[Targeted Discovery] Filtered to ${relevantLeads.length} relevant targeted leads`);
   
-        const enrichedLeads = await enrichLeadsForUser(relevantLeads, user);
+        const enrichedLeads = await enrichLeadsForUser(relevantLeads, user); // 10 chunks for targeted
         
         const savedLeads = [];
         for (const lead of enrichedLeads) {
             try {
                 const savedLead = await prisma.lead.upsert({
-                    where: { url: lead.url },
-                    update: {}, 
+                    where: { 
+                        redditId_campaignId: { 
+                            redditId: lead.id, 
+                            campaignId: campaignId 
+                        } 
+                    },
+                    update: {
+                        opportunityScore: lead.opportunityScore,
+                        intent: lead.intent,
+                        isGoogleRanked: lead.isGoogleRanked,
+                    },
                     create: {
                         redditId: lead.id,
                         title: lead.title,
@@ -209,26 +273,25 @@ export const runTargetedDiscovery: RequestHandler = async (req: any, res, next) 
                     }
                 });
                 savedLeads.push(savedLead);
-            } catch (error) {
-                if ((error as any).code !== 'P2002') {
-                    console.error(`❌ [Targeted Discovery] Error saving lead "${lead.title}":`, error);
-                }
+            } catch (leadError) {
+                console.warn(`[Targeted Discovery] Failed to save lead ${lead.id}:`, leadError);
             }
         }
   
-        // ✨ SEND NOTIFICATION EMAIL IF NEW LEADS WERE FOUND ✨
         if (savedLeads.length > 0) {
             console.log(`[Targeted Discovery] Found ${savedLeads.length} new leads. Triggering email notification.`);
-            // Fire-and-forget the email notification
-            sendNewLeadsNotification(user, savedLeads, campaign.name).catch(err => {
+            sendNewLeadsNotification(user, savedLeads, campaign.name || 'Your Campaign').catch(err => {
                 console.error(`[Targeted Discovery] Failed to send email notification for campaign ${campaign.id}:`, err);
             });
         }
 
-        // Update last manual discovery timestamp
+        // Update discovery timestamps
         await prisma.campaign.update({
             where: { id: campaignId },
-            data: { lastManualDiscoveryAt: new Date() }
+            data: { 
+                lastManualDiscoveryAt: new Date(),
+                lastTargetedDiscoveryAt: new Date()
+            }
         });
   
         const sortedLeads = savedLeads.sort((a, b) => b.opportunityScore - a.opportunityScore);
@@ -249,6 +312,7 @@ export const runTargetedDiscovery: RequestHandler = async (req: any, res, next) 
         next(error);
     }
 };
+
 export const getLeadsForCampaign: RequestHandler = async (req: any, res, next) => {
     const { userId } = req.auth;
     const { campaignId } = req.params;
@@ -302,7 +366,6 @@ export const getLeadsForCampaign: RequestHandler = async (req: any, res, next) =
 
         console.log(`📋 [Get Leads] Found ${leads.length} leads (${totalLeads} total) matching criteria`);
 
-        // CORRECTED: The transformation now includes the isGoogleRanked field.
         const transformedLeads = leads.map(lead => ({
             id: lead.id,
             title: lead.title,
@@ -310,13 +373,11 @@ export const getLeadsForCampaign: RequestHandler = async (req: any, res, next) =
             subreddit: lead.subreddit,
             url: lead.url,
             body: lead.body,
-            createdAt: Math.floor(lead.postedAt.getTime() / 1000),
-            numComments: 0, 
-            upvoteRatio: 0.67,
+            createdAt: Math.floor(lead.postedAt.getTime() / 1000), // Converting postedAt to createdAt for frontend
             intent: lead.intent || 'information_seeking',
+            summary: lead.summary,
             opportunityScore: lead.opportunityScore,
             status: lead.status,
-            // Ensure the isGoogleRanked field is included, defaulting to false if null/undefined
             isGoogleRanked: lead.isGoogleRanked ?? false,
         }));
 
@@ -346,7 +407,6 @@ export const summarizeLead: RequestHandler = async (req: any, res, next) => {
     }
 
     try {
-        // Securely find the lead, ensuring it belongs to the authenticated user
         const lead = await prisma.lead.findFirst({
             where: { 
                 id: leadId,
@@ -355,13 +415,13 @@ export const summarizeLead: RequestHandler = async (req: any, res, next) => {
         });
 
         if (!lead) {
-             res.status(404).json({ message: 'Lead not found or you do not have permission to access it.' });
-             return;
+            res.status(404).json({ message: 'Lead not found or you do not have permission to access it.' });
+            return;
         }
 
         if (!lead.body || lead.body.trim().length === 0) {
-             res.status(400).json({ message: 'Lead has no content to summarize.' });
-             return;
+            res.status(400).json({ message: 'Lead has no content to summarize.' });
+            return;
         }
 
         console.log(`[SUMMARIZE] User ${userId} requesting summary for lead ${leadId}`);
@@ -382,130 +442,121 @@ export const summarizeLead: RequestHandler = async (req: any, res, next) => {
 
 export const deleteAllLeads: RequestHandler = async (req: any, res, next) => {
     try {
-      const { campaignId } = req.params;
-      const userId = req.auth.userId;
-  
-      if (!userId) {
-        res.status(401).json({ message: 'User not authenticated.' });
-        return;
-      }
-  
-      if (!campaignId) {
-        res.status(400).json({ message: 'Campaign ID is required.' });
-        return;
-      }
-  
-      // Verify campaign ownership
-      const campaign = await prisma.campaign.findFirst({
-        where: { 
-          id: campaignId,
-          userId: userId 
+        const { campaignId } = req.params;
+        const userId = req.auth.userId;
+
+        if (!userId) {
+            res.status(401).json({ message: 'User not authenticated.' });
+            return;
         }
-      });
-  
-      if (!campaign) {
-        res.status(404).json({ message: 'Campaign not found or you do not have permission to access it.' });
-        return;
-      }
-  
-      // Count leads before deletion
-      const leadCount = await prisma.lead.count({
-        where: {
-          campaignId,
-          userId
+
+        if (!campaignId) {
+            res.status(400).json({ message: 'Campaign ID is required.' });
+            return;
         }
-      });
-  
-      // Delete all leads for the campaign
-      const deleteResult = await prisma.lead.deleteMany({
-        where: {
-          campaignId,
-          userId
+
+        const campaign = await prisma.campaign.findFirst({
+            where: { 
+                id: campaignId,
+                userId: userId 
+            }
+        });
+
+        if (!campaign) {
+            res.status(404).json({ message: 'Campaign not found or you do not have permission to access it.' });
+            return;
         }
-      });
-  
-      console.log(`Deleted ${deleteResult.count} leads for campaign ${campaignId} (user: ${userId})`);
-  
-      res.json({ 
-        success: true, 
-        message: `Successfully deleted ${deleteResult.count} leads`,
-        deletedCount: deleteResult.count
-      });
-  
+
+        const deleteResult = await prisma.lead.deleteMany({
+            where: {
+                campaignId,
+                userId
+            }
+        });
+
+        console.log(`Deleted ${deleteResult.count} leads for campaign ${campaignId} (user: ${userId})`);
+
+        res.json({ 
+            success: true, 
+            message: `Successfully deleted ${deleteResult.count} leads`,
+            deletedCount: deleteResult.count
+        });
+
     } catch (error) {
-      console.error('Error deleting leads:', error);
-      next(error);
+        console.error('Error deleting leads:', error);
+        next(error);
     }
-  };
-  
+};
+
 export const deleteLeadsByStatus: RequestHandler = async (req: any, res, next) => {
     try {
-      const { campaignId } = req.params;
-      const { status } = req.body; // 'ignored', 'replied', 'saved', etc.
-      const userId = req.auth.userId;
-  
-      if (!userId) {
-        res.status(401).json({ message: 'User not authenticated.' });
-        return;
-      }
-  
-      if (!campaignId || !status) {
-        res.status(400).json({ message: 'Campaign ID and status are required.' });
-        return;
-      }
-  
-      // Verify campaign ownership
-      const campaign = await prisma.campaign.findFirst({
-        where: { 
-          id: campaignId,
-          userId: userId 
+        const { campaignId } = req.params;
+        const { status } = req.body;
+        const userId = req.auth.userId;
+
+        if (!userId) {
+            res.status(401).json({ message: 'User not authenticated.' });
+            return;
         }
-      });
-  
-      if (!campaign) {
-        res.status(404).json({ message: 'Campaign not found or you do not have permission to access it.' });
-        return;
-      }
-  
-      // Delete leads by status
-      const deleteResult = await prisma.lead.deleteMany({
-        where: {
-          campaignId,
-          userId,
-          status
+
+        if (!campaignId || !status) {
+            res.status(400).json({ message: 'Campaign ID and status are required.' });
+            return;
         }
-      });
-  
-      console.log(`Deleted ${deleteResult.count} ${status} leads for campaign ${campaignId}`);
-  
-      res.json({ 
-        success: true, 
-        message: `Successfully deleted ${deleteResult.count} ${status} leads`,
-        deletedCount: deleteResult.count
-      });
-  
+
+        const campaign = await prisma.campaign.findFirst({
+            where: { 
+                id: campaignId,
+                userId: userId 
+            }
+        });
+
+        if (!campaign) {
+            res.status(404).json({ message: 'Campaign not found or you do not have permission to access it.' });
+            return;
+        }
+
+        const deleteResult = await prisma.lead.deleteMany({
+            where: {
+                campaignId,
+                userId,
+                status
+            }
+        });
+
+        console.log(`Deleted ${deleteResult.count} ${status} leads for campaign ${campaignId}`);
+
+        res.json({ 
+            success: true, 
+            message: `Successfully deleted ${deleteResult.count} ${status} leads`,
+            deletedCount: deleteResult.count
+        });
+
     } catch (error) {
-      console.error('Error deleting leads by status:', error);
-      next(error);
+        console.error('Error deleting leads by status:', error);
+        next(error);
     }
-  };
- 
+};
+
 export const updateLeadStatus: RequestHandler = async (req: any, res, next) => {
     const { userId } = req.auth;
     const { leadId } = req.params;
     const { status } = req.body;
 
     if (!userId) {
-        return res.status(401).json({ message: 'User not authenticated.' });
+        res.status(401).json({ message: 'User not authenticated.' });
+        return;
     }
 
     if (!leadId || !status) {
-        return res.status(400).json({ message: 'Lead ID and status are required.' });
+        res.status(400).json({ message: 'Lead ID and status are required.' });
+        return;
     }
 
-    const validStatuses = ["new", "replied", "saved", "ignored"];
+    const validStatuses = ["new", "replied", "saved", "ignored"]; // Using correct schema values
     if (!validStatuses.includes(status)) {
-        return res.status(400).json({ message: 'Invalid status provided.' });
+        res.status(400).json({ message: 'Invalid status provided.' });
+        return;
     }
 
     try {
@@ -519,7 +570,8 @@ export const updateLeadStatus: RequestHandler = async (req: any, res, next) => {
         });
 
         if (!lead) {
-            return res.status(404).json({ message: 'Lead not found or you do not have permission.' });
+            res.status(404).json({ message: 'Lead not found or you do not have permission.' });
+            return;
         }
 
         const updatedLead = await prisma.lead.update({
@@ -548,11 +600,11 @@ export const deleteSingleLead: RequestHandler = async (req: any, res, next) => {
     const { leadId } = req.params;
 
     if (!userId) {
-        return res.status(401).json({ message: 'User not authenticated.' });
+        res.status(401).json({ message: 'User not authenticated.' });
+        return;
     }
 
     try {
-        // Verify the lead exists and belongs to the user before deleting
         const lead = await prisma.lead.findFirst({
             where: {
                 id: leadId,
@@ -561,7 +613,8 @@ export const deleteSingleLead: RequestHandler = async (req: any, res, next) => {
         });
 
         if (!lead) {
-            return res.status(404).json({ message: 'Lead not found or you do not have permission to delete it.' });
+            res.status(404).json({ message: 'Lead not found or you do not have permission to delete it.' });
+            return;
         }
 
         await prisma.lead.delete({
@@ -571,5 +624,6 @@ export const deleteSingleLead: RequestHandler = async (req: any, res, next) => {
         res.status(200).json({ success: true, message: 'Lead deleted successfully.' });
     } catch (error) {
         console.error(`[Delete Lead] Error deleting lead ${leadId}:`, error);
+        next(error);
     }
 };
