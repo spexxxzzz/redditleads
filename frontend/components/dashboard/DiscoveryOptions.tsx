@@ -71,8 +71,8 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
   // Update timers every second
   useEffect(() => {
     const interval = setInterval(() => {
-      setGlobalTimeLeft(calculateTimeLeft(lastGlobalDiscoveryAt ?? null));
-      setTargetedTimeLeft(calculateTimeLeft(lastTargetedDiscoveryAt ?? null));
+      setGlobalTimeLeft(calculateTimeLeft(lastGlobalDiscoveryAt || null));
+      setTargetedTimeLeft(calculateTimeLeft(lastTargetedDiscoveryAt || null));
     }, 1000);
 
     return () => clearInterval(interval);
@@ -80,8 +80,8 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
 
   // Initialize timers on mount
   useEffect(() => {
-    setGlobalTimeLeft(calculateTimeLeft(lastGlobalDiscoveryAt));
-    setTargetedTimeLeft(calculateTimeLeft(lastTargetedDiscoveryAt));
+    setGlobalTimeLeft(calculateTimeLeft(lastGlobalDiscoveryAt || null));
+    setTargetedTimeLeft(calculateTimeLeft(lastTargetedDiscoveryAt || null));
   }, [calculateTimeLeft, lastGlobalDiscoveryAt, lastTargetedDiscoveryAt]);
 
   // Format time remaining
