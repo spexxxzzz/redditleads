@@ -173,27 +173,33 @@ export default function CampaignsManagementPage() {
                     className="group"
                   >
                     <Card className="bg-black/60 border-white/10 hover:border-white/20 transition-all duration-300 hover:shadow-xl">
-                      <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1 min-w-0">
-                            <CardTitle className={`text-white font-bold text-lg truncate ${poppins.className}`}>
-                              {campaign.name || new URL(campaign.analyzedUrl).hostname}
-                            </CardTitle>
-                            <div className="flex items-center gap-2 mt-1">
-                              <GlobeAltIcon className="w-4 h-4 text-orange-500" />
-                              <span className={`text-sm text-zinc-400 truncate ${inter.className}`}>
-                                {campaign.analyzedUrl}
-                              </span>
-                            </div>
-                          </div>
-                          <Badge 
-                            variant={campaign.isActive ? "default" : "secondary"}
-                            className={campaign.isActive ? "bg-green-500/20 text-green-400" : "bg-zinc-700 text-zinc-400"}
-                          >
-                            {campaign.isActive ? 'Active' : 'Inactive'}
-                          </Badge>
-                        </div>
-                      </CardHeader>
+                    <CardHeader className="pb-3">
+  <div className="flex items-start justify-between gap-3">
+    <div className="flex-1 min-w-0">
+      <CardTitle className={`text-white font-bold text-lg truncate ${poppins.className}`}>
+        {campaign.name || new URL(campaign.analyzedUrl).hostname}
+      </CardTitle>
+      <div className="flex items-center gap-2 mt-1">
+        <GlobeAltIcon className="w-4 h-4 text-orange-500 flex-shrink-0" />
+        <span className={`text-sm text-zinc-400 truncate ${inter.className}`}>
+          {campaign.analyzedUrl}
+        </span>
+      </div>
+    </div>
+    <div className="flex-shrink-0">
+      <Badge 
+        variant={campaign.isActive ? "default" : "secondary"}
+        className={`text-xs px-2 py-1 font-medium ${
+          campaign.isActive 
+            ? "bg-green-500/20 text-green-400 border-green-500/30" 
+            : "bg-zinc-700/50 text-zinc-400 border-zinc-600/30"
+        }`}
+      >
+        {campaign.isActive ? 'Active' : 'Inactive'}
+      </Badge>
+    </div>
+  </div>
+</CardHeader>
                       
                       <CardContent className="space-y-4">
                         {/* Keywords */}
