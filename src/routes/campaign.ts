@@ -1,5 +1,5 @@
 import express from 'express';
-import { getCampaignsForUser, getCampaignById } from '../controllers/campaign.controller';
+import { getCampaignsForUser, getCampaignById, deleteCampaignById, updateCampaignById } from '../controllers/campaign.controller';
 
 const campaignRouter = express.Router();
 
@@ -10,5 +10,7 @@ campaignRouter.get('/', getCampaignsForUser);
 // Get a specific campaign by ID
 // The controller for this route already verifies ownership.
 campaignRouter.get('/:campaignId', getCampaignById);
+campaignRouter.delete('/:campaignId', deleteCampaignById);
+campaignRouter.patch('/:campaignId', updateCampaignById);
 
 export default campaignRouter;

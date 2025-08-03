@@ -18,7 +18,8 @@ import {
   Crown,
   Webhook,
   PieChart,
-  Activity
+  Activity,
+  FolderOpen // Add this import for campaign management
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useUser } from '@clerk/nextjs';
@@ -37,10 +38,21 @@ const poppins = Poppins({
 
 interface Campaign {
   id: string;
+  userId: string;
+  name: string;
   analyzedUrl: string;
   generatedKeywords: string[];
   generatedDescription: string;
   targetSubreddits: string[];
+  competitors: string[];
+  createdAt: string;
+  lastManualDiscoveryAt?: string | null;
+  lastGlobalDiscoveryAt?: string | null;
+  lastTargetedDiscoveryAt?: string | null;
+  isActive: boolean;
+  _count?: {
+    leads: number;
+  };
 }
 
 interface Props {
@@ -49,12 +61,18 @@ interface Props {
   setActiveCampaign: (id: string) => void;
   activeFilter: string;
   setActiveFilter: (filter: string) => void;
-  stats: { new: number; replied: number; saved: number; all: number };
+  stats: {
+    new: number;
+    replied: number;
+    saved: number;
+    ignored: number;
+    all: number;
+  };
   isCollapsed: boolean;
   setIsCollapsed: (collapsed: boolean) => void;
   activeView: 'dashboard' | 'leads';
   setActiveView: (view: 'dashboard' | 'leads') => void;
-  isMobile: boolean; // Prop to indicate mobile view
+  isMobile: boolean;
 }
 
 export const DashboardSidebar = ({
@@ -228,6 +246,12 @@ export const DashboardSidebar = ({
               label="Leads" 
               isActive={activeView === 'leads'}
               onClick={() => setActiveView('leads')}
+            />
+            <NavButton 
+              href="/dashboard/campaigns" 
+              icon={FolderOpen} 
+              label="Campaigns" 
+              isActive={pathname === '/dashboard/campaigns'} 
             />
             <NavButton 
               href="/dashboard/webhooks" 

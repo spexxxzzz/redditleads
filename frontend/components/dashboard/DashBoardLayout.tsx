@@ -241,7 +241,10 @@ export const DashboardLayout = () => {
             style={{ minWidth: isMobile ? undefined : (isSidebarCollapsed ? 72 : 260) }}
           >
             <DashboardSidebar
-              campaigns={campaigns}
+              campaigns={campaigns.map(c => ({
+                ...c,
+                isActive: c.id === activeCampaign
+              }))}
               activeCampaign={activeCampaign}
               setActiveCampaign={setActiveCampaign}
               activeFilter={activeFilter ?? "all"}

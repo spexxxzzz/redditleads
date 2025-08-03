@@ -338,5 +338,70 @@ export const api = {
       if (!response.ok) throw new Error('Failed to delete lead');
       return response.json();
     },
-    
+    // Add these functions to your existing api.ts file
+  createCampaign: async (campaignData: {
+    websiteUrl: string;
+    generatedKeywords: string[];
+    generatedDescription: string;
+    competitors: string[];
+    name?: string;
+  }, token: string | null) => {
+    const response = await fetch(`${API_BASE_URL}/api/onboarding/complete`, {
+      method: 'POST',
+      headers: getAuthHeaders(token),
+      body: JSON.stringify(campaignData)
+    });
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to create campaign');
+    }
+    return response.json();
+  },
+
+  updateCampaign: async (campaignId: string, campaignData: {
+    name: string;
+    analyzedUrl: string;
+    generatedDescription: string;
+    generatedKeywords: string[];
+    targetSubreddits: string[];
+    competitors: string[];
+    isActive: boolean;
+  }, token: string | null) => {
+    const response = await fetch(`${API_BASE_URL}/api/campaigns/${campaignId}`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(token),
+      body: JSON.stringify(campaignData)
+    });
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to update campaign');
+    }
+    return response.json();
+  },
+
+  deleteCampaign: async (campaignId: string, token: string | null) => {
+    const response = await fetch(`${API_BASE_URL}/api/campaigns/${campaignId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(token)
+    });
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to delete campaign');
+    }
+    return response.json();
+  },
+
+  analyzeWebsite: async (websiteUrl: string, token: string | null) => {
+    const response = await fetch(`${API_BASE_URL}/api/onboarding/analyze`, {
+      method: 'POST',
+      headers: getAuthHeaders(token),
+      body: JSON.stringify({ websiteUrl })
+    });
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to analyze website');
+    }
+    return response.json();
+  },
+ 
 };
