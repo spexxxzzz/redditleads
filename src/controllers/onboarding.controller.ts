@@ -1,12 +1,14 @@
 import { RequestHandler } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { findLeadsOnReddit } from '../services/reddit.service';
+import { findLeadsOnReddit, findLeadsOnRedditWithUserAccount } from '../services/reddit.service';
 import { enrichLeadsForUser } from '../services/enrichment.service';
 import { calculateContentRelevance } from '../services/relevance.service';import { generateKeywords, generateDescription, generateSubredditSuggestions } from '../services/ai.service';
 
 const MIN_CONTENT_LENGTH = 300;
 import { scrapeWebsiteTextSimple, scrapeWebsiteTextAdvanced } from '../services/scraper.service';
 const prisma = new PrismaClient();
+import { getUserAuthenticatedInstance } from '../services/reddit.service';
+import { sendNewLeadsNotification } from '../services/email.service';
 
 export const completeOnboarding: RequestHandler = async (req: any, res, next) => {
     const { userId } = req.auth;
@@ -22,18 +24,21 @@ export const completeOnboarding: RequestHandler = async (req: any, res, next) =>
         return;
     }
 
-    if (!websiteUrl || !generatedKeywords || !generatedDescription) {
-        res.status(400).json({ message: 'Missing required onboarding data.' });
-        return;
-    }
-
     try {
         console.log(`[Onboarding] Completing for user: ${userId}`);
 
-        // Check if user exists
+        // Check if user exists and has Reddit connected
         const user = await prisma.user.findUnique({ where: { id: userId } });
         if (!user) {
             res.status(404).json({ message: 'User not found.' });
+            return;
+        }
+
+        if (!user.redditRefreshToken) {
+            res.status(403).json({ 
+                message: 'Reddit account not connected. Please connect your Reddit account first.',
+                requiresRedditAuth: true 
+            });
             return;
         }
 
@@ -41,7 +46,7 @@ export const completeOnboarding: RequestHandler = async (req: any, res, next) =>
         const subredditArray = await generateSubredditSuggestions(generatedDescription);
         console.log(`[Onboarding] Generated ${subredditArray.length} subreddit suggestions.`);
 
-        // Create campaign with proper field mapping
+        // Create campaign
         const newCampaign = await prisma.campaign.create({
             data: {
                 userId,
@@ -53,24 +58,27 @@ export const completeOnboarding: RequestHandler = async (req: any, res, next) =>
                 targetSubreddits: subredditArray,
                 competitors: competitors || [],
                 isActive: true,
-                name: `Campaign for ${websiteUrl}` // Add explicit name
+                name: `Campaign for ${websiteUrl}`
             }
         });
 
-        const campaignId = newCampaign.id;
+        const campaignName = newCampaign.analyzedUrl;
 
         console.log(`[Onboarding] Campaign created: ${newCampaign.id}`);
 
-        // Run automatic targeted discovery
+        // Run lead discovery using USER'S Reddit account
+        let leadsFound = 0;
         try {
-            console.log(`[Onboarding] Running automatic targeted discovery for campaign: ${newCampaign.id}`);
+            console.log(`[Onboarding] Running lead discovery with user's Reddit account...`);
             
-            const rawLeads = await findLeadsOnReddit(
+            // Use user's Reddit account for lead discovery
+            const rawLeads = await findLeadsOnRedditWithUserAccount(
                 newCampaign.generatedKeywords,
-                newCampaign.targetSubreddits
+                newCampaign.targetSubreddits,
+                user.redditRefreshToken // Use user's token
             );
 
-            console.log(`[Onboarding] Found ${rawLeads.length} raw leads.`);
+            console.log(`[Onboarding] Found ${rawLeads.length} raw leads using user account.`);
 
             // Filter for relevance
             const relevantLeads = rawLeads.filter(lead => {
@@ -84,10 +92,10 @@ export const completeOnboarding: RequestHandler = async (req: any, res, next) =>
 
             console.log(`[Onboarding] Filtered to ${relevantLeads.length} relevant leads.`);
 
-            // Enrich leads (limit to 5 chunks for onboarding)
+            // Enrich leads
             const enrichedLeads = await enrichLeadsForUser(relevantLeads, user);
 
-            // Save leads with proper field mapping
+            // Save leads
             const savedLeads = [];
             for (const lead of enrichedLeads) {
                 try {
@@ -110,13 +118,14 @@ export const completeOnboarding: RequestHandler = async (req: any, res, next) =>
                             subreddit: lead.subreddit,
                             url: lead.url,
                             body: lead.body || '',
-                            userId: user.id,
-                            campaignId: campaignId,
-                            opportunityScore: lead.opportunityScore,
-                            intent: lead.intent || null,
-                            status: 'new',
                             postedAt: new Date(lead.createdAt ? lead.createdAt * 1000 : Date.now()),
+                            userId: user.id,
+                            campaignId: newCampaign.id,
+                            opportunityScore: lead.opportunityScore || 0,
+                            intent: lead.intent || 'general_discussion',
+                            status: 'new',
                             type: 'DIRECT_LEAD',
+                            isGoogleRanked: lead.isGoogleRanked || false,
                         }
                     });
                     savedLeads.push(savedLead);
@@ -124,6 +133,8 @@ export const completeOnboarding: RequestHandler = async (req: any, res, next) =>
                     console.warn(`[Onboarding] Failed to save lead ${lead.id}:`, leadError);
                 }
             }
+
+            leadsFound = savedLeads.length;
 
             // Update campaign with discovery timestamp
             await prisma.campaign.update({
@@ -134,17 +145,32 @@ export const completeOnboarding: RequestHandler = async (req: any, res, next) =>
                 }
             });
 
+           
+
             console.log(`[Onboarding] Saved ${savedLeads.length} leads for new campaign.`);
 
+            // Send email notification with leads
+            if (savedLeads.length > 0) {
+                try {
+                    await sendNewLeadsNotification(user, savedLeads, campaignName);
+                    console.log(`[Onboarding] Email notification sent to ${user.email}`);
+                } catch (emailError) {
+                    console.error(`[Onboarding] Failed to send email notification:`, emailError);
+                }
+            }
+
         } catch (discoveryError) {
-            console.error(`[Onboarding] Automatic discovery failed:`, discoveryError);
-            // Don't fail onboarding if discovery fails
+            console.error(`[Onboarding] Lead discovery failed:`, discoveryError);
+            // Don't fail onboarding if discovery fails, but log it
         }
 
         res.status(201).json({
             success: true,
             campaign: newCampaign,
-            message: 'Onboarding completed successfully! Your first leads are being discovered.',
+            leadsFound,
+            message: leadsFound > 0 
+                ? `Onboarding completed! Found ${leadsFound} leads and sent them to your email.`
+                : 'Onboarding completed! We\'ll continue monitoring for leads.',
         });
 
     } catch (error) {
@@ -219,4 +245,4 @@ export const analyzeWebsite: RequestHandler = async (req, res, next) => {
         // Pass any errors to the global error handler.
         next(error);
     }
-};
+}; 

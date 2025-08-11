@@ -25,10 +25,10 @@ import analyticsRouter from './routes/analytics';
 const app = express();
 const PORT = process.env.PORT || 5000;
 const allowedOrigins = [
-  'https://red-lead.vercel.app', // Your deployed frontend
+  'https://red-lead.vercel.app', 
   'http://localhost:3000',
    'https://www.redlead.net',
-    'https://www.redlead.net'       // Your local frontend for development
+    'https://www.redlead.net'       
 ];
 
 const corsOptions = {

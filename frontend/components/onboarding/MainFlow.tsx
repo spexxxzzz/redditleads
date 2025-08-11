@@ -3,8 +3,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Step1_AnalyzeUrl } from './Step1_AnalyzeUrl';
-import { Step2_ConfirmDetails } from './Step2_ConfirmDetails';
-import { Step3_Success } from './Step3_Success';
+import { Step2_ConnectReddit } from './Step2_ConfirmDetails';
+import { Step3_FindLeads } from './Step3_Success';
 import { Inter, Poppins } from 'next/font/google';
 import { CheckIcon } from '@heroicons/react/24/solid';
 import { useAuth } from '@clerk/nextjs';
@@ -90,11 +90,12 @@ export const OnboardingFlow = () => {
     }
   };
 
-  const steps = [
-    { number: 1, title: "Analyze Website", description: "AI analyzes your site" },
-    { number: 2, title: "Confirm Details", description: "Review & customize" },
-    { number: 3, title: "Complete Setup", description: "Start finding leads" }
-  ];
+ 
+const steps = [
+  { number: 1, title: "Analyze Website", description: "AI analyzes your site" },
+  { number: 2, title: "Connect Reddit", description: "Link your Reddit account" },
+  { number: 3, title: "Find Your Leads", description: "Discover opportunities" }
+];
 
   return (
     <div className="min-h-screen bg-black">
@@ -211,19 +212,17 @@ export const OnboardingFlow = () => {
                     exit={{ opacity: 0, x: -20 }}
                     transition={{ duration: 0.4 }}
                   >
-                    <Step2_ConfirmDetails
-                      analysisResult={analysisResult}
-                      onComplete={handleComplete}
-                      isLoading={isLoading}
-                      error={error}
-                      onBack={() => {
-                        setError(null);
-                        setStep(1);
-                      }}
-                    />
+                 <Step2_ConnectReddit
+      onBack={() => {
+        setError(null);
+        setStep(1);
+      }}
+      onNext={() => setStep(3)}
+      error={error}
+    />
                   </motion.div>
                 )}
-                {step === 3 && (
+                {step === 3 && analysisResult && (
                   <motion.div
                     key="step3"
                     initial={{ opacity: 0, x: 20 }}
@@ -231,7 +230,12 @@ export const OnboardingFlow = () => {
                     exit={{ opacity: 0, x: -20 }}
                     transition={{ duration: 0.4 }}
                   >
-                    <Step3_Success />
+                        <Step3_FindLeads
+      analysisResult={analysisResult}
+      onBack={() => setStep(2)}
+      onComplete={() => setStep(4)} // Step 4 can be the final success
+      error={error}
+    />
                   </motion.div>
                 )}
               </AnimatePresence>

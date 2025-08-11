@@ -338,4 +338,55 @@ export const checkKarmaThreshold = async (userRefreshToken: string, minimumKarma
     }
 };
 
+// Add to reddit.service.ts
+export const findLeadsOnRedditWithUserAccount = async (
+    keywords: string[], 
+    subreddits: string[], 
+    userRefreshToken: string
+): Promise<RawLead[]> => {
+    try {
+        // Use user's Reddit account instead of app account
+        const userReddit = getUserAuthenticatedInstance(userRefreshToken);
+        console.log(`[User Search] Starting search with user's Reddit account in ${subreddits.length} subreddits.`);
+
+        const searchQuery = keywords.join(' OR ');
+        console.log(`[User Search] Using search query: "${searchQuery}"`);
+
+        const searchPromises = subreddits.map(async (subreddit) => {
+            try {
+                const searchResults = await userReddit.getSubreddit(subreddit).search({
+                    query: searchQuery,
+                    sort: 'new',
+                    time: 'year',
+                });
+                return searchResults.map((post): RawLead => ({
+                    id: post.id,
+                    title: post.title,
+                    author: post.author.name,
+                    subreddit: post.subreddit.display_name,
+                    url: `https://www.reddit.com${post.permalink}`,
+                    body: post.selftext,
+                    createdAt: post.created_utc,
+                    numComments: post.num_comments,
+                    upvoteRatio: post.upvote_ratio,
+                    authorKarma: post.author.link_karma + post.author.comment_karma,
+                    type: 'DIRECT_LEAD'
+                }));
+            } catch (error) {
+                console.warn(`[User Search] Could not search r/${subreddit} with user account. Skipping.`);
+                return [];
+            }
+        });
+
+        const results = await Promise.all(searchPromises);
+        const flattenedResults = results.flat();
+        console.log(`[User Search] Found ${flattenedResults.length} total posts using user account.`);
+        return flattenedResults;
+
+    } catch (error) {
+        console.error('[User Search] Could not perform Reddit search with user account:', error);
+        throw new Error('Failed to search Reddit with your account. Please ensure your Reddit connection is valid.');
+    }
+};
+
 export { RawLead };

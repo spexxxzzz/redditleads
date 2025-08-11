@@ -9,7 +9,6 @@ const USAGE_LIMITS = {
     keywords: { free: 5, starter: 15, pro: 50 },
     competitor: { free: 0, starter: 0, pro: 1000 },
     manual_discovery: { free: 1, starter: 10, pro: 30 }
-    // ...add more as needed
   };
 
 type UsageType = keyof typeof USAGE_LIMITS;
