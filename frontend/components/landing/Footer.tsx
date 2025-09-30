@@ -2,7 +2,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { Inter, Poppins } from "next/font/google";
-import { Github, Twitter, Linkedin, Mail, Heart } from "lucide-react";
+import { Twitter, Linkedin, Mail, Heart } from "lucide-react";
 import Link from "next/link";
 
 const inter = Inter({ subsets: ['latin'] });
@@ -12,16 +12,17 @@ const poppins = Poppins({
 });
 
 const SimpleFooter: React.FC = () => {
-  const currentYear = new Date().getFullYear();
+  // Use a static year to prevent hydration issues
+  const currentYear = 2025;
 
-  const footerLinks = {
-    product: [
-      { name: "Features", href: "#features" },
-      { name: "Pricing", href: "#pricing" },
-      { name: "Demo", href: "#demo" }
-    ],
+      const footerLinks = {
+        product: [
+          { name: "Features", href: "#features" },
+          { name: "Pricing", href: "#pricing" },
+          { name: "Blog", href: "/blog" }
+        ],
     resources: [
-      { name: "Blog", href: "#blog" },
+      { name: "Blog", href: "/blog" },
       { name: "Help", href: "#help" },
       { name: "Changelog", href: "#changelog" }
     ],
@@ -32,10 +33,9 @@ const SimpleFooter: React.FC = () => {
   };
 
   const socialLinks = [
-    { icon: Github, href: "#", label: "GitHub" },
     { icon: Twitter, href: "#", label: "Twitter" },
     { icon: Linkedin, href: "#", label: "LinkedIn" },
-    { icon: Mail, href: "mailto:hello@redlead.com", label: "Email" }
+    { icon: Mail, href: "mailto:hello@redditleads.com", label: "Email" }
   ];
 
   return (
@@ -109,21 +109,15 @@ const SimpleFooter: React.FC = () => {
               <div className="flex items-center gap-3 mb-4">
               <img src="/logo.png" alt="Logo" className="h-10 " />
                 <span className={` text-2xl font-black text-white ${poppins.className}`}>
-
-                  red
-                  <span className={` text-2xl bg-gradient-to-r from-orange-400 to-orange-500 bg-clip-text text-transparent  ${poppins.className}`}>lead</span>
+                  Reddit
+                  <span className={` text-2xl bg-gradient-to-r from-orange-400 to-orange-500 bg-clip-text text-transparent  ${poppins.className}`}>Leads</span>
                 </span>
  
               </div>
               <p className={`text-white/70 mb-6 max-w-sm leading-relaxed ${inter.className}`}>
-                AI-powered Reddit lead generation tool.
+                Get your Customers in 3 mins on Reddit
               </p>
               
-              <div className="flex items-center gap-2 text-white/60 text-sm">
-                <span className={inter.className}>Made with</span>
-                <Heart className="w-4 h-4 text-red-400" />
-                <span className={inter.className}>by a solo founder</span>
-              </div>
             </motion.div>
           </div>
 
@@ -215,7 +209,7 @@ const SimpleFooter: React.FC = () => {
           className="mt-12 pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between"
         >
           <p className={`text-white/60 text-sm ${inter.className}`}>
-            © {currentYear} Redlead. Built by  <Link href={"https://x.com/attharrva15"}>@attharrva15</Link>
+            © {currentYear} Redditleads. Built by  <Link href={"https://x.com/attharrva15"}>@Neel & Manglam</Link>
           </p>
           
           {/* Social Links */}

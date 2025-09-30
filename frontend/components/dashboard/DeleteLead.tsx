@@ -21,7 +21,7 @@ const poppins = Poppins({
 interface DeleteLeadsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  campaignId: string;
+  projectId: string;
   leadStats: { new: number; replied: number; saved: number; ignored: number; all: number };
   onLeadsDeleted: () => void;
 }
@@ -29,7 +29,7 @@ interface DeleteLeadsModalProps {
 export const DeleteLeadsModal: React.FC<DeleteLeadsModalProps> = ({
   isOpen,
   onClose,
-  campaignId,
+  projectId,
   leadStats,
   onLeadsDeleted
 }) => {
@@ -51,9 +51,9 @@ export const DeleteLeadsModal: React.FC<DeleteLeadsModalProps> = ({
       // FIX: Check which status is selected and call the correct API function
       // with the correct arguments, including the auth token.
       if (selectedStatus === 'all') {
-        await api.deleteAllLeads(campaignId, token);
+        await api.deleteAllLeads(projectId, token);
       } else {
-        await api.deleteLeadsByStatus(campaignId, selectedStatus, token);
+        await api.deleteLeadsByStatus(projectId, selectedStatus, token);
       }
 
       onLeadsDeleted();

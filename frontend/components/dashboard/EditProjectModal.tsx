@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
 import { Switch } from "@/components/ui/switch";
 import { toast } from 'sonner';
 
@@ -28,7 +29,7 @@ const poppins = Poppins({
   weight: ['400', '500', '600', '700', '800']
 });
 
-interface Campaign {
+interface Project {
   id: string;
   userId: string;
   name: string;
@@ -44,21 +45,22 @@ interface Campaign {
   isActive: boolean;
 }
 
-interface EditCampaignModalProps {
+interface EditProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
-  campaign: Campaign | null;
-  onCampaignUpdated: () => void;
+  project: Project | null;
+  onProjectUpdated: () => void;
 }
 
-export const EditCampaignModal: React.FC<EditCampaignModalProps> = ({
+export const EditProjectModal: React.FC<EditProjectModalProps> = ({
   isOpen,
   onClose,
-  campaign,
-  onCampaignUpdated
+  project,
+  onProjectUpdated
 }) => {
   const { getToken } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     analyzedUrl: '',
@@ -74,31 +76,36 @@ export const EditCampaignModal: React.FC<EditCampaignModalProps> = ({
   const [newCompetitor, setNewCompetitor] = useState('');
 
   useEffect(() => {
-    if (campaign) {
+    if (project) {
       setFormData({
-        name: campaign.name || '',
-        analyzedUrl: campaign.analyzedUrl || '',
-        generatedDescription: campaign.generatedDescription || '',
-        generatedKeywords: [...campaign.generatedKeywords],
-        targetSubreddits: [...campaign.targetSubreddits],
-        competitors: [...campaign.competitors],
-        isActive: campaign.isActive
+        name: project.name || '',
+        analyzedUrl: project.analyzedUrl || '',
+        generatedDescription: project.generatedDescription || '',
+        generatedKeywords: [...project.generatedKeywords],
+        targetSubreddits: [...project.targetSubreddits],
+        competitors: [...project.competitors],
+        isActive: project.isActive
       });
+      
+      // Automatically switch to preview mode when description exists
+      if (project.generatedDescription) {
+        setShowPreview(true);
+      }
     }
-  }, [campaign]);
+  }, [project]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!campaign) return;
+    if (!project) return;
 
     setLoading(true);
     try {
       const token = await getToken();
-      await api.updateCampaign(campaign.id, formData, token);
-      toast.success('Campaign updated successfully');
-      onCampaignUpdated();
+      await api.updateProject(project.id, formData, token);
+      toast.success('Project updated successfully');
+      onProjectUpdated();
     } catch (error: any) {
-      toast.error('Failed to update campaign', {
+      toast.error('Failed to update project', {
         description: error.message
       });
     } finally {
@@ -157,7 +164,7 @@ export const EditCampaignModal: React.FC<EditCampaignModalProps> = ({
     }));
   };
 
-  if (!isOpen || !campaign) return null;
+  if (!isOpen || !project) return null;
 
   return (
     <AnimatePresence>
@@ -178,10 +185,10 @@ export const EditCampaignModal: React.FC<EditCampaignModalProps> = ({
             <div className="flex items-center justify-between">
               <div>
                 <h2 className={`text-2xl font-bold text-white ${poppins.className}`}>
-                  Edit Campaign
+                  Edit Project
                 </h2>
                 <p className={`text-zinc-400 mt-1 ${inter.className}`}>
-                  Update your campaign settings and targeting
+                  Update your project settings and targeting
                 </p>
               </div>
               <Button
@@ -207,13 +214,13 @@ export const EditCampaignModal: React.FC<EditCampaignModalProps> = ({
               <CardContent className="space-y-4">
                 <div>
                   <label className={`block text-sm font-medium text-zinc-300 mb-2 ${inter.className}`}>
-                    Campaign Name
+                    Project Name
                   </label>
                   <Input
                     value={formData.name}
                     onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                     className="bg-zinc-800 border-zinc-700 text-white"
-                    placeholder="My Lead Generation Campaign"
+                    placeholder="My Lead Generation Project"
                   />
                 </div>
 
@@ -232,25 +239,42 @@ export const EditCampaignModal: React.FC<EditCampaignModalProps> = ({
                 </div>
 
                 <div>
-                  <label className={`block text-sm font-medium text-zinc-300 mb-2 ${inter.className}`}>
-                    <DocumentTextIcon className="w-4 h-4 inline mr-1" />
-                    Description
-                  </label>
-                  <Textarea
-                    value={formData.generatedDescription}
-                    onChange={(e) => setFormData(prev => ({ ...prev, generatedDescription: e.target.value }))}
-                    className="bg-zinc-800 border-zinc-700 text-white min-h-[100px]"
-                    placeholder="Describe your business and what you're looking for..."
-                  />
+                  <div className="flex items-center justify-between">
+                    <label className={`block text-sm font-medium text-zinc-300 ${inter.className}`}>
+                      <DocumentTextIcon className="w-4 h-4 inline mr-1" />
+                      Description
+                    </label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowPreview(!showPreview)}
+                      className="text-orange-400 border-orange-500/20 hover:bg-orange-500/10"
+                    >
+                      {showPreview ? 'Edit' : 'Preview'}
+                    </Button>
+                  </div>
+                  {showPreview ? (
+                    <div className="bg-zinc-800 border border-zinc-700 rounded-md p-3 min-h-[100px]">
+                      <MarkdownRenderer content={formData.generatedDescription} />
+                    </div>
+                  ) : (
+                    <Textarea
+                      value={formData.generatedDescription}
+                      onChange={(e) => setFormData(prev => ({ ...prev, generatedDescription: e.target.value }))}
+                      className="bg-zinc-800 border-zinc-700 text-white min-h-[100px]"
+                      placeholder="Describe your business and what you're looking for..."
+                    />
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between">
                   <div>
                     <label className={`text-sm font-medium text-zinc-300 ${inter.className}`}>
-                      Campaign Status
+                      Project Status
                     </label>
                     <p className={`text-xs text-zinc-500 ${inter.className}`}>
-                      Enable or disable lead discovery for this campaign
+                      Enable or disable lead discovery for this project
                     </p>
                   </div>
                   <Switch
@@ -417,7 +441,7 @@ export const EditCampaignModal: React.FC<EditCampaignModalProps> = ({
                 disabled={loading}
                 className="bg-orange-500 hover:bg-orange-600 text-white flex-1"
               >
-                {loading ? 'Updating...' : 'Update Campaign'}
+                {loading ? 'Updating...' : 'Update Project'}
               </Button>
             </div>
           </form>

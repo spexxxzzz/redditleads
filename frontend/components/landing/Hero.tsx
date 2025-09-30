@@ -73,7 +73,7 @@ export const Hero = () => {
                 className={`text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-black tracking-tighter leading-[0.9] text-white mb-0 overflow-visible ${poppins.className}`}
                 style={{ overflow: 'visible' }}
               >
-                Turn{" "}
+                Get your Customers in 3 mins on{" "}
                 <motion.span
                   initial={{ scale: 0.8, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
@@ -94,17 +94,7 @@ export const Hero = () => {
                     display: 'inline-block'
                   }}
                 >
-                  Reddit{"     "}
-                </motion.span>
-                {" "}
-                <motion.span
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 1, ease: "easeOut", delay: 0.2 }}
-                  className="inline-block"
-                  style={{ overflow: 'visible' }}
-                >
-                  into leads
+                  reddit
                 </motion.span>
               </motion.h1>
             </div>
@@ -172,7 +162,7 @@ export const Hero = () => {
                 <div className="relative overflow-hidden rounded-xl shadow-2xl shadow-orange-500/20 z-10 border border-white/10">
                   <Image
                     src="/Redlead1.png"
-                    alt="RedLead Dashboard Interface"
+                    alt="RedditLeads Dashboard Interface"
                     width={5040}
                     height={3360}
                     quality={100}

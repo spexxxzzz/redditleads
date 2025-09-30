@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
 import { Inter, Poppins } from 'next/font/google';
 import { motion } from "framer-motion";
-import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
+import { SignedIn, SignedOut, UserButton, useUser } from "@clerk/nextjs";
 
 const inter = Inter({ subsets: ['latin'] });
 const poppins = Poppins({ 
@@ -15,6 +15,12 @@ const poppins = Poppins({
 
 export const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  const { isSignedIn, isLoaded } = useUser();
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const navLinks = [
     { href: "#features", label: "Features" },
@@ -50,7 +56,7 @@ export const Header = () => {
                   fontWeight: '900'
                 }}
               >
-                RedLead
+                RedditLeads
               </span>
             </Link>
           </div>
@@ -74,7 +80,27 @@ export const Header = () => {
 
           {/* CTA Buttons */}
           <div className="hidden md:flex items-center gap-4">
-            <SignedOut>
+            {!isMounted || !isLoaded ? (
+              // Show loading state during hydration
+              <div className="flex items-center gap-3">
+                <div className="w-16 h-8 bg-white/10 rounded-lg animate-pulse"></div>
+                <div className="w-20 h-8 bg-white/20 rounded-lg animate-pulse"></div>
+              </div>
+            ) : isSignedIn ? (
+              <div className="flex items-center gap-3">
+                <Link 
+                  href="/dashboard"
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold text-white/90 bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/30 transition-all duration-200 ${poppins.className}`}
+                  style={{ 
+                    fontFamily: '"Poppins", sans-serif',
+                    fontWeight: '600'
+                  }}
+                >
+                  Go to Dashboard
+                </Link>
+                <UserButton afterSignOutUrl="/" />
+              </div>
+            ) : (
               <div className="flex items-center gap-3">
                 <Link 
                   href="/sign-in"
@@ -98,23 +124,7 @@ export const Header = () => {
                   Get started
                 </Link>
               </div>
-            </SignedOut>
-
-            <SignedIn>
-              <div className="flex items-center gap-3">
-                <Link 
-                  href="/dashboard"
-                  className={`px-4 py-2 rounded-lg text-sm font-semibold text-white/90 bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/30 transition-all duration-200 ${poppins.className}`}
-                  style={{ 
-                    fontFamily: '"Poppins", sans-serif',
-                    fontWeight: '600'
-                  }}
-                >
-                  Go to Dashboard
-                </Link>
-                <UserButton afterSignOutUrl="/" />
-              </div>
-            </SignedIn>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -155,7 +165,30 @@ export const Header = () => {
             <div className="w-full max-w-xs border-t border-white/20 my-4"></div>
             
             {/* Auth Buttons */}
-            <SignedOut>
+            {!isMounted || !isLoaded ? (
+              // Show loading state during hydration
+              <div className="flex flex-col gap-4 w-full max-w-xs">
+                <div className="w-full h-12 bg-gray-800 rounded-lg animate-pulse"></div>
+                <div className="w-full h-12 bg-white/20 rounded-lg animate-pulse"></div>
+              </div>
+            ) : isSignedIn ? (
+              <div className="flex flex-col gap-4 w-full max-w-xs items-center">
+                <Link
+                  href="/dashboard"
+                  className={`px-6 py-3 rounded-lg text-base font-semibold text-white bg-gray-800 hover:bg-gray-700 border border-gray-700 transition-all duration-200 w-full text-center ${poppins.className}`}
+                  style={{ 
+                    fontFamily: '"Poppins", sans-serif',
+                    fontWeight: '600'
+                  }}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Go to Dashboard
+                </Link>
+                <div className="pt-4">
+                  <UserButton afterSignOutUrl="/" />
+                </div>
+              </div>
+            ) : (
               <div className="flex flex-col gap-4 w-full max-w-xs">
                 <Link
                   href="/sign-in"
@@ -181,26 +214,7 @@ export const Header = () => {
                   Get started
                 </Link>
               </div>
-            </SignedOut>
-
-            <SignedIn>
-              <div className="flex flex-col gap-4 w-full max-w-xs items-center">
-                <Link
-                  href="/dashboard"
-                  className={`px-6 py-3 rounded-lg text-base font-semibold text-white bg-gray-800 hover:bg-gray-700 border border-gray-700 transition-all duration-200 w-full text-center ${poppins.className}`}
-                  style={{ 
-                    fontFamily: '"Poppins", sans-serif',
-                    fontWeight: '600'
-                  }}
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Go to Dashboard
-                </Link>
-                <div className="pt-4">
-                  <UserButton afterSignOutUrl="/" />
-                </div>
-              </div>
-            </SignedIn>
+            )}
           </div>
         </div>
       )}

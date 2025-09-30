@@ -47,7 +47,7 @@ const poppins = Poppins({
   weight: ['400', '500', '600', '700', '800']
 });
 
-interface Campaign {
+interface Project {
   id: string;
   analyzedUrl: string;
   generatedKeywords: string[];
@@ -86,14 +86,29 @@ interface AnalyticsData {
   weeklyActivity: Array<{ day: string; activity: number }>;
 }
 
+interface Project {
+  id: string;
+  userId: string;
+  name: string;
+  analyzedUrl: string;
+  generatedKeywords: string[];
+  generatedDescription: string;
+  targetSubreddits: string[];
+  competitors: string[];
+  createdAt: string;
+  _count?: {
+    leads: number;
+  };
+}
+
 interface Props {
-  campaigns: Campaign[];
-  activeCampaign: string | null;
+  projects: Project[];
+  activeProject: string | null;
   leadStats: { new: number; replied: number; saved: number; all: number };
   allLeads: Lead[];
 }
 
-export const AnalyticalDashboard = ({ campaigns, activeCampaign, leadStats, allLeads }: Props) => {
+export const AnalyticalDashboard = ({ projects, activeProject, leadStats, allLeads }: Props) => {
   const { getToken } = useAuth();
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -104,7 +119,7 @@ export const AnalyticalDashboard = ({ campaigns, activeCampaign, leadStats, allL
     ? ((leadStats.replied / leadStats.all) * 100).toFixed(1)
     : "0.0";
 
-  const activeCampaignData = campaigns.find(c => c.id === activeCampaign);
+  const activeProjectData = projects.find(c => c.id === activeProject);
 
   const avgOpportunityScore = allLeads.length > 0 
     ? Math.min(10, Math.max(0, (allLeads.reduce((sum, lead) => sum + lead.opportunityScore, 0) / allLeads.length) / 10)).toFixed(1)
@@ -112,7 +127,7 @@ export const AnalyticalDashboard = ({ campaigns, activeCampaign, leadStats, allL
 
   useEffect(() => {
     const fetchAnalytics = async () => {
-      if (!activeCampaign) {
+      if (!activeProject) {
         setIsLoading(false);
         return;
       }
@@ -122,11 +137,11 @@ export const AnalyticalDashboard = ({ campaigns, activeCampaign, leadStats, allL
         const token = await getToken();
         
         const [trendsResponse, performanceResponse, metricsResponse, opportunityResponse, activityResponse] = await Promise.all([
-          api.getLeadTrends(activeCampaign, token),
-          api.getSubredditPerformance(activeCampaign, token),
-          api.getAnalyticsMetrics(activeCampaign, token),
-          api.getOpportunityDistribution(activeCampaign, token),
-          api.getWeeklyActivity(activeCampaign, token)
+          api.getLeadTrends(activeProject, token),
+          api.getSubredditPerformance(activeProject, token),
+          api.getAnalyticsMetrics(activeProject, token),
+          api.getOpportunityDistribution(activeProject, token),
+          api.getWeeklyActivity(activeProject, token)
         ]);
         
         console.log('🔍 Full Performance Response:', performanceResponse);
@@ -217,7 +232,7 @@ export const AnalyticalDashboard = ({ campaigns, activeCampaign, leadStats, allL
     };
 
     fetchAnalytics();
-  }, [activeCampaign, getToken]);
+  }, [activeProject, getToken]);
 
   const MetricCard = ({ title, value, change, description, icon: Icon, trend, isOrange = false }: any) => (
     <motion.div
@@ -418,7 +433,7 @@ export const AnalyticalDashboard = ({ campaigns, activeCampaign, leadStats, allL
     <>
       <div className="min-h-screen bg-black">
         <div className="p-8 space-y-8">
-          {/* Header with Campaign Name */}
+          {/* Header with Project Name */}
           <div className="flex items-start justify-between">
             <div className="space-y-2">
               <h1 className={`text-3xl font-bold text-white ${poppins.className}`}>
@@ -429,16 +444,16 @@ export const AnalyticalDashboard = ({ campaigns, activeCampaign, leadStats, allL
               </p>
             </div>
             
-            {/* Campaign Info with proper spacing */}
-            {activeCampaignData && (
+            {/* Project Info with proper spacing */}
+            {activeProjectData && (
               <div className="flex items-center gap-4 ml-12">
                 <div className="w-1 h-12 bg-orange-500 rounded-full"></div>
                 <div>
                   <p className={`text-sm font-medium text-orange-500 ${inter.className}`}>
-                    Active Campaign
+                    Active Project
                   </p>
                   <p className={`text-lg font-semibold text-white ${poppins.className}`}>
-                    {new URL(activeCampaignData.analyzedUrl).hostname}
+                    {new URL(activeProjectData.analyzedUrl).hostname}
                   </p>
                 </div>
               </div>
@@ -686,32 +701,32 @@ export const AnalyticalDashboard = ({ campaigns, activeCampaign, leadStats, allL
               </CardContent>
             </Card>
 
-            {/* Campaign Details */}
+            {/* Project Details */}
             <Card className="bg-black border-zinc-800">
               <CardHeader>
                 <CardTitle className={`text-white ${poppins.className}`}>
-                  Campaign Details
+                  Project Details
                 </CardTitle>
                 <p className={`text-sm text-gray-400 ${inter.className}`}>
                   Current configuration
                 </p>
               </CardHeader>
               <CardContent className="space-y-4">
-                {activeCampaignData ? (
+                {activeProjectData ? (
                   <>
                     <div>
                       <p className={`text-sm font-medium mb-1 text-gray-300 ${inter.className}`}>
                         Keywords Tracked
                       </p>
                       <div className="flex flex-wrap gap-1">
-                        {activeCampaignData.generatedKeywords.slice(0, 3).map((keyword) => (
+                        {activeProjectData.generatedKeywords.slice(0, 3).map((keyword) => (
                           <Badge key={keyword} className="bg-orange-500/10 text-orange-400 border-orange-500/20 hover:bg-orange-500/20">
                             {keyword}
                           </Badge>
                         ))}
-                        {activeCampaignData.generatedKeywords.length > 3 && (
+                        {activeProjectData.generatedKeywords.length > 3 && (
                           <Badge variant="outline" className="border-zinc-700 text-gray-400">
-                            +{activeCampaignData.generatedKeywords.length - 3}
+                            +{activeProjectData.generatedKeywords.length - 3}
                           </Badge>
                         )}
                       </div>
@@ -719,13 +734,13 @@ export const AnalyticalDashboard = ({ campaigns, activeCampaign, leadStats, allL
                     <div className="flex items-center gap-2 text-sm">
                       <EyeIcon className="h-3 w-3 text-orange-500" />
                       <span className={`text-gray-300 ${inter.className}`}>
-                        {activeCampaignData.targetSubreddits.length} subreddits monitored
+                        {activeProjectData.targetSubreddits.length} subreddits monitored
                       </span>
                     </div>
                   </>
                 ) : (
                   <p className={`text-sm text-gray-400 ${inter.className}`}>
-                    No campaign selected
+                    No project selected
                   </p>
                 )}
               </CardContent>

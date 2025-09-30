@@ -184,7 +184,7 @@ export const AdvantageComponent: React.FC = () => {
             >
               Why Choose{" "}
               <span className="bg-gradient-to-r from-[#FF4500] to-[#FF6B00] bg-clip-text text-transparent">
-                Redlead
+                Redditleads
               </span>{" "}
               Over Others?
             </h1>
@@ -208,7 +208,7 @@ export const AdvantageComponent: React.FC = () => {
                   <th className={`text-center py-6 px-4 ${poppins.className}`}>
                     <div className="text-center">
                       <div className="text-lg font-bold bg-gradient-to-r from-[#FF4500] to-[#FF6B00] bg-clip-text text-transparent">
-                        Redlead
+                        Redditleads
                       </div>
                       <div className="text-xs text-orange-400 mt-1">Starting at $19</div>
                     </div>

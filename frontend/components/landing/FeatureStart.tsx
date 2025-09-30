@@ -79,7 +79,7 @@ export function FeaturesStart() {
               Stop scrolling. Start <span className="bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 bg-clip-text text-transparent">selling.</span>
             </h3>
             <p className={`text-base font-medium text-white/80 leading-relaxed max-w-3xl mx-auto ${inter.className}`}>
-              While you waste hours manually searching Reddit for prospects, RedLead works 24/7 to discover and organize high-intent leads who are actively asking for solutions like yours.
+              While you waste hours manually searching Reddit for prospects, RedditLeads works 24/7 to discover and organize high-intent leads who are actively asking for solutions like yours.
             </p>
           </motion.div>
           <motion.div

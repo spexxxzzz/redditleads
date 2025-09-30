@@ -34,7 +34,7 @@ export const OnboardingFlow = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch('https://redlead.onrender.com/api/onboarding/analyze', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/onboarding/analyze`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -63,7 +63,7 @@ export const OnboardingFlow = () => {
     try {
       const token = await getToken();
 
-      const response = await fetch('https://redlead.onrender.com/api/onboarding/complete', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/onboarding/complete`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -110,7 +110,7 @@ const steps = [
           >
             Welcome to{" "}
             <span className="text-orange-500">
-              RedLead
+              RedditLeads
             </span>
           </motion.h1>
           <motion.p 

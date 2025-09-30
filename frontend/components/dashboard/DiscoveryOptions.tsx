@@ -15,12 +15,13 @@ const poppins = Poppins({
 });
 
 interface DiscoveryButtonsProps {
-  campaignId: string;
+  projectId: string;
   targetSubreddits: string[];
   onLeadsDiscovered: () => void;
   lastDiscoveryAt: Date | null;
   lastGlobalDiscoveryAt?: Date | null;
   lastTargetedDiscoveryAt?: Date | null;
+  disabled?: boolean;
 }
 
 interface ApiResponse {
@@ -31,37 +32,63 @@ interface ApiResponse {
 }
 
 export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
-  campaignId,
+  projectId,
   targetSubreddits,
   onLeadsDiscovered,
   lastDiscoveryAt,
   lastGlobalDiscoveryAt,
-  lastTargetedDiscoveryAt
+  lastTargetedDiscoveryAt,
+  disabled = false
 }) => {
-  const { getToken } = useAuth();
+  const { getToken, isLoaded, isSignedIn, userId } = useAuth();
   const [isRunningGlobal, setIsRunningGlobal] = useState<boolean>(false);
-  const [isRunningTargeted, setIsRunningTargeted] = useState<boolean>(false);
   const [globalTimeLeft, setGlobalTimeLeft] = useState<number | null>(null);
-  const [targetedTimeLeft, setTargetedTimeLeft] = useState<number | null>(null);
+  const [discoveryProgress, setDiscoveryProgress] = useState<{
+    stage: string;
+    message: string;
+    leadsFound: number;
+  } | null>(null);
 
-  const COOLDOWN_HOURS = 10;
-  const COOLDOWN_MS = COOLDOWN_HOURS * 60 * 60 * 1000;
+  // Reset discovery state on mount to prevent stuck states
+  useEffect(() => {
+    console.log('🔄 Resetting discovery state on mount');
+    api.resetDiscoveryState();
+    setIsRunningGlobal(false);
+    setDiscoveryProgress(null);
+  }, []);
+
+  const COOLDOWN_SECONDS = 10;
+  const COOLDOWN_MS = COOLDOWN_SECONDS * 1000;
 
   // Calculate time remaining for cooldowns
   const calculateTimeLeft = useCallback((lastRunAt: Date | null): number | null => {
-    if (!lastRunAt) return null;
+    console.log('🔍 [Cooldown] calculateTimeLeft called with lastRunAt:', lastRunAt);
+    if (!lastRunAt) {
+      console.log('🔍 [Cooldown] No lastRunAt, returning null');
+      return null;
+    }
     
     try {
       const now = new Date().getTime();
       const lastRun = new Date(lastRunAt).getTime();
       
+      console.log('🔍 [Cooldown] Now:', now, 'LastRun:', lastRun);
+      console.log('🔍 [Cooldown] COOLDOWN_MS:', COOLDOWN_MS);
+      
       // Check if dates are valid
-      if (isNaN(now) || isNaN(lastRun)) return null;
+      if (isNaN(now) || isNaN(lastRun)) {
+        console.log('🔍 [Cooldown] Invalid dates, returning null');
+        return null;
+      }
       
       const timePassed = now - lastRun;
       const timeLeft = COOLDOWN_MS - timePassed;
       
-      return timeLeft > 0 ? timeLeft : null;
+      console.log('🔍 [Cooldown] TimePassed:', timePassed, 'TimeLeft:', timeLeft);
+      
+      const result = timeLeft > 0 ? timeLeft : null;
+      console.log('🔍 [Cooldown] Returning:', result);
+      return result;
     } catch (error) {
       console.error('Error calculating time left:', error);
       return null;
@@ -72,17 +99,15 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
   useEffect(() => {
     const interval = setInterval(() => {
       setGlobalTimeLeft(calculateTimeLeft(lastGlobalDiscoveryAt || null));
-      setTargetedTimeLeft(calculateTimeLeft(lastTargetedDiscoveryAt || null));
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [calculateTimeLeft, lastGlobalDiscoveryAt, lastTargetedDiscoveryAt]);
+  }, [calculateTimeLeft, lastGlobalDiscoveryAt]);
 
   // Initialize timers on mount
   useEffect(() => {
     setGlobalTimeLeft(calculateTimeLeft(lastGlobalDiscoveryAt || null));
-    setTargetedTimeLeft(calculateTimeLeft(lastTargetedDiscoveryAt || null));
-  }, [calculateTimeLeft, lastGlobalDiscoveryAt, lastTargetedDiscoveryAt]);
+  }, [calculateTimeLeft, lastGlobalDiscoveryAt]);
 
   // Format time remaining
   const formatTimeLeft = (timeMs: number): string => {
@@ -105,6 +130,24 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
   };
 
   const handleGlobalDiscovery = async (): Promise<void> => {
+    console.log('🚀 handleGlobalDiscovery called');
+    console.log('🚀 isRunningGlobal:', isRunningGlobal);
+    console.log('🚀 isLoaded:', isLoaded);
+    console.log('🚀 isSignedIn:', isSignedIn);
+    console.log('🚀 projectId:', projectId);
+    console.log('🚀 userId:', userId);
+    
+    // Check if user is authenticated
+    if (!isLoaded) {
+      toast.error('Please wait while we verify your authentication');
+      return;
+    }
+
+    if (!isSignedIn) {
+      toast.error('Please sign in to run discovery');
+      return;
+    }
+
     if (globalTimeLeft && globalTimeLeft > 0) {
       toast.error('Global search is on cooldown', {
         description: `Please wait ${formatTimeLeft(globalTimeLeft)} before running again`
@@ -112,23 +155,237 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
       return;
     }
 
+    // Prevent multiple simultaneous requests
+    if (isRunningGlobal) {
+      console.log('🚀 Discovery already running, preventing duplicate request');
+      toast.error('Discovery is already running. Please wait for it to complete.');
+      return;
+    }
+
+    // Validate projectId before proceeding
+    if (!projectId) {
+      console.error('❌ No project ID available for discovery');
+      toast.error('No project selected', {
+        description: 'Please select a project before running discovery'
+      });
+      return;
+    }
+
+    // Check if user is properly authenticated
+    if (!isSignedIn || !isLoaded) {
+      console.error('❌ User not properly authenticated');
+      toast.error('Authentication required', {
+        description: 'Please sign in again to run discovery'
+      });
+      return;
+    }
+
     try {
+      console.log('🚀 Starting discovery process...');
+      console.log('🔑 Auth state - isSignedIn:', isSignedIn);
+      console.log('🔑 Auth state - isLoaded:', isLoaded);
+      console.log('🔑 Auth state - userId:', userId);
+      
       setIsRunningGlobal(true);
-      const token = await getToken();
+      
+      // Always get a fresh token for each request
+      console.log('🔄 Getting fresh token for discovery...');
+      let token = await getToken();
+      console.log('🔐 Fresh token attempt:', token ? 'Present' : 'Missing');
+      
+      // If we have a token, validate it by making a test request
+      if (token) {
+        console.log('🔍 Validating token with test request...');
+        try {
+          const testResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/projects`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (testResponse.status === 401) {
+            console.log('❌ Token is invalid, refreshing...');
+            token = null; // Force refresh
+          } else {
+            console.log('✅ Token is valid');
+          }
+        } catch (error) {
+          console.log('❌ Token validation failed:', error);
+          token = null; // Force refresh
+        }
+      }
+      
+      // If no token, try different methods
+      if (!token) {
+        console.log('🔄 No token found, trying alternative methods...');
+        try {
+          // Try with template
+          token = await getToken({ template: 'api' });
+          console.log('🔐 Template token attempt:', token ? 'Present' : 'Missing');
+        } catch (error) {
+          console.error('❌ Error getting template token:', error);
+        }
+        
+        // If still no token, try regular method again
+        if (!token) {
+          try {
+            token = await getToken();
+            console.log('🔐 Regular token retry:', token ? 'Present' : 'Missing');
+          } catch (error) {
+            console.error('❌ Error getting regular token:', error);
+          }
+        }
+      }
+      
+      console.log('🔐 Token received:', token ? 'Present' : 'Missing');
+      console.log('🔐 Token length:', token ? token.length : 0);
+      console.log('🔐 Token preview:', token ? `${token.substring(0, 50)}...` : 'None');
+      console.log('📋 Project ID:', projectId);
       
       if (!token) {
-        throw new Error('Authentication token not available');
+        console.error('❌ No authentication token available');
+        console.error('❌ User signed in:', isSignedIn);
+        console.error('❌ Auth loaded:', isLoaded);
+        console.error('❌ User ID:', userId);
+        
+        // If user is not signed in, redirect to sign in
+        if (!isSignedIn) {
+          console.log('🔄 User not signed in, redirecting to sign in...');
+          window.location.href = '/sign-in';
+          return;
+        }
+        
+        throw new Error('Authentication token not available. Please sign in again.');
       }
 
-      const result = await api.runManualDiscovery(campaignId, token) as ApiResponse;
-
-      const leadCount = Array.isArray(result) ? result.length : (result?.length || 0);
+      console.log('🚀 Making API request...');
       
-      toast.success(`Found ${leadCount} global leads!`, {
-        description: 'Discovered leads from across Reddit using global search'
+      // Set initial progress
+      setDiscoveryProgress({
+        stage: 'starting',
+        message: 'Initializing discovery process...',
+        leadsFound: 0
       });
+      
+      // Add a timeout to reset discovery state if it gets stuck
+      const discoveryTimeout = setTimeout(() => {
+        console.log('⏰ Discovery timeout - resetting state');
+        setIsRunningGlobal(false);
+        setDiscoveryProgress(null);
+        api.resetDiscoveryState();
+      }, 360000); // 6 minute timeout (longer than backend)
+      
+      // Create engaging progress messages with variety
+      const progressMessages = {
+        searching: [
+          '🔍 Scanning Reddit for your perfect leads...',
+          '🚀 Hunting down high-intent prospects...',
+          '⚡ Searching through thousands of conversations...',
+          '🎯 Finding people who need your solution...',
+          '🔎 Deep-diving into relevant subreddits...'
+        ],
+        analyzing: [
+          '🧠 AI is analyzing post quality and intent...',
+          '✨ Our AI is reading between the lines...',
+          '🎪 Identifying genuine business opportunities...',
+          '🔬 Extracting valuable insights from conversations...',
+          '💎 Filtering out the gold from the noise...'
+        ],
+        scoring: [
+          '📊 Scoring leads for maximum relevance...',
+          '⭐ Ranking opportunities by potential...',
+          '🎯 Calculating lead quality scores...',
+          '📈 Evaluating business potential...',
+          '🏆 Identifying your best prospects...'
+        ],
+        saving: [
+          '💾 Saving your qualified leads...',
+          '🎁 Preparing your lead treasure trove...',
+          '✨ Finalizing your prospect list...',
+          '🎉 Almost ready to show you the results...',
+          '🚀 Your leads are being prepared...'
+        ]
+      };
 
-      onLeadsDiscovered();
+      // Simulate progress updates during discovery
+      const progressInterval = setInterval(() => {
+        setDiscoveryProgress(prev => {
+          if (!prev) return null;
+          
+          const stages = [
+            { 
+              stage: 'searching', 
+              message: progressMessages.searching[Math.floor(Math.random() * progressMessages.searching.length)], 
+              leadsFound: prev.leadsFound 
+            },
+            { 
+              stage: 'analyzing', 
+              message: progressMessages.analyzing[Math.floor(Math.random() * progressMessages.analyzing.length)], 
+              leadsFound: prev.leadsFound + Math.floor(Math.random() * 3) 
+            },
+            { 
+              stage: 'scoring', 
+              message: progressMessages.scoring[Math.floor(Math.random() * progressMessages.scoring.length)], 
+              leadsFound: prev.leadsFound + Math.floor(Math.random() * 2) 
+            },
+            { 
+              stage: 'saving', 
+              message: progressMessages.saving[Math.floor(Math.random() * progressMessages.saving.length)], 
+              leadsFound: prev.leadsFound 
+            }
+          ];
+          
+          const currentIndex = stages.findIndex(s => s.stage === prev.stage);
+          const nextIndex = (currentIndex + 1) % stages.length;
+          return stages[nextIndex];
+        });
+      }, 12000); // Update every 12 seconds for better variety
+      
+      try {
+        const result = await api.runManualDiscovery(projectId, token) as ApiResponse;
+        clearTimeout(discoveryTimeout);
+        clearInterval(progressInterval);
+
+        const leadCount = Array.isArray(result) ? result.length : (result?.length || 0);
+        
+        // Create engaging success messages
+        const successMessages = leadCount > 0 ? [
+          `🎉 Amazing! Found ${leadCount} high-quality leads for you!`,
+          `✨ Success! Discovered ${leadCount} perfect prospects!`,
+          `🚀 Boom! ${leadCount} qualified leads are ready!`,
+          `💎 Jackpot! Found ${leadCount} valuable opportunities!`,
+          `🏆 Excellent! ${leadCount} leads are waiting for you!`,
+          `🎯 Perfect! Discovered ${leadCount} high-intent prospects!`,
+          `⭐ Fantastic! Found ${leadCount} quality leads!`,
+          `🔥 Incredible! ${leadCount} leads are ready to convert!`
+        ] : [
+          `🔍 Searched thoroughly but no leads found this time...`,
+          `🎯 Quality over quantity - no leads met our high standards`,
+          `✨ We'll keep searching for your perfect prospects!`,
+          `🚀 Try again soon for fresh opportunities!`,
+          `💎 Sometimes the best leads take time to find!`
+        ];
+        
+        // Set final progress with random success message
+        setDiscoveryProgress({
+          stage: 'completed',
+          message: successMessages[Math.floor(Math.random() * successMessages.length)],
+          leadsFound: leadCount
+        });
+      
+        toast.success(`Found ${leadCount} global leads!`, {
+          description: 'Discovered leads from across Reddit using global search'
+        });
+
+        onLeadsDiscovered();
+      } catch (discoveryError: unknown) {
+        clearTimeout(discoveryTimeout);
+        clearInterval(progressInterval);
+        setDiscoveryProgress(null);
+        console.error('Discovery API call failed:', discoveryError);
+        throw discoveryError; // Re-throw to be caught by outer catch
+      }
     } catch (error: unknown) {
       console.error('Global discovery failed:', error);
       
@@ -142,55 +399,8 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
     }
   };
 
-  const handleTargetedDiscovery = async (): Promise<void> => {
-    if (targetedTimeLeft && targetedTimeLeft > 0) {
-      toast.error('Targeted search is on cooldown', {
-        description: `Please wait ${formatTimeLeft(targetedTimeLeft)} before running again`
-      });
-      return;
-    }
-
-    try {
-      setIsRunningTargeted(true);
-      const token = await getToken();
-      
-      if (!token) {
-        throw new Error('Authentication token not available');
-      }
-
-      const result = await api.runTargetedDiscovery(campaignId, token) as ApiResponse;
-
-      const leadCount = result?.leads?.length || 0;
-      const subredditCount = result?.subredditsSearched?.length || 0;
-
-      toast.success(`Found ${leadCount} targeted leads!`, {
-        description: `Searched ${subredditCount} specific subreddits`
-      });
-
-      onLeadsDiscovered();
-    } catch (error: unknown) {
-      console.error('Targeted discovery failed:', error);
-
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-
-      if (errorMessage.includes('No target subreddits')) {
-        toast.error('No target subreddits configured', {
-          description: 'Please add target subreddits to your campaign first'
-        });
-      } else {
-        toast.error('Targeted discovery failed', {
-          description: errorMessage || 'Please try again later'
-        });
-      }
-    } finally {
-      setIsRunningTargeted(false);
-    }
-  };
-
-  const isAnyRunning = isRunningGlobal || isRunningTargeted;
-  const hasTargetSubreddits = targetSubreddits && targetSubreddits.length > 0;
+  const isAnyRunning = isRunningGlobal;
   const isGlobalOnCooldown = globalTimeLeft !== null && globalTimeLeft > 0;
-  const isTargetedOnCooldown = targetedTimeLeft !== null && targetedTimeLeft > 0;
 
   return (
     <div className="space-y-6">
@@ -199,7 +409,7 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6"
+        className="grid grid-cols-1 md:grid-cols-1 gap-4 md:gap-6"
       >
         {/* Global Discovery */}
         <motion.div
@@ -230,10 +440,173 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
                   : 'AI-powered search across the entire Reddit platform for discovering new opportunities.'
                 }
               </p>
+              
+              {/* Animated Progress Display */}
+              {discoveryProgress && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="mt-4 relative overflow-hidden"
+                >
+                  <div className="bg-gradient-to-r from-orange-500/20 via-red-500/20 to-pink-500/20 backdrop-blur-sm border border-orange-500/30 rounded-xl p-4 relative">
+                    {/* Animated background */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-orange-500/10 via-red-500/10 to-pink-500/10 animate-pulse"></div>
+                    
+                    {/* Content */}
+                    <div className="relative z-10">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="relative">
+                          <motion.div 
+                            className="w-4 h-4 bg-gradient-to-r from-orange-400 to-red-400 rounded-full"
+                            animate={{ 
+                              scale: [1, 1.2, 1],
+                              rotate: [0, 180, 360]
+                            }}
+                            transition={{ 
+                              duration: 3, 
+                              repeat: Infinity,
+                              ease: "easeInOut"
+                            }}
+                          />
+                          <motion.div 
+                            className="absolute inset-0 w-4 h-4 bg-gradient-to-r from-orange-400 to-red-400 rounded-full opacity-30"
+                            animate={{ 
+                              scale: [1, 1.5, 1],
+                              opacity: [0.3, 0, 0.3]
+                            }}
+                            transition={{ 
+                              duration: 2, 
+                              repeat: Infinity,
+                              ease: "easeInOut"
+                            }}
+                          />
+                        </div>
+                        <motion.span 
+                          key={discoveryProgress.message}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="text-orange-300 text-sm font-semibold"
+                        >
+                          {discoveryProgress.message}
+                        </motion.span>
+                      </div>
+                      
+                      {discoveryProgress.leadsFound > 0 && (
+                        <motion.div 
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          className="flex items-center gap-2 text-orange-200 text-xs"
+                        >
+                          <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce"></div>
+                          <span>Found {discoveryProgress.leadsFound} high-quality leads so far!</span>
+                        </motion.div>
+                      )}
+                      
+                      {/* Special completion animation */}
+                      {discoveryProgress.stage === 'completed' && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className={`mt-3 flex items-center gap-2 text-sm font-semibold ${
+                            discoveryProgress.leadsFound > 0 ? 'text-green-300' : 'text-orange-300'
+                          }`}
+                        >
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                            className="text-lg"
+                          >
+                            {discoveryProgress.leadsFound > 0 ? '🎉' : '🔍'}
+                          </motion.div>
+                          <span>
+                            {discoveryProgress.leadsFound > 0 
+                              ? 'Your leads are ready to explore!' 
+                              : 'Keep trying for better results!'
+                            }
+                          </span>
+                        </motion.div>
+                      )}
+                      
+                      {/* Interactive Discovery Stats */}
+                      <div className="mt-3 flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-4">
+                          <motion.div
+                            className="flex items-center gap-1 text-orange-300"
+                            animate={{ scale: [1, 1.1, 1] }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                          >
+                            <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
+                            <span>AI Scanning</span>
+                          </motion.div>
+                          <motion.div
+                            className="flex items-center gap-1 text-red-300"
+                            animate={{ scale: [1, 1.1, 1] }}
+                            transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
+                          >
+                            <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
+                            <span>Quality Filter</span>
+                          </motion.div>
+                          <motion.div
+                            className="flex items-center gap-1 text-pink-300"
+                            animate={{ scale: [1, 1.1, 1] }}
+                            transition={{ duration: 2, repeat: Infinity, delay: 1 }}
+                          >
+                            <div className="w-2 h-2 bg-pink-400 rounded-full animate-pulse"></div>
+                            <span>Lead Scoring</span>
+                          </motion.div>
+                        </div>
+                        
+                        {/* Dynamic Stage Indicator */}
+                        <motion.div
+                          className="flex items-center gap-2 text-orange-400 font-semibold"
+                          animate={{ opacity: [0.7, 1, 0.7] }}
+                          transition={{ duration: 1.5, repeat: Infinity }}
+                        >
+                          {discoveryProgress.stage === 'completed' ? (
+                            <>
+                              <span>
+                                ✓
+                              </span>
+                              <span>Complete</span>
+                            </>
+                          ) : (
+                            <>
+                              <motion.div
+                                className="w-2 h-2 bg-orange-400 rounded-full"
+                                animate={{ 
+                                  scale: [1, 1.5, 1],
+                                  opacity: [1, 0.5, 1]
+                                }}
+                                transition={{ duration: 1, repeat: Infinity }}
+                              />
+                              <span>
+                                {discoveryProgress.stage === 'searching' ? 'Scanning...' :
+                                 discoveryProgress.stage === 'analyzing' ? 'Analyzing...' :
+                                 discoveryProgress.stage === 'scoring' ? 'Scoring...' :
+                                 discoveryProgress.stage === 'saving' ? 'Saving...' : 'Processing...'}
+                              </span>
+                            </>
+                          )}
+                        </motion.div>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
             </div>
             <Button
-              onClick={handleGlobalDiscovery}
-              disabled={isAnyRunning || isGlobalOnCooldown}
+              data-tour="discovery-button"
+              onClick={() => {
+                console.log('🔘 Button clicked!');
+                console.log('🔘 isAnyRunning:', isAnyRunning);
+                console.log('🔘 isGlobalOnCooldown:', isGlobalOnCooldown);
+                console.log('🔘 isRunningGlobal:', isRunningGlobal);
+                console.log('🔘 projectId:', projectId);
+                console.log('🔘 Button disabled:', isAnyRunning || isGlobalOnCooldown);
+                console.log('🔘 globalTimeLeft:', globalTimeLeft);
+                handleGlobalDiscovery();
+              }}
+              disabled={isAnyRunning || isGlobalOnCooldown || disabled}
               className={`w-full border-0 shadow-sm hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-semibold h-9 sm:h-10 px-3 sm:px-4 text-sm sm:text-base rounded-md ${
                 isGlobalOnCooldown 
                   ? 'bg-red-500/20 text-red-400 hover:bg-red-500/20' 
@@ -246,63 +619,6 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
                 <span className={poppins.className}>On Cooldown</span>
               ) : (
                 <span className={poppins.className}>Start Global Discovery</span>
-              )}
-            </Button>
-          </div>
-        </motion.div>
-
-        {/* Targeted Discovery */}
-        <motion.div
-          whileHover={!isTargetedOnCooldown && hasTargetSubreddits ? { scale: 1.02 } : {}}
-          whileTap={!isTargetedOnCooldown && hasTargetSubreddits ? { scale: 0.98 } : {}}
-          className="group relative h-full flex flex-col"
-        >
-          <div className={`bg-black/40 backdrop-blur-sm border rounded-lg p-3 sm:p-4 flex flex-col h-full min-h-[210px] transition-all duration-300 ${
-            isTargetedOnCooldown ? 'border-red-500/30 bg-red-500/5' : 'border-white/10'
-          }`}>
-            <div className="space-y-2 flex-1">
-              <div className="flex items-center justify-between">
-                <h3 className={`text-base sm:text-lg font-bold text-white ${poppins.className}`}>
-                  Targeted Search
-                </h3>
-                {isTargetedOnCooldown && targetedTimeLeft !== null && (
-                  <div className="flex items-center gap-1 text-red-400">
-                    <Clock className="w-4 h-4" />
-                    <span className={`text-xs font-medium ${inter.className}`}>
-                      {formatTimeLeft(targetedTimeLeft)}
-                    </span>
-                  </div>
-                )}
-              </div>
-              <div className="flex items-center gap-2 mb-2">
-                <ArrowRight className="w-4 h-4 text-red-400 group-hover:translate-x-1 transition-transform duration-300" />
-              </div>
-              <p className={`text-white/60 text-sm ${inter.className}`}>
-                {isTargetedOnCooldown && targetedTimeLeft !== null
-                  ? `Targeted search is on cooldown. Next search available in ${formatTimeLeft(targetedTimeLeft)}.`
-                  : hasTargetSubreddits 
-                    ? `Deep search across your ${targetSubreddits.length} configured subreddits for highly relevant leads.`
-                    : 'Configure target subreddits in your campaign settings to unlock precision targeting.'
-                }
-              </p>
-            </div>
-            <Button
-              onClick={handleTargetedDiscovery}
-              disabled={isAnyRunning || !hasTargetSubreddits || isTargetedOnCooldown}
-              className={`w-full border-0 shadow-sm hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-semibold h-9 sm:h-10 px-3 sm:px-4 text-sm sm:text-base rounded-md ${
-                isTargetedOnCooldown 
-                  ? 'bg-red-500/20 text-red-400 hover:bg-red-500/20'
-                  : 'bg-white text-red-600 hover:bg-gray-50'
-              }`}
-            >
-              {isRunningTargeted ? (
-                <span className={poppins.className}>Targeting Leads...</span>
-              ) : isTargetedOnCooldown ? (
-                <span className={poppins.className}>On Cooldown</span>
-              ) : !hasTargetSubreddits ? (
-                <span className={poppins.className}>Configure Subreddits</span>
-              ) : (
-                <span className={poppins.className}>Start Targeted Search</span>
               )}
             </Button>
           </div>

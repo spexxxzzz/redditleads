@@ -5,6 +5,7 @@ import { useUser } from "@clerk/nextjs"; // 👈 NEW: Import Clerk's useUser hoo
 import Link from "next/link"; // 👈 NEW: Import Next.js Link component
 import { Check, X, Zap, Crown, Building, Gift, Star, ArrowRight } from "lucide-react";
 import { Inter, Poppins } from 'next/font/google';
+import { PaymentButton } from '@/components/payment/PaymentButton';
 
 const inter = Inter({ subsets: ['latin'] });
 const poppins = Poppins({ 
@@ -14,6 +15,7 @@ const poppins = Poppins({
 
 // Interfaces and variants remain the same...
 interface PricingPlan {
+  id: string;
   name: string;
   description: string;
   monthlyPrice: number | string;
@@ -59,58 +61,56 @@ const PricingComponent: React.FC = () => {
 
   const plans: PricingPlan[] = [
     {
-      name: "Free",
-      description: "Perfect for trying out Redlead",
+      id: "basic",
+      name: "Basic",
+      description: "Perfect for trying out RedditLeads",
       monthlyPrice: 0,
       yearlyPrice: 0,
       icon: Gift,
       color: "gray",
       features: [
         "1 Project",
-        "5 Keywords", 
         "25 Leads per month",
-        "Basic support"
+        "5 AI Summaries",
+        "5 AI Replies"
       ],
-      limitations: [
-        "No AI features",
-        "No competitor tracking"
-      ],
+      limitations: [],
       popular: false,
       cta: "Get Started Free"
     },
     {
+      id: "pdt_2A3SVJeAnBgj8XjLeoiaR",
       name: "Starter",
-      description: "For solopreneurs & indie hackers",
+      description: "For SaaS builders, in the validation phase and finding their first potential customers",
       monthlyPrice: 19,
       yearlyPrice: 15,
       icon: Zap,
       color: "blue",
       features: [
         "1 Project",
-        "15 Keywords",
-        "200 Leads per month",
-        "AI Intent Analysis",
-        "AI Replies (75/month)"
+        "500 Leads per month",
+        "Unlimited AI Summaries",
+        "Unlimited AI Replies"
       ],
-      limitations: [
-        "No competitor tracking"
-      ],
+      limitations: [],
       popular: false,
       cta: "Start 7-Day Trial"
     },
     {
+      id: "pdt_jhcgzC7RawLnUVJr4bn0a",
       name: "Pro",
-      description: "Best for growing startups",
+      description: "For Solopreneurs finding their initial customers",
       monthlyPrice: 49,
       yearlyPrice: 39,
       icon: Crown,
       color: "orange",
       features: [
-        "3 Projects",
-        "50 Keywords",
-        "1,000 Leads per month",
-        "AI Replies (300/month)",
-        "Competitor Tracking",
+        "5 Projects",
+        "5,000 Leads per month",
+        "Unlimited AI Summaries",
+        "Automated AI Replies",
+        "Unlimited AI Replies",
+        "Webhook Integrations",
         "Priority Support"
       ],
       limitations: [],
@@ -118,23 +118,26 @@ const PricingComponent: React.FC = () => {
       cta: "Start 7-Day Trial",
     },
     {
-      name: "Enterprise",
-      description: "For large teams & agencies",
-      monthlyPrice: "Custom",
-      yearlyPrice: "Custom",
+      id: "pdt_mXpMfglw1fhJpQGW2AFnj",
+      name: "Ultimate",
+      description: "Best for growing startups to get aggressive leads",
+      monthlyPrice: 99,
+      yearlyPrice: 79,
       icon: Building,
       color: "purple",
       features: [
         "Unlimited Projects",
-        "Unlimited Keywords",
         "Unlimited Leads",
-        "Team Collaboration",
-        "Dedicated Manager",
-        "API Access"
+        "Unlimited AI Summaries",
+        "Automated AI Replies",
+        "Unlimited AI Replies",
+        "Webhook Integrations",
+        "Priority Support",
+        "Dedicated Manager"
       ],
       limitations: [],
       popular: false,
-      cta: "Contact Sales"
+      cta: "Start 7-Day Trial"
     }
   ];
 
@@ -152,16 +155,27 @@ const PricingComponent: React.FC = () => {
     return { amount: savings, percentage };
   };
 
-  // 👈 NEW: Helper function to determine the correct link for the CTA button
-  const getCtaLink = (planName: string) => {
-    if (planName === "Enterprise") {
-      return "mailto:sales@redlead.com"; // Or your sales email
-    }
-    return isSignedIn ? "/dashboard" : "/sign-up";
-  };
 
   return (
-    <section className="relative py-20 sm:py-32 overflow-hidden bg-black">
+    <>
+      <style jsx>{`
+        @keyframes spin-slow {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .animate-spin-slow {
+          animation: spin-slow 6s linear infinite;
+        }
+        @keyframes diamond-shimmer {
+          0% { transform: translateX(-100%) skewX(-12deg); opacity: 0.3; }
+          50% { opacity: 0.6; }
+          100% { transform: translateX(200%) skewX(-12deg); opacity: 0.3; }
+        }
+        .diamond-shimmer {
+          animation: diamond-shimmer 4s ease-in-out infinite;
+        }
+      `}</style>
+      <section className="relative py-20 sm:py-32 overflow-hidden bg-black">
       {/* Background Elements */}
       <div className="absolute inset-0">
         <motion.div
@@ -221,75 +235,129 @@ const PricingComponent: React.FC = () => {
             {plans.map((plan) => {
               const price = getPrice(plan);
               
-              // Determine the correct component: Link for internal nav, <a> for external
-              const CtaWrapper = plan.name === 'Enterprise' ? 'a' : Link;
               
               return (
                 <motion.div
                   key={plan.name}
                   variants={itemVariants}
                   className={`relative h-full rounded-2xl border transition-all duration-300 hover:shadow-xl ${
-                    plan.popular
-                      ? 'border-orange-400/50 bg-gradient-to-br from-orange-600/20 via-orange-500/15 via-orange-400/10 to-orange-300/5 shadow-orange-500/30 backdrop-blur-sm'
+                    plan.name === 'Ultimate' ? 'hover:shadow-cyan-400/50' : ''
+                  } ${
+                    plan.name === 'Pro' ? 'hover:shadow-orange-400/30' : ''
+                  } ${
+                    plan.name === 'Pro' && plan.popular
+                      ? 'border-orange-400/50 bg-gradient-to-br from-orange-600/20 via-orange-500/15 via-orange-400/10 to-orange-300/5 shadow-orange-500/30 backdrop-blur-sm relative overflow-hidden group'
+                      : plan.name === 'Starter'
+                      ? 'border-gray-300/50 bg-gradient-to-br from-gray-400/20 via-gray-300/15 via-gray-200/10 to-gray-100/5 shadow-gray-300/30 backdrop-blur-sm hover:border-gray-200/60'
+                      : plan.name === 'Ultimate'
+                      ? 'border-2 border-gradient-to-r from-cyan-300 via-blue-200 to-cyan-300 bg-gradient-to-br from-cyan-50/50 via-blue-50/40 via-indigo-50/35 to-purple-50/30 shadow-cyan-300/60 backdrop-blur-sm hover:border-cyan-200/90 hover:shadow-cyan-200/70 relative overflow-hidden group'
                       : 'border-gray-700 bg-gray-900/30 hover:border-gray-600 backdrop-blur-sm'
                   }`}
                 >
                   <div className="relative flex h-full flex-col justify-between p-6">
-                    <div className="flex flex-col gap-4">
+                    {/* Animated glitter border for Ultimate plan */}
+                    {plan.name === 'Ultimate' && (
+                      <div className="absolute -inset-1 bg-gradient-to-r from-cyan-300 via-blue-200 via-cyan-300 to-blue-200 rounded-2xl animate-spin-slow opacity-60"></div>
+                    )}
+                    {plan.name === 'Ultimate' && (
+                      <div className="absolute -inset-0.5 bg-gradient-to-br from-cyan-50 via-blue-50 to-indigo-50 rounded-2xl"></div>
+                    )}
+                    {/* Premium shimmer effect for Ultimate plan */}
+                    {plan.name === 'Ultimate' && (
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-200/20 to-transparent -skew-x-12 animate-pulse opacity-30"></div>
+                    )}
+                    {/* Diamond sparkle effect */}
+                    {plan.name === 'Ultimate' && (
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent -skew-x-12 diamond-shimmer opacity-40"></div>
+                    )}
+                    {/* Premium glow effect for Ultimate plan */}
+                    {plan.name === 'Ultimate' && (
+                      <div className="absolute -inset-1 bg-gradient-to-r from-cyan-300 to-blue-200 rounded-2xl blur-sm opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
+                    )}
+                    
+                    {/* Pro plan animation effects */}
+                    {plan.name === 'Pro' && (
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-orange-200/15 to-transparent -skew-x-12 animate-pulse opacity-20"></div>
+                    )}
+                    {plan.name === 'Pro' && (
+                      <div className="absolute -inset-0.5 bg-gradient-to-r from-orange-300/20 to-orange-200/20 rounded-2xl blur-sm opacity-15 group-hover:opacity-25 transition duration-1000 group-hover:duration-200"></div>
+                    )}
+                    
+                    <div className="flex flex-col gap-4 relative z-10">
                       {/* ... Plan Header and Features ... */}
                       <div className="flex flex-col gap-3">
-                        <h3 className={`text-lg font-semibold text-white ${poppins.className}`}>
-                          {plan.name}
-                        </h3>
+                        <div className="flex items-center gap-2">
+                          {plan.name === 'Ultimate' && (
+                            <Crown className="w-6 h-6 text-cyan-600 animate-bounce drop-shadow-lg" />
+                          )}
+                          {plan.name === 'Pro' && (
+                            <Crown className="w-5 h-5 text-orange-500 animate-pulse drop-shadow-md" />
+                          )}
+                          <h3 className={`text-lg font-bold ${plan.name === 'Ultimate' ? 'text-cyan-800 bg-gradient-to-r from-cyan-600 via-blue-500 to-cyan-600 bg-clip-text text-transparent drop-shadow-sm' : 'text-white'} ${poppins.className}`}>
+                            {plan.name}
+                          </h3>
+                          {plan.name === 'Ultimate' && (
+                            <div className="flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-cyan-300 to-blue-300 rounded-full shadow-lg">
+                              <Star className="w-3 h-3 text-cyan-900 animate-pulse drop-shadow-sm" />
+                              <span className="text-xs font-black text-cyan-900 tracking-wide drop-shadow-sm">PREMIUM</span>
+                            </div>
+                          )}
+                          {plan.name === 'Pro' && (
+                            <div className="flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-orange-400 to-orange-500 rounded-full shadow-md">
+                              <Star className="w-3 h-3 text-orange-900 animate-pulse drop-shadow-sm" />
+                              <span className="text-xs font-bold text-orange-900 tracking-wide drop-shadow-sm">POPULAR</span>
+                            </div>
+                          )}
+                        </div>
+                        <p className={`text-sm font-medium ${plan.name === 'Ultimate' ? 'text-cyan-700 drop-shadow-sm' : 'text-gray-400'} ${inter.className}`}>
+                          {plan.description}
+                        </p>
                         <div className="flex items-baseline gap-1">
-                          <span className={`text-3xl font-semibold text-white ${poppins.className}`}>
+                          <span className={`text-3xl font-black ${plan.name === 'Ultimate' ? 'text-cyan-800 bg-gradient-to-r from-cyan-600 via-blue-500 to-cyan-600 bg-clip-text text-transparent drop-shadow-sm' : 'text-white'} ${poppins.className}`}>
                             {price === "Custom" ? "Custom" : (price === 0 ? "Free" : `$${price}`)}
                           </span>
                           {price !== "Custom" && price !== 0 && (
-                            <span className={`text-sm text-gray-400 ${inter.className}`}>/mo</span>
+                            <span className={`text-sm font-bold ${plan.name === 'Ultimate' ? 'text-cyan-700 drop-shadow-sm' : 'text-gray-400'} ${inter.className}`}>/mo</span>
                           )}
                         </div>
                       </div>
-                      <hr className="border-gray-700" />
+                      <hr className={`${plan.name === 'Ultimate' ? 'border-cyan-300' : 'border-gray-700'}`} />
                       <div className="flex flex-col gap-4">
-                        <p className={`text-sm font-semibold text-gray-400 ${inter.className}`}>
-                          {plan.name === "Free" ? "Includes" : `Everything in ${plans[plans.findIndex(p => p.name === plan.name) - 1]?.name}, plus`}
+                        <p className={`text-sm font-bold ${plan.name === 'Ultimate' ? 'text-cyan-700 bg-gradient-to-r from-cyan-600 via-blue-500 to-cyan-600 bg-clip-text text-transparent drop-shadow-sm' : 'text-gray-400'} ${inter.className}`}>
+                          {plan.name === "Basic" ? "Includes" : plan.name === "Starter" ? "Everything in Basic, plus" : plan.name === "Pro" ? "Everything in Starter, plus" : plan.name === "Ultimate" ? "Everything in Pro, plus" : "Includes"}
                         </p>
                         <div className="flex flex-col gap-2">
                           {plan.features.map((feature, featureIndex) => (
                             <div key={featureIndex} className="flex items-center gap-2">
                               <Check className="w-3 h-3 text-green-400 flex-shrink-0" />
-                              <span className={`text-sm text-gray-200 ${inter.className}`}>{feature}</span>
+                              <span className={`text-sm font-semibold ${plan.name === 'Ultimate' ? 'text-cyan-800 drop-shadow-sm' : 'text-gray-200'} ${inter.className}`}>{feature}</span>
                             </div>
                           ))}
                           {plan.limitations.map((limitation, limitIndex) => (
                             <div key={limitIndex} className="flex items-center gap-2">
                               <X className="w-3 h-3 text-red-400 flex-shrink-0" />
-                              <span className={`text-sm text-gray-500 ${inter.className}`}>{limitation}</span>
+                              <span className={`text-sm ${plan.name === 'Ultimate' ? 'text-gray-500' : 'text-gray-500'} ${inter.className}`}>{limitation}</span>
                             </div>
                           ))}
                         </div>
                       </div>
                     </div>
 
-                    {/* --- CORRECTED: CTA Button wrapped in Link/a tag --- */}
+                    {/* Payment Button */}
                     <div className="mt-6">
-                       <CtaWrapper href={getCtaLink(plan.name)}>
-                         <motion.div
-                           whileHover={{ scale: 1.02 }}
-                           whileTap={{ scale: 0.98 }}
-                           className={`w-full rounded-lg py-3 px-4 text-sm font-medium transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer ${
-                            plan.popular
-                              ? 'bg-gradient-to-r from-orange-600 via-orange-500 to-orange-400 text-white hover:from-orange-700 hover:via-orange-600 hover:to-orange-500 shadow-lg shadow-orange-500/25'
-                              : plan.name === 'Free'
-                              ? 'bg-white text-gray-900 hover:bg-gray-100 shadow-sm'
-                              : 'bg-gray-800 text-white border border-gray-600 hover:border-gray-500 hover:bg-gray-700'
-                          } ${poppins.className}`}
-                        >
-                          {plan.cta}
-                          <ArrowRight className="w-4 h-4" />
-                        </motion.div>
-                      </CtaWrapper>
+                      <PaymentButton
+                        planId={plan.id}
+                        planName={plan.name}
+                        price={typeof price === 'number' ? price : 0}
+                        isYearly={isYearly}
+                        className={`w-full ${poppins.className}`}
+                        onSuccess={() => {
+                          console.log(`Successfully subscribed to ${plan.name}`);
+                        }}
+                        onError={(error) => {
+                          console.error(`Payment error for ${plan.name}:`, error);
+                        }}
+                      />
                     </div>
                   </div>
                 </motion.div>
@@ -306,6 +374,7 @@ const PricingComponent: React.FC = () => {
         </motion.div>
       </div>
     </section>
+    </>
   );
 };
 

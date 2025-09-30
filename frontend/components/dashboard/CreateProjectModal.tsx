@@ -19,6 +19,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
+import { AnimatedLoader } from "@/components/ui/animated-loader";
 import { toast } from 'sonner';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -27,21 +29,22 @@ const poppins = Poppins({
   weight: ['400', '500', '600', '700', '800']
 });
 
-interface CreateCampaignModalProps {
+interface CreateProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCampaignCreated: () => void;
+  onProjectCreated: () => void;
 }
 
-export const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
+export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   isOpen,
   onClose,
-  onCampaignCreated
+  onProjectCreated
 }) => {
   const { getToken } = useAuth();
   const [loading, setLoading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [step, setStep] = useState(1); // 1: Basic info, 2: AI Analysis, 3: Customization
+  const [showPreview, setShowPreview] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -49,7 +52,8 @@ export const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
     generatedDescription: '',
     generatedKeywords: [] as string[],
     targetSubreddits: [] as string[],
-    competitors: [] as string[]
+    competitors: [] as string[],
+    businessDNA: null as any, // Add businessDNA to the state
   });
 
   const [newKeyword, setNewKeyword] = useState('');
@@ -66,10 +70,18 @@ export const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
       
       setFormData(prev => ({
         ...prev,
-        generatedDescription: analysis.description || '',
-        generatedKeywords: analysis.keywords || [],
-        competitors: analysis.competitors || []
+        name: analysis.businessDNA?.businessName || prev.name, // Update name with extracted business name
+        generatedDescription: analysis.generatedDescription || '',
+        generatedKeywords: Array.from(new Set(analysis.generatedKeywords || [])) as string[], // Remove duplicates
+        targetSubreddits: analysis.targetSubreddits || [], // Add subreddit suggestions
+        competitors: analysis.competitors || [],
+        businessDNA: analysis.businessDNA, // Store the full businessDNA object
       }));
+      
+      // Automatically switch to preview mode when description is generated
+      if (analysis.generatedDescription) {
+        setShowPreview(true);
+      }
       
       setStep(3);
       toast.success('Website analyzed successfully!');
@@ -86,21 +98,50 @@ export const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
     setLoading(true);
     try {
       const token = await getToken();
-      await api.createCampaign({
+      console.log('Token received:', token ? 'Token exists' : 'No token');
+      console.log('Token preview:', token ? token.substring(0, 20) + '...' : 'null');
+      
+      // Construct businessDNA object from form data
+      const businessDNA = {
+        businessName: formData.businessDNA?.businessName || formData.name || 'Untitled Project',
+        businessDescription: formData.generatedDescription || '',
+        targetKeywords: formData.generatedKeywords || [],
+        targetSubreddits: formData.targetSubreddits || [],
+        competitors: formData.competitors || [],
+        industry: 'Technology', // Default industry
+        problemStatement: formData.generatedDescription || '',
+        solutionDescription: formData.generatedDescription || '',
+        targetCustomerProfile: 'Tech-savvy professionals',
+        naturalLanguageVocabulary: formData.generatedKeywords || []
+      };
+      
+      await api.createProject({
         websiteUrl: formData.websiteUrl,
-        generatedKeywords: formData.generatedKeywords,
-        generatedDescription: formData.generatedDescription,
-        competitors: formData.competitors,
-        name: formData.name
+        businessDNA: businessDNA,
       }, token);
       
-      toast.success('Campaign created successfully!');
-      onCampaignCreated();
+      console.log('Project created successfully!');
+      toast.success('Project created successfully!');
+      onProjectCreated();
       resetForm();
     } catch (error: any) {
-      toast.error('Failed to create campaign', {
-        description: error.message
-      });
+      console.error('Error creating project:', error);
+      console.error('Error details:', error.message, error);
+      
+      // Handle project limit error specifically
+      if (error.message?.includes('Project limit reached') || error.message?.includes('requiresUpgrade')) {
+        toast.error('Project limit reached', {
+          description: 'Please upgrade your plan to create more projects.',
+          action: {
+            label: 'Upgrade Plan',
+            onClick: () => window.location.href = '/dashboard/pricing'
+          }
+        });
+      } else {
+        toast.error('Failed to create project', {
+          description: error.message
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -113,7 +154,8 @@ export const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
       generatedDescription: '',
       generatedKeywords: [],
       targetSubreddits: [],
-      competitors: []
+      competitors: [],
+      businessDNA: null, // Reset businessDNA
     });
     setStep(1);
   };
@@ -190,7 +232,7 @@ export const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
             <div className="flex items-center justify-between">
               <div>
                 <h2 className={`text-2xl font-bold text-white ${poppins.className}`}>
-                  Create New Campaign
+                  Create New Project
                 </h2>
                 <p className={`text-zinc-400 mt-1 ${inter.className}`}>
                   Step {step} of 3 - {step === 1 ? 'Basic Information' : step === 2 ? 'AI Analysis' : 'Customization'}
@@ -215,19 +257,19 @@ export const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
                   <CardHeader>
                     <CardTitle className={`text-white flex items-center gap-2 ${poppins.className}`}>
                       <BuildingOfficeIcon className="w-5 h-5 text-orange-500" />
-                      Campaign Details
+                      Project Details
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div>
                       <label className={`block text-sm font-medium text-zinc-300 mb-2 ${inter.className}`}>
-                        Campaign Name (Optional)
+                        Project Name (Optional)
                       </label>
                       <Input
                         value={formData.name}
                         onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                         className="bg-zinc-800 border-zinc-700 text-white"
-                        placeholder="My Lead Generation Campaign"
+                        placeholder="My Lead Generation Project"
                       />
                     </div>
 
@@ -237,6 +279,7 @@ export const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
                         Website URL *
                       </label>
                       <Input
+                        data-tour="url-input"
                         value={formData.websiteUrl}
                         onChange={(e) => setFormData(prev => ({ ...prev, websiteUrl: e.target.value }))}
                         className="bg-zinc-800 border-zinc-700 text-white"
@@ -274,24 +317,33 @@ export const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="text-center py-8">
-                      <div className="bg-orange-500/10 border border-orange-500/20 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-                        <SparklesIcon className="w-8 h-8 text-orange-500" />
+                    {analyzing ? (
+                      <AnimatedLoader
+                        title="Analyzing your website..."
+                        description="Our AI is extracting keywords, understanding your business, and suggesting targeting strategies."
+                        websiteUrl={formData.websiteUrl}
+                      />
+                    ) : (
+                      <div className="text-center py-8">
+                        <div className="bg-orange-500/10 border border-orange-500/20 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                          <SparklesIcon className="w-8 h-8 text-orange-500" />
+                        </div>
+                        <h3 className={`text-lg font-semibold text-white mb-2 ${poppins.className}`}>
+                          Ready to analyze your website
+                        </h3>
+                        <p className={`text-zinc-400 mb-6 ${inter.className}`}>
+                          Our AI will analyze {formData.websiteUrl} to extract keywords, understand your business, and suggest targeting strategies.
+                        </p>
+                        <Button
+                          data-tour="analyze-button"
+                          onClick={handleAnalyzeWebsite}
+                          disabled={analyzing}
+                          className="bg-orange-500 hover:bg-orange-600 text-white"
+                        >
+                          Analyze Website
+                        </Button>
                       </div>
-                      <h3 className={`text-lg font-semibold text-white mb-2 ${poppins.className}`}>
-                        Ready to analyze your website
-                      </h3>
-                      <p className={`text-zinc-400 mb-6 ${inter.className}`}>
-                        Our AI will analyze {formData.websiteUrl} to extract keywords, understand your business, and suggest targeting strategies.
-                      </p>
-                      <Button
-                        onClick={handleAnalyzeWebsite}
-                        disabled={analyzing}
-                        className="bg-orange-500 hover:bg-orange-600 text-white"
-                      >
-                        {analyzing ? 'Analyzing...' : 'Analyze Website'}
-                      </Button>
-                    </div>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -320,18 +372,35 @@ export const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
                 {/* Description */}
                 <Card className="bg-zinc-900/50 border-zinc-800">
                   <CardHeader>
-                    <CardTitle className={`text-white flex items-center gap-2 ${poppins.className}`}>
-                      <DocumentTextIcon className="w-5 h-5 text-orange-500" />
-                      Business Description
-                    </CardTitle>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className={`text-white flex items-center gap-2 ${poppins.className}`}>
+                        <DocumentTextIcon className="w-5 h-5 text-orange-500" />
+                        Business Description
+                      </CardTitle>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowPreview(!showPreview)}
+                        className="text-orange-400 border-orange-500/20 hover:bg-orange-500/10"
+                      >
+                        {showPreview ? 'Edit' : 'Preview'}
+                      </Button>
+                    </div>
                   </CardHeader>
                   <CardContent>
-                    <Textarea
-                      value={formData.generatedDescription}
-                      onChange={(e) => setFormData(prev => ({ ...prev, generatedDescription: e.target.value }))}
-                      className="bg-zinc-800 border-zinc-700 text-white min-h-[100px]"
-                      placeholder="Describe your business and what you're looking for..."
-                    />
+                    {showPreview ? (
+                      <div className="bg-zinc-800 border border-zinc-700 rounded-md p-3 min-h-[100px]">
+                        <MarkdownRenderer content={formData.generatedDescription} />
+                      </div>
+                    ) : (
+                      <Textarea
+                        value={formData.generatedDescription}
+                        onChange={(e) => setFormData(prev => ({ ...prev, generatedDescription: e.target.value }))}
+                        className="bg-zinc-800 border-zinc-700 text-white min-h-[100px]"
+                        placeholder="Describe your business and what you're looking for..."
+                      />
+                    )}
                   </CardContent>
                 </Card>
 
@@ -362,9 +431,9 @@ export const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
                     </div>
                     
                     <div className="flex flex-wrap gap-2">
-                      {formData.generatedKeywords.map((keyword) => (
+                      {formData.generatedKeywords.map((keyword, index) => (
                         <Badge
-                          key={keyword}
+                          key={`${keyword}-${index}`}
                           variant="outline"
                           className="border-orange-500/20 text-orange-400 flex items-center gap-1"
                         >
@@ -489,7 +558,7 @@ export const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
                     disabled={loading || !formData.websiteUrl}
                     className="bg-orange-500 hover:bg-orange-600 text-white flex-1"
                   >
-                    {loading ? 'Creating Campaign...' : 'Create Campaign'}
+                    {loading ? 'Creating Project...' : 'Create Project'}
                   </Button>
                 </div>
               </div>

@@ -3,12 +3,12 @@
 import { useState } from "react";
 import { Separator } from "@/components/ui/separator";
 import { BillingSettings } from "@/components/settings/BillingSettings";
-import { DangerZone } from "@/components/settings/DangerZone";
 import { NotificationSettings } from "@/components/settings/NotificationSettings";
 import { ProfileSettings } from "@/components/settings/ProfileSettings";
 import { SettingsSidebarNav } from "@/components/settings/SettingsSidebar";
 import { EmailSettings } from "@/components/settings/EmailSettings";
 import { AccountSettings } from "@/components/settings/AccountSettings";
+import { RedditConnection } from "@/components/dashboard/RedditSettings";
 
 // Main component for the settings page
 export default function SettingsPage() {
@@ -24,10 +24,10 @@ export default function SettingsPage() {
         return <NotificationSettings />
       case "billing":
         return <BillingSettings />;
-      case "danger":
-        return <DangerZone />;
       case "account":
         return <AccountSettings/>; // Assuming Account settings are similar to Profile
+      case "reddit":
+        return <RedditConnection />;
       case "email":
         return <EmailSettings />;
       default:

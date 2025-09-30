@@ -107,7 +107,7 @@ const EVENT_TYPES = [
   {
     id: 'discovery.completed',
     label: 'Discovery Completed',
-    description: 'Campaign discovery finished',
+    description: 'Project discovery finished',
     icon: '✅',
     recommended: true
   },
@@ -1114,8 +1114,8 @@ const SetupGuideModal: React.FC<{
                     image: 'https://i.imgur.com/zZQ1Z9c.png'
                 },
                 {
-                    title: 'Paste in RedLead',
-                    description: 'Paste the copied URL into the "Webhook URL" field when creating a new webhook in RedLead.',
+                    title: 'Paste in RedditLeads',
+                    description: 'Paste the copied URL into the "Webhook URL" field when creating a new webhook in RedditLeads.',
                 }
             ] as SetupStep[]
         },
@@ -1141,7 +1141,7 @@ const SetupGuideModal: React.FC<{
                 },
                 {
                     title: 'Copy Webhook URL',
-                    description: 'Copy the newly generated webhook URL and paste it into the RedLead form.',
+                    description: 'Copy the newly generated webhook URL and paste it into the RedditLeads form.',
                     image: 'https://i.imgur.com/xW4c2Z9.png'
                 }
             ] as SetupStep[]
@@ -1175,11 +1175,11 @@ Content-Type: application/json
                 },
                 {
                     title: 'Secure Your Endpoint',
-                    description: 'For security, we recommend verifying a signature. We will send a `X-RedLead-Signature` header with a SHA256 HMAC hash of the payload, using your webhook\'s secret signing key.',
+                    description: 'For security, we recommend verifying a signature. We will send a `X-RedditLeads-Signature` header with a SHA256 HMAC hash of the payload, using your webhook\'s secret signing key.',
                 },
                 {
                     title: 'Test Your Endpoint',
-                    description: 'Use a tool like Postman, or `curl` to ensure your endpoint is working correctly before adding it to RedLead.',
+                    description: 'Use a tool like Postman, or `curl` to ensure your endpoint is working correctly before adding it to RedditLeads.',
                     code: `
 curl -X POST https://your-domain.com/webhook \\
 -H "Content-Type: application/json" \\
@@ -1187,8 +1187,8 @@ curl -X POST https://your-domain.com/webhook \\
 `
                 },
                 {
-                    title: 'Add URL to RedLead',
-                    description: 'Once your endpoint is ready, copy its URL and add it to a new "Generic" webhook in RedLead.'
+                    title: 'Add URL to RedditLeads',
+                    description: 'Once your endpoint is ready, copy its URL and add it to a new "Generic" webhook in RedditLeads.'
                 }
             ] as SetupStep[]
         }

@@ -8,7 +8,7 @@ const poppins = Poppins({
   weight: ["400", "600", "700", "800", "900"],
 });
 
-export const RedLeadHeader = () => {
+export const RedditLeadsHeader = () => {
   return (
     <div className="border-b border-zinc-800 bg-black">
       <div className="container mx-auto px-6 py-6">
@@ -18,8 +18,8 @@ export const RedLeadHeader = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <h1 className={`text-3xl font-bold tracking-tight text-white ${poppins.className}`}>
-              red<span className="bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">lead</span>
+            <h1 className={`text-3xl font-bold tracking-tight ${poppins.className}`}>
+              <span className="text-white">Reddit</span><span className="bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">Leads</span>
             </h1>
           </motion.div>
         </div>

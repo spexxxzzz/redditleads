@@ -1,22 +1,34 @@
 "use client";
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { DashboardSidebar } from './DashboardSidebar';
 import { LeadFeed } from './LeadFeed';
-import { AnalyticalDashboard } from './AnalyticalDashboard';
 import { AnimatePresence, motion } from 'framer-motion';
 import { api } from '@/lib/api';
 import { Inter, Poppins } from 'next/font/google';
-import { RedLeadHeader } from './DashboardHeader';
+import { RedditLeadsHeader } from './DashboardHeader';
 import { useAuth } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
+import { batchLeadsForSession, getLeadBatchingMessage, LeadBatchingOptions } from '@/utils/leadBatching';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import PulsatingDotsLoaderDashboard from '../loading/LoadingDashboard';
+import { LoadingState, LoadingOverlay } from '../ui/LoadingState';
 import { DeleteLeadsModal } from "./DeleteLead";
 import { DiscoveryButtons } from './DiscoveryOptions';
 import { useReplyModal, Lead } from '@/hooks/useReplyModal';
 import { ReplyModal } from './ReplyModal';
 import { Menu, X } from 'lucide-react';
 import { TrashIcon } from '@heroicons/react/24/outline';
+import dynamic from 'next/dynamic';
+import { useUserUsage, useProjectLeads } from '@/hooks/useOptimizedAPI';
+import { useRealTimeLeads, useRealTimeUsage } from '@/hooks/useWebSocket';
+import { PerformanceMonitor } from '@/hooks/usePerformanceMonitor';
+import { ResponsiveContainer, ResponsiveGrid } from '../ui/ResponsiveContainer';
+
+// Dynamic imports for heavy components
+const AnalyticalDashboard = dynamic(() => import('./AnalyticalDashboard').then(mod => ({ default: mod.AnalyticalDashboard })), {
+  loading: () => <LoadingState message="Loading analytics..." size="md" />,
+  ssr: false
+});
 
 const inter = Inter({ subsets: ['latin'] });
 const poppins = Poppins({
@@ -24,7 +36,7 @@ const poppins = Poppins({
   weight: ['400', '500', '600', '700', '800', '900']
 });
 
-interface Campaign {
+interface Project {
   id: string;
   userId: string;
   name: string;
@@ -44,14 +56,16 @@ interface Campaign {
 
 export const DashboardLayout = () => {
   const { getToken } = useAuth();
+  const router = useRouter();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [allLeads, setAllLeads] = useState<Lead[]>([]);
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRunningDiscovery, setIsRunningDiscovery] = useState(false);
-  const [activeCampaign, setActiveCampaign] = useState<string | null>(null);
+  const [activeProject, setActiveProject] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const isFetchingLeads = useRef(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -62,6 +76,15 @@ export const DashboardLayout = () => {
   const [sortBy, setSortBy] = useState("opportunityScore");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const { isOpen: isReplyModalOpen, lead: replyModalLead, onClose: onReplyModalClose } = useReplyModal();
+
+  // Lead batching state
+  const [userPlan, setUserPlan] = useState<string>('basic');
+  const [userRemainingLeads, setUserRemainingLeads] = useState<number>(25);
+  const [leadBatchingMessage, setLeadBatchingMessage] = useState<string>('');
+  const [batchedLeads, setBatchedLeads] = useState<Lead[]>([]);
+  const [isLeadLimitExceeded, setIsLeadLimitExceeded] = useState<boolean>(false);
+
+
 
   // Responsive
   useEffect(() => {
@@ -79,29 +102,57 @@ export const DashboardLayout = () => {
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
 
-  const fetchCampaigns = useCallback(async () => {
+  const fetchProjects = useCallback(async () => {
     try {
       const token = await getToken();
-      const data = await api.getCampaigns(token);
-      setCampaigns(data || []);
-      if (data && data.length > 0 && !activeCampaign) setActiveCampaign(data[0].id);
-      else if (!data || data.length === 0) setIsLoading(false);
+      if (!token) {
+        return;
+      }
+      
+      const data = await api.getProjects(token);
+      setProjects(data || []);
+      
+      if (data && data.length > 0 && !activeProject) {
+        setActiveProject(data[0].id);
+      } else if (!data || data.length === 0) {
+        // New user with no projects - this is normal, not an error
+        setError(null); // Clear any previous errors
+        setIsLoading(false);
+      }
     } catch (err: any) {
-      setError(`Failed to load campaigns: ${err.message}`);
+      console.error('Error fetching projects:', err);
+      
+      // Check if it's a 404 or similar "no data" error
+      if (err.message?.includes('404') || err.message?.includes('not found')) {
+        setProjects([]);
+        setError(null); // Don't show error for new users
+        setIsLoading(false);
+      } else {
+        setError(`Failed to load projects: ${err.message}`);
+      }
     }
-  }, [getToken, activeCampaign]);
+  }, [getToken, activeProject]);
 
-  const fetchLeads = useCallback(async (campaignId: string) => {
+  const fetchLeads = useCallback(async (projectId: string) => {
+    // Prevent multiple simultaneous fetches
+    if (isFetchingLeads.current) {
+      return;
+    }
+    
+    isFetchingLeads.current = true;
     setIsLoading(true);
+    
     try {
       const token = await getToken();
-      const allLeadsResponse = await api.getLeads(campaignId, {
+      
+      const allLeadsResponse = await api.getLeads(projectId, {
         intent: intentFilter,
         sortBy,
         sortOrder,
         page: 1,
         limit: 1000,
       }, token);
+      
       const leadsData: Lead[] = (allLeadsResponse.data || []).map((lead: any) => ({
         id: lead.id,
         title: lead.title,
@@ -110,6 +161,7 @@ export const DashboardLayout = () => {
         url: lead.url,
         body: lead.body,
         createdAt: lead.createdAt,
+        postedAt: lead.postedAt, // Add this line
         intent: lead.intent,
         summary: lead.summary,
         opportunityScore: lead.opportunityScore,
@@ -118,7 +170,12 @@ export const DashboardLayout = () => {
         upvoteRatio: lead.upvoteRatio,
         isGoogleRanked: lead.isGoogleRanked ?? false,
       }));
+      
       setAllLeads(leadsData);
+
+      // Show ALL leads for the current project - no artificial limiting
+      setBatchedLeads(leadsData);
+      setLeadBatchingMessage('');
 
       if (activeFilter !== "all") {
         setLeads(leadsData.filter((lead) => lead.status === activeFilter));
@@ -126,54 +183,154 @@ export const DashboardLayout = () => {
         setLeads(leadsData);
       }
     } catch (err: any) {
+      console.error('Failed to load leads:', err);
       setError(`Failed to load leads: ${err.message}`);
-      setLeads([]);
-      setAllLeads([]);
+      // Don't clear existing leads on error - keep them visible
     } finally {
       setIsLoading(false);
+      isFetchingLeads.current = false;
     }
   }, [getToken, activeFilter, intentFilter, sortBy, sortOrder]);
 
   const handleManualDiscovery = async () => {
-    if (!activeCampaign) return;
+    if (!activeProject) {
+      console.error('❌ No active project selected for discovery');
+      setError('Please select a project before running discovery');
+      return;
+    }
+    
+    // Force reset discovery state before starting new discovery
+    api.resetDiscoveryState();
+    setIsRunningDiscovery(false);
+    
+    // Small delay to ensure reset takes effect
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     setIsRunningDiscovery(true);
+    
+    // Add a safety timeout to prevent stuck state
+    const timeoutId = setTimeout(() => {
+      setIsRunningDiscovery(false);
+      api.resetDiscoveryState(); // Also reset API state
+    }, 180000); // 3 minutes timeout
+    
     try {
       const token = await getToken();
-      await api.runManualDiscovery(activeCampaign, token);
-      setTimeout(() => fetchLeads(activeCampaign), 2000);
+      
+      if (!token) {
+        throw new Error('Authentication token not available');
+      }
+      
+      const result = await api.runManualDiscovery(activeProject, token);
+      
+      setTimeout(() => {
+        fetchLeads(activeProject);
+        fetchUserUsage(); // Refresh usage data after discovery
+      }, 2000);
     } catch (err: any) {
+      console.error('❌ Discovery failed:', err);
       setError(`Manual discovery failed: ${err.message}`);
+      
+      // Force reset on error to prevent stuck state
+      forceResetDiscovery();
     } finally {
+      clearTimeout(timeoutId);
       setIsRunningDiscovery(false);
     }
   };
 
   const handleLeadsDiscovered = () => {
-    if (activeCampaign) {
-      fetchLeads(activeCampaign);
-      fetchCampaigns();
+    if (activeProject) {
+      fetchLeads(activeProject);
+      fetchProjects();
     }
+  };
+
+  const resetDiscoveryState = () => {
+    setIsRunningDiscovery(false);
+    setError(null);
+    // Also reset the API's internal state
+    api.resetDiscoveryState();
+  };
+
+  // Add a more aggressive reset function
+  const forceResetDiscovery = () => {
+    setIsRunningDiscovery(false);
+    setError(null);
+    api.resetDiscoveryState();
+    
+    // Also refresh user usage to get latest data
+    fetchUserUsage();
   };
 
   const handleLeadDelete = (leadId: string) => {
     const updateLeadList = (list: Lead[]) => list.filter(lead => lead.id !== leadId);
     setLeads(updateLeadList(leads));
     setAllLeads(updateLeadList(allLeads));
+    setBatchedLeads(updateLeadList(batchedLeads));
   };
+
+  // Fetch user usage data for lead batching
+  const fetchUserUsage = useCallback(async () => {
+    try {
+      const token = await getToken();
+      if (!token) return;
+      
+      const usageData = await api.getUsage(token);
+      if (usageData.success) {
+        setUserPlan(usageData.data.plan);
+        setUserRemainingLeads(usageData.data.leadsRemaining);
+        
+        // Check if lead limit is exceeded
+        const isExceeded = usageData.data.leads.current > usageData.data.leads.limit;
+        setIsLeadLimitExceeded(isExceeded);
+        
+      }
+    } catch (error) {
+      console.error('Error fetching user usage:', error);
+    }
+  }, [getToken]);
+
+  // Show all leads for the current project - no artificial limiting
+  const applyLeadBatching = useCallback((allLeads: Lead[]) => {
+    setBatchedLeads(allLeads);
+    setLeadBatchingMessage('');
+  }, [userRemainingLeads, userPlan]);
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
   useEffect(() => {
-    fetchCampaigns();
-  }, [fetchCampaigns]);
+    fetchProjects();
+    fetchUserUsage();
+    // Force reset discovery state on mount in case it was left stuck
+    forceResetDiscovery();
+  }, [fetchProjects, fetchUserUsage]);
 
+  // Single useEffect for initial fetch and polling
   useEffect(() => {
-    if (activeCampaign) {
-      fetchLeads(activeCampaign);
+    if (activeProject) {
+      // Initial fetch
+      fetchLeads(activeProject);
+      
+      // Set up polling interval
+      const interval = setInterval(() => {
+        if (activeProject) {
+          fetchLeads(activeProject);
+        }
+      }, 60000); // Poll every 60 seconds
+      
+      return () => clearInterval(interval);
     }
-  }, [activeCampaign, fetchLeads, activeFilter]);
+  }, [activeProject, fetchLeads]);
+
+  // Fetch leads when switching to leads view
+  useEffect(() => {
+    if (activeView === 'leads' && activeProject) {
+      fetchLeads(activeProject);
+    }
+  }, [activeView, activeProject, fetchLeads]);
 
   const leadStats = {
     new: allLeads.filter(l => l.status === 'new').length,
@@ -192,20 +349,44 @@ export const DashboardLayout = () => {
     setAllLeads(updateLeadList(allLeads));
   };
 
-  const currentCampaign = campaigns.find(c => c.id === activeCampaign);
+  const currentProject = projects.find(c => c.id === activeProject);
 
-  if (error && campaigns.length === 0) {
+  if (error && projects.length === 0) {
+    // Check if this is a new user (no projects) vs a real error
+    const isNewUser = error.includes('Failed to load projects') && !error.includes('401') && !error.includes('403');
+    
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-4">
         <Card className="w-full max-w-md bg-black/60 border-white/10">
           <CardHeader>
-            <CardTitle className="text-white text-center">Dashboard Error</CardTitle>
+            <CardTitle className="text-white text-center">
+              {isNewUser ? "Welcome to RedditLeads!" : "Dashboard Error"}
+            </CardTitle>
           </CardHeader>
           <CardContent className="text-center">
-            <p className="text-white/80 mb-6">{error}</p>
-            <Button onClick={() => window.location.reload()} className="w-full bg-white text-black">
-              Retry
-            </Button>
+            <p className="text-white/80 mb-6">
+              {isNewUser 
+                ? "You're all set! Create your first project to start finding leads on Reddit."
+                : error
+              }
+            </p>
+            <div className="space-y-3">
+              {isNewUser ? (
+                <Button 
+                  onClick={() => {
+                    setError(null);
+                    setIsLoading(false);
+                  }} 
+                  className="w-full bg-white text-black"
+                >
+                  Get Started
+                </Button>
+              ) : (
+                <Button onClick={() => window.location.reload()} className="w-full bg-white text-black">
+                  Retry
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -214,8 +395,13 @@ export const DashboardLayout = () => {
 
   return (
     <div className="min-h-screen bg-black">
+      {/* Loading overlay for discovery operations */}
+      {isRunningDiscovery && (
+        <LoadingOverlay message="Discovering leads... This may take a few minutes." />
+      )}
+      
       <div className="relative z-10">
-        <RedLeadHeader />
+        <RedditLeadsHeader />
 
         {/* Mobile Menu Button */}
         <div className="md:hidden fixed top-5 right-5 z-50">
@@ -241,12 +427,12 @@ export const DashboardLayout = () => {
             style={{ minWidth: isMobile ? undefined : (isSidebarCollapsed ? 72 : 260) }}
           >
             <DashboardSidebar
-              campaigns={campaigns.map(c => ({
+              projects={projects.map(c => ({
                 ...c,
-                isActive: c.id === activeCampaign
+                isActive: c.id === activeProject
               }))}
-              activeCampaign={activeCampaign}
-              setActiveCampaign={setActiveCampaign}
+              activeProject={activeProject}
+              setActiveProject={setActiveProject}
               activeFilter={activeFilter ?? "all"}
               setActiveFilter={(filter) => {
                 setActiveFilter(filter as Lead['status'] | 'all');
@@ -278,6 +464,47 @@ export const DashboardLayout = () => {
 
           {/* Main Content */}
           <main className="flex-1 min-h-screen relative bg-black/80 px-0 py-0">
+            {/* Lead Limit Exceeded Banner */}
+            {isLeadLimitExceeded && (
+              <motion.div
+                initial={{ opacity: 0, y: -50 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-orange-500/20 border-l-4 border-orange-500 p-4 mb-4"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <motion.div
+                      animate={{ 
+                        rotate: [0, 10, -10, 10, -10, 0],
+                        scale: [1, 1.1, 1, 1.1, 1]
+                      }}
+                      transition={{ 
+                        duration: 2,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                      className="text-2xl"
+                    >
+                      🔒
+                    </motion.div>
+                    <div>
+                      <h3 className={`text-orange-400 font-bold ${poppins.className}`}>
+                        Lead Limit Exceeded
+                      </h3>
+                      <p className={`text-orange-300 text-sm ${inter.className}`}>
+                        You've reached your monthly lead limit. You can view your existing leads but cannot generate new ones.
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={() => router.push('/pricing')}
+                    className="bg-orange-500 hover:bg-orange-600 text-white font-semibold px-4 py-2 rounded-lg"
+                  >
+                    Upgrade Plan
+                  </Button>
+                </div>
+              </motion.div>
+            )}
             <AnimatePresence mode="wait">
               {activeView === 'dashboard' ? (
                 <motion.div
@@ -288,7 +515,7 @@ export const DashboardLayout = () => {
                   transition={{ duration: 0.4, ease: "easeOut" }}
                   className="relative z-10"
                 >
-                  <AnalyticalDashboard campaigns={campaigns} activeCampaign={activeCampaign} leadStats={leadStats} allLeads={allLeads} />
+                  <AnalyticalDashboard projects={projects} activeProject={activeProject} leadStats={leadStats} allLeads={allLeads} />
                 </motion.div>
               ) : (
                 <motion.div
@@ -333,14 +560,90 @@ export const DashboardLayout = () => {
                     transition={{ duration: 0.6, delay: 0.2 }}
                     className="mb-6 sm:mb-8"
                   >
-                    <DiscoveryButtons
-                      campaignId={activeCampaign || ''}
-                      targetSubreddits={currentCampaign?.targetSubreddits || []}
-                      onLeadsDiscovered={handleLeadsDiscovered}
-                      lastDiscoveryAt={currentCampaign?.lastManualDiscoveryAt ? new Date(currentCampaign.lastManualDiscoveryAt) : null}
-                      lastGlobalDiscoveryAt={currentCampaign?.lastGlobalDiscoveryAt ? new Date(currentCampaign.lastGlobalDiscoveryAt) : null}
-                      lastTargetedDiscoveryAt={currentCampaign?.lastTargetedDiscoveryAt ? new Date(currentCampaign.lastTargetedDiscoveryAt) : null}
-                    />
+                    {(() => {
+                      return activeProject ? (
+                        <div className="relative">
+                          <DiscoveryButtons
+                            projectId={activeProject}
+                            targetSubreddits={currentProject?.targetSubreddits || []}
+                            onLeadsDiscovered={handleLeadsDiscovered}
+                            lastDiscoveryAt={currentProject?.lastManualDiscoveryAt ? new Date(currentProject.lastManualDiscoveryAt) : null}
+                            lastGlobalDiscoveryAt={currentProject?.lastGlobalDiscoveryAt ? new Date(currentProject.lastGlobalDiscoveryAt) : null}
+                            lastTargetedDiscoveryAt={currentProject?.lastTargetedDiscoveryAt ? new Date(currentProject.lastTargetedDiscoveryAt) : null}
+                            disabled={isLeadLimitExceeded}
+                          />
+                          
+                          {/* Upgrade Lock Overlay - Only covers discovery section */}
+                          {isLeadLimitExceeded && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="absolute inset-0 bg-black/80 backdrop-blur-sm rounded-lg flex items-center justify-center z-10"
+                            >
+                              <div className="text-center p-6">
+                                <motion.div
+                                  animate={{ 
+                                    rotate: [0, 10, -10, 10, -10, 0],
+                                    scale: [1, 1.1, 1, 1.1, 1]
+                                  }}
+                                  transition={{ 
+                                    duration: 2,
+                                    repeat: Infinity,
+                                    ease: "easeInOut"
+                                  }}
+                                  className="text-6xl mb-4"
+                                >
+                                  🔒
+                                </motion.div>
+                                <h3 className={`text-xl font-bold text-white mb-2 ${poppins.className}`}>
+                                  Lead Limit Exceeded
+                                </h3>
+                                <p className={`text-white/70 mb-4 ${inter.className}`}>
+                                  You've reached your monthly lead limit. Upgrade your plan to discover more leads.
+                                </p>
+                                <Button
+                                  onClick={() => router.push('/pricing')}
+                                  className="bg-orange-500 hover:bg-orange-600 text-white font-semibold px-6 py-2 rounded-lg"
+                                >
+                                  Upgrade Plan
+                                </Button>
+                              </div>
+                            </motion.div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <p className="text-white/70 mb-4">Please select a project to start discovery</p>
+                          <Button 
+                            onClick={() => {
+                              // Navigate to projects page
+                              router.push('/dashboard/projects');
+                            }}
+                            className="bg-white text-black hover:bg-white/90"
+                          >
+                            Go to Projects
+                          </Button>
+                        </div>
+                      );
+                    })()}
+                    
+                    {/* Reset Discovery State Button */}
+                    {isRunningDiscovery && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-4 text-center"
+                      >
+                        <Button
+                          onClick={forceResetDiscovery}
+                          className="bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 hover:bg-yellow-500/20
+                            h-8 px-3 text-xs font-medium transition rounded-lg"
+                        >
+                          Force Reset Discovery
+                        </Button>
+                      </motion.div>
+                    )}
+                    
                   </motion.div>
 
                   {/* The Main Lead Feed */}
@@ -350,16 +653,63 @@ export const DashboardLayout = () => {
                     transition={{ duration: 0.6, delay: 0.3 }}
                   >
                     {isLoading ? (
-                      <PulsatingDotsLoaderDashboard />
-                    ) : (
-                      <LeadFeed
-                        leads={leads}
-                        onManualDiscovery={handleManualDiscovery}
-                        isRunningDiscovery={isRunningDiscovery}
-                        onDelete={handleLeadDelete}
-                        onLeadUpdate={handleLeadUpdate}
-                        activeFilter={activeFilter ?? "all"}
+                      <LoadingState 
+                        message={projects.length === 0 ? "Setting up your dashboard..." : "Loading your projects..."}
+                        size="lg"
+                        className="py-8"
                       />
+                    ) : (
+                      <>
+                        {/* Welcome message for new users */}
+                        {projects.length === 0 && !isLoading && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="text-center py-12"
+                          >
+                            <div className="max-w-md mx-auto">
+                              <div className="text-6xl mb-4">🚀</div>
+                              <h3 className="text-2xl font-bold text-white mb-4">Welcome to RedditLeads!</h3>
+                              <p className="text-white/70 mb-6">
+                                You're all set! Create your first project to start finding high-quality leads on Reddit.
+                              </p>
+                              <Button 
+                                onClick={() => {
+                                  // Navigate to the projects page
+                                  router.push('/dashboard/projects');
+                                }}
+                                className="bg-white text-black hover:bg-white/90 px-8 py-3 text-lg font-semibold"
+                              >
+                                Create Your First Project
+                              </Button>
+                            </div>
+                          </motion.div>
+                        )}
+
+                        {/* Lead Batching Message */}
+                        {leadBatchingMessage && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg"
+                          >
+                            <p className="text-sm text-blue-700 font-medium">
+                              {leadBatchingMessage}
+                            </p>
+                          </motion.div>
+                        )}
+                        
+                        {projects.length > 0 && (
+                          <LeadFeed
+                            leads={leads}
+                            onManualDiscovery={handleManualDiscovery}
+                            isRunningDiscovery={isRunningDiscovery}
+                            onDelete={handleLeadDelete}
+                            onLeadUpdate={handleLeadUpdate}
+                            activeFilter={activeFilter ?? "all"}
+                          />
+                        )}
+                      </>
                     )}
                   </motion.div>
                 </motion.div>
@@ -378,10 +728,11 @@ export const DashboardLayout = () => {
       <DeleteLeadsModal
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
-        campaignId={activeCampaign ?? ""}
+        projectId={activeProject ?? ""}
         leadStats={leadStats}
         onLeadsDeleted={handleLeadsDiscovered}
       />
+
     </div>
   );
 };

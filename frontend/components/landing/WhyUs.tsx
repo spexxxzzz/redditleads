@@ -128,7 +128,7 @@
 //               {/* AI Marketing Side */}
 //               <div className="bg-orange-500/10 border border-orange-500/30 rounded-2xl p-8 relative">
 //                 <div className="absolute -top-3 left-6 bg-gradient-to-r from-orange-400 to-orange-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
-//                   RedLead AI
+//                   RedditLeads AI
 //                 </div>
 //                 <div className="mt-4 space-y-4 text-left">
 //                   <div className="flex items-start gap-3">

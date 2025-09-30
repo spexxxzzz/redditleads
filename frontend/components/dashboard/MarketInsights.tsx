@@ -35,12 +35,12 @@ interface InsightMetrics {
   ignoredInsights: number;
 }
 
-// The component now accepts the activeCampaignId as a prop
+// The component now accepts the activeProjectId as a prop
 interface MarketInsightsPageProps {
-    activeCampaignId: string | null;
+    activeProjectId: string | null;
 }
 
-export default function MarketInsightsPage({ activeCampaignId }: MarketInsightsPageProps) {
+export default function MarketInsightsPage({ activeProjectId }: MarketInsightsPageProps) {
   const { getToken } = useAuth(); // Use the Clerk hook
   const [insights, setInsights] = useState<MarketInsight[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -54,12 +54,12 @@ export default function MarketInsightsPage({ activeCampaignId }: MarketInsightsP
   });
 
   const fetchInsights = useCallback(async () => {
-    if (!activeCampaignId) return;
+    if (!activeProjectId) return;
 
     try {
       setIsLoading(true);
       const token = await getToken();
-      const response = await api.getMarketInsights(activeCampaignId, token);
+      const response = await api.getMarketInsights(activeProjectId, token);
       setInsights(response.data || []);
       
       const total = response.data?.length || 0;
@@ -78,13 +78,13 @@ export default function MarketInsightsPage({ activeCampaignId }: MarketInsightsP
     } finally {
       setIsLoading(false);
     }
-  }, [activeCampaignId, getToken]);
+  }, [activeProjectId, getToken]);
 
   const addCompetitor = async (insightId: string) => {
     setProcessingInsight(insightId);
     try {
       const token = await getToken();
-      await api.addCompetitorToCampaign(insightId, token);
+      await api.addCompetitorToProject(insightId, token);
       setInsights(prev => prev.map(insight => 
         insight.id === insightId 
           ? { ...insight, status: 'ACTIONED' as const }
@@ -164,7 +164,7 @@ export default function MarketInsightsPage({ activeCampaignId }: MarketInsightsP
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <MetricCard title="Total Insights" value={metrics.totalInsights} icon={TrendingUp} color="blue" />
             <MetricCard title="New Discoveries" value={metrics.newInsights} icon={Eye} color="orange" />
-            <MetricCard title="Added to Campaign" value={metrics.actionedInsights} icon={CheckCircle} color="green" />
+            <MetricCard title="Added to Project" value={metrics.actionedInsights} icon={CheckCircle} color="green" />
             <MetricCard title="Ignored" value={metrics.ignoredInsights} icon={X} color="gray" />
         </div>
 
@@ -312,7 +312,7 @@ const InsightCard = ({ insight, onAddCompetitor, onUpdateStatus, isProcessing, g
               ) : (
                 <Plus className="w-4 h-4" />
               )}
-              Add to Campaign
+              Add to Project
             </button>
             
             <button

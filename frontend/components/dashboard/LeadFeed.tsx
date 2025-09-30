@@ -3,7 +3,6 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LeadCard } from './LeadCard';
 import { 
-  RefreshCw, 
   Inbox, 
   Send, 
   Bookmark, 
@@ -41,6 +40,7 @@ interface Lead {
   url: string;
   body: string;
   createdAt: number;
+  postedAt: number | string; // Add this property for LeadCard compatibility
   numComments: number;
   upvoteRatio: number;
   intent: string;
@@ -85,7 +85,7 @@ const emptyStateMessages = {
   new: {
     icon: Inbox,
     title: "No new leads",
-    message: "Your inbox is clear. Run a discovery to find new leads.",
+    message: "Your inbox is clear.",
   },
   replied: {
     icon: Send,
@@ -100,7 +100,7 @@ const emptyStateMessages = {
   all: {
     icon: Inbox,
     title: "No leads found",
-    message: "Run a discovery to start finding leads for your campaign.",
+    message: "No leads available for this project.",
   },
 };
 
@@ -229,14 +229,6 @@ export const LeadFeed: React.FC<LeadFeedProps> = ({
           <p className={`text-gray-400 mt-2 ${inter.className}`}>
             {message}
           </p>
-          <button
-            onClick={onManualDiscovery}
-            disabled={isRunningDiscovery}
-            className="mt-6 inline-flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 disabled:bg-orange-700 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
-          >
-            <RefreshCw className={`w-4 h-4 ${isRunningDiscovery ? 'animate-spin' : ''}`} />
-            {isRunningDiscovery ? 'Discovering...' : 'Run Discovery'}
-          </button>
         </div>
       </div>
     );

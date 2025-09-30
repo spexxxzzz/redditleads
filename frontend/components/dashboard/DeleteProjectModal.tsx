@@ -19,7 +19,7 @@ const poppins = Poppins({
   weight: ['400', '500', '600', '700']
 });
 
-interface Campaign {
+interface Project {
   id: string;
   name: string;
   analyzedUrl: string;
@@ -28,37 +28,37 @@ interface Campaign {
   };
 }
 
-interface DeleteCampaignModalProps {
+interface DeleteProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
-  campaign: Campaign | null;
-  onCampaignDeleted: () => void;
+  project: Project | null;
+  onProjectDeleted: () => void;
 }
 
-export const DeleteCampaignModal: React.FC<DeleteCampaignModalProps> = ({
+export const DeleteProjectModal: React.FC<DeleteProjectModalProps> = ({
   isOpen,
   onClose,
-  campaign,
-  onCampaignDeleted
+  project,
+  onProjectDeleted
 }) => {
   const { getToken } = useAuth();
   const [loading, setLoading] = useState(false);
   const [confirmationText, setConfirmationText] = useState('');
 
-  const campaignName = campaign?.name || (campaign?.analyzedUrl ? new URL(campaign.analyzedUrl).hostname : '');
-  const isConfirmed = confirmationText === campaignName;
+  const projectName = project?.name || (project?.analyzedUrl ? new URL(project.analyzedUrl).hostname : '');
+  const isConfirmed = confirmationText === projectName;
 
   const handleDelete = async () => {
-    if (!campaign || !isConfirmed) return;
+    if (!project || !isConfirmed) return;
 
     setLoading(true);
     try {
       const token = await getToken();
-      await api.deleteCampaign(campaign.id, token);
-      toast.success('Campaign deleted successfully');
-      onCampaignDeleted();
+      await api.deleteProject(project.id, token);
+      toast.success('Project deleted successfully');
+      onProjectDeleted();
     } catch (error: any) {
-      toast.error('Failed to delete campaign', {
+      toast.error('Failed to delete project', {
         description: error.message
       });
     } finally {
@@ -66,7 +66,7 @@ export const DeleteCampaignModal: React.FC<DeleteCampaignModalProps> = ({
     }
   };
 
-  if (!isOpen || !campaign) return null;
+  if (!isOpen || !project) return null;
 
   return (
     <AnimatePresence>
@@ -88,20 +88,20 @@ export const DeleteCampaignModal: React.FC<DeleteCampaignModalProps> = ({
             </div>
             
             <h3 className={`mt-5 text-2xl font-bold leading-6 text-white ${poppins.className}`}>
-              Delete Campaign
+              Delete Project
             </h3>
             
             <div className="mt-4 space-y-3">
               <p className={`text-sm text-zinc-400 ${inter.className}`}>
-                This action will permanently delete the campaign{' '}
-                <span className="font-semibold text-white">"{campaignName}"</span>{' '}
+                This action will permanently delete the project{' '}
+                <span className="font-semibold text-white">"{projectName}"</span>{' '}
                 and all associated data.
               </p>
               
-              {campaign._count?.leads && campaign._count.leads > 0 && (
+              {project._count?.leads && project._count.leads > 0 && (
                 <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
                   <p className={`text-sm text-red-400 ${inter.className}`}>
-                    ⚠️ This will also delete {campaign._count.leads} associated leads
+                    ⚠️ This will also delete {project._count.leads} associated leads
                   </p>
                 </div>
               )}
@@ -115,13 +115,13 @@ export const DeleteCampaignModal: React.FC<DeleteCampaignModalProps> = ({
           <div className="mt-6 space-y-4">
             <div>
               <label className={`block text-sm font-medium text-zinc-300 mb-2 ${inter.className}`}>
-                Type "{campaignName}" to confirm deletion
+                Type "{projectName}" to confirm deletion
               </label>
               <Input
                 value={confirmationText}
                 onChange={(e) => setConfirmationText(e.target.value)}
                 className="bg-zinc-800 border-zinc-700 text-white"
-                placeholder={campaignName}
+                placeholder={projectName}
               />
             </div>
 
@@ -138,7 +138,7 @@ export const DeleteCampaignModal: React.FC<DeleteCampaignModalProps> = ({
                 disabled={loading || !isConfirmed}
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white disabled:bg-red-800/50"
               >
-                {loading ? 'Deleting...' : 'Delete Campaign'}
+                {loading ? 'Deleting...' : 'Delete Project'}
               </Button>
             </div>
           </div>

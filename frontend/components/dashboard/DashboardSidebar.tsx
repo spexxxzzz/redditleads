@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -19,16 +19,18 @@ import {
   Webhook,
   PieChart,
   Activity,
-  FolderOpen // Add this import for campaign management
+  FolderOpen // Add this import for project management
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useUser } from '@clerk/nextjs';
+import { useUser, useAuth } from '@clerk/nextjs';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent } from "@/components/ui/card";
 import { Inter, Poppins } from 'next/font/google';
+import { api } from '@/lib/api';
+import UsageDashboard from './UsageDashboard';
 
 const inter = Inter({ subsets: ['latin'] });
 const poppins = Poppins({
@@ -36,7 +38,7 @@ const poppins = Poppins({
   weight: ['400', '500', '600', '700']
 });
 
-interface Campaign {
+interface Project {
   id: string;
   userId: string;
   name: string;
@@ -56,9 +58,9 @@ interface Campaign {
 }
 
 interface Props {
-  campaigns: Campaign[];
-  activeCampaign: string | null;
-  setActiveCampaign: (id: string) => void;
+  projects: Project[];
+  activeProject: string | null;
+  setActiveProject: (id: string) => void;
   activeFilter: string;
   setActiveFilter: (filter: string) => void;
   stats: {
@@ -76,9 +78,9 @@ interface Props {
 }
 
 export const DashboardSidebar = ({
-  campaigns,
-  activeCampaign,
-  setActiveCampaign,
+  projects,
+  activeProject,
+  setActiveProject,
   activeFilter,
   setActiveFilter,
   stats,
@@ -89,15 +91,69 @@ export const DashboardSidebar = ({
   isMobile
 }: Props) => {
   const { isLoaded, isSignedIn, user } = useUser();
+  const { getToken } = useAuth();
   const pathname = usePathname();
+  const [userPlan, setUserPlan] = useState<string>('basic');
+  const [isLoadingPlan, setIsLoadingPlan] = useState(true);
 
-  if (!isLoaded) {
+  // Debug: Log userPlan changes
+  useEffect(() => {
+    console.log('🎯 UserPlan state changed to:', userPlan);
+  }, [userPlan]);
+
+  // Fetch user's subscription status
+  useEffect(() => {
+    const fetchUserPlan = async () => {
+      if (!isSignedIn || !user) {
+        setIsLoadingPlan(false);
+        return;
+      }
+
+      try {
+        const token = await getToken();
+        const response = await api.getSubscriptionStatus(token);
+        
+        console.log('🔍 Subscription status response:', response);
+        
+        if (response.success && response.data?.plan) {
+          console.log('✅ Setting user plan to:', response.data.plan);
+          setUserPlan(response.data.plan);
+        } else {
+          console.log('⚠️ No plan found, defaulting to basic');
+          setUserPlan('basic');
+        }
+      } catch (error) {
+        console.error('❌ Error fetching user plan:', error);
+        // Default to basic plan on error
+        setUserPlan('basic');
+      } finally {
+        setIsLoadingPlan(false);
+      }
+    };
+
+    fetchUserPlan();
+  }, [isSignedIn, user, getToken]);
+
+  // Use a client-side only loading state to prevent hydration mismatch
+  const [isClientLoaded, setIsClientLoaded] = useState(false);
+  
+  useEffect(() => {
+    setIsClientLoaded(true);
+  }, []);
+
+  if (!isClientLoaded || !isLoaded) {
     return (
-      <div className="h-screen p-4 border-r bg-black border-zinc-800 sticky top-0 z-20">
-        <div className="animate-pulse space-y-4">
-          <div className="h-10 bg-zinc-900 rounded"></div>
-          <div className="h-8 bg-zinc-900 rounded w-3/4"></div>
-          <div className="h-8 bg-zinc-900 rounded w-1/2"></div>
+      <div className="h-screen flex flex-col bg-black border-r border-zinc-800 sticky top-0 z-20">
+        <div className="p-4 border-b border-zinc-800 bg-black">
+          <div className="space-y-3">
+            <div className="flex items-center space-x-3">
+              <div className="h-10 w-10 bg-zinc-900 rounded-full"></div>
+              <div className="space-y-2">
+                <div className="h-4 bg-zinc-900 rounded w-24"></div>
+                <div className="h-3 bg-zinc-900 rounded w-16"></div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -217,9 +273,38 @@ export const DashboardSidebar = ({
                 </Button>
               )}
             </div>
-            <Badge className="bg-orange-500 hover:bg-orange-600 text-white border-0">
-              <Crown className="h-3 w-3 mr-1" />
-              Pro
+            <Badge className={`${
+              userPlan === 'basic' 
+                ? 'bg-gray-500 hover:bg-gray-600' 
+                : userPlan === 'pdt_2A3SVJeAnBgj8XjLeoiaR' 
+                ? 'bg-blue-500 hover:bg-blue-600' 
+                : userPlan === 'pdt_jhcgzC7RawLnUVJr4bn0a' 
+                ? 'bg-orange-500 hover:bg-orange-600' 
+                : userPlan === 'pdt_mXpMfglw1fhJpQGW2AFnj' 
+                ? 'bg-purple-500 hover:bg-purple-600' 
+                : 'bg-orange-500 hover:bg-orange-600'
+            } text-white border-0`} title={`Current plan: ${userPlan}`}>
+              {userPlan === 'basic' ? (
+                <Zap className="h-3 w-3 mr-1" />
+              ) : userPlan === 'pdt_2A3SVJeAnBgj8XjLeoiaR' ? (
+                <Zap className="h-3 w-3 mr-1" />
+              ) : userPlan === 'pdt_jhcgzC7RawLnUVJr4bn0a' ? (
+                <Crown className="h-3 w-3 mr-1" />
+              ) : userPlan === 'pdt_mXpMfglw1fhJpQGW2AFnj' ? (
+                <Crown className="h-3 w-3 mr-1" />
+              ) : (
+                <Crown className="h-3 w-3 mr-1" />
+              )}
+              {userPlan === 'basic' 
+                ? 'Basic' 
+                : userPlan === 'pdt_2A3SVJeAnBgj8XjLeoiaR' 
+                ? 'Starter' 
+                : userPlan === 'pdt_jhcgzC7RawLnUVJr4bn0a' 
+                ? 'Pro' 
+                : userPlan === 'pdt_mXpMfglw1fhJpQGW2AFnj' 
+                ? 'Ultimate' 
+                : 'Pro'
+              }
             </Badge>
           </div>
         )}
@@ -248,10 +333,10 @@ export const DashboardSidebar = ({
               onClick={() => setActiveView('leads')}
             />
             <NavButton 
-              href="/dashboard/campaigns" 
+              href="/dashboard/projects" 
               icon={FolderOpen} 
-              label="Campaigns" 
-              isActive={pathname === '/dashboard/campaigns'} 
+              label="Projects" 
+              isActive={pathname === '/dashboard/projects'} 
             />
             <NavButton 
               href="/dashboard/webhooks" 
@@ -316,42 +401,42 @@ export const DashboardSidebar = ({
               </div>
             </div>
 
-            {/* Campaigns Section */}
+            {/* Projects Section */}
             {!isCollapsed && (
               <>
                 <Separator className="bg-zinc-800" />
-                <div>
+                <div data-tour="projects-section">
                   <p className={`text-xs font-medium text-gray-500 mb-3 px-3 uppercase tracking-wider ${inter.className}`}>
-                    Campaigns
+                    Projects
                   </p>
                   <div className="space-y-2">
-                    {campaigns.length === 0 ? (
+                    {projects.length === 0 ? (
                       <Card className="bg-zinc-900 border-zinc-800">
                         <CardContent className="p-3 text-center">
-                          <p className={`text-xs text-gray-400 ${inter.className}`}>No campaigns</p>
+                          <p className={`text-xs text-gray-400 ${inter.className}`}>No projects</p>
                         </CardContent>
                       </Card>
                     ) : (
-                      campaigns.map((campaign) => (
-                        <div key={campaign.id}>
+                      projects.map((project) => (
+                        <div key={project.id}>
                           <Button
-                            onClick={() => setActiveCampaign(campaign.id)}
+                            onClick={() => setActiveProject(project.id)}
                             variant="ghost"
                             className={`w-full justify-between text-left h-auto p-3 rounded-lg transition-all duration-200 ${
-                              activeCampaign === campaign.id 
+                              activeProject === project.id 
                                 ? 'bg-orange-500 hover:bg-orange-600 text-white' 
                                 : 'hover:bg-zinc-900 text-gray-300 hover:text-white'
                             }`}
                           >
                             <div className="flex-1">
                               <div className={`font-medium text-sm ${poppins.className}`}>
-                                {new URL(campaign.analyzedUrl).hostname}
+                                {new URL(project.analyzedUrl).hostname}
                               </div>
                             </div>
                             <ChevronDown className="h-3 w-3" />
                           </Button>
                           
-                          {activeCampaign === campaign.id && (
+                          {activeProject === project.id && (
                             <motion.div 
                               initial={{ height: 0, opacity: 0 }}
                               animate={{ height: 'auto', opacity: 1 }}
@@ -364,24 +449,24 @@ export const DashboardSidebar = ({
                                       Keywords
                                     </p>
                                     <div className="flex flex-wrap gap-1">
-                                      {campaign.generatedKeywords.slice(0, 2).map((keyword) => (
+                                      {project.generatedKeywords.slice(0, 2).map((keyword) => (
                                         <Badge key={keyword} className="bg-orange-500/10 text-orange-400 border-orange-500/20 hover:bg-orange-500/20">
                                           {keyword}
                                         </Badge>
                                       ))}
-                                      {campaign.generatedKeywords.length > 2 && (
+                                      {project.generatedKeywords.length > 2 && (
                                         <Badge 
                                           variant="outline" 
                                           className="text-xs border-zinc-700 text-gray-400"
                                         >
-                                          +{campaign.generatedKeywords.length - 2}
+                                          +{project.generatedKeywords.length - 2}
                                         </Badge>
                                       )}
                                     </div>
                                   </div>
                                   <div className="flex items-center gap-2 text-xs text-gray-400">
                                     <Eye className="h-3 w-3 text-orange-500" />
-                                    <span className={inter.className}>{campaign.targetSubreddits.length} subreddits</span>
+                                    <span className={inter.className}>{project.targetSubreddits.length} subreddits</span>
                                   </div>
                                 </CardContent>
                               </Card>
@@ -395,6 +480,13 @@ export const DashboardSidebar = ({
               </>
             )}
           </>
+        )}
+
+        {/* Usage Dashboard - Always visible */}
+        {!isCollapsed && (
+          <div className="mt-6">
+            <UsageDashboard projectId={activeProject || undefined} />
+          </div>
         )}
       </div>
     </div>

@@ -8,7 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { useUser } from "@clerk/nextjs";
+import { useUser, useAuth } from "@clerk/nextjs";
+import { api } from "@/lib/api";
 import {
   Camera, Check, X, Loader2, AlertCircle, User, Settings, Shield,
   Trash2, Edit, Briefcase, PlusCircle
@@ -43,8 +44,8 @@ interface ProfileFormData {
   emailNotifications: boolean;
 }
 
-interface Campaign {
-  _id: string;
+interface Project {
+  id: string;
   name: string;
   status: 'active' | 'paused' | 'ended' | 'draft';
 }
@@ -53,16 +54,17 @@ interface Campaign {
 
 export function ProfileSettings() {
   const { user, isLoaded } = useUser();
+  const { getToken } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [imageUpload, setImageUpload] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>("");
 
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [isLoadingCampaigns, setIsLoadingCampaigns] = useState(true);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   
-  // State to manage which campaign is being edited
-  const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
+  // State to manage which project is being edited
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
 
 
   const [formData, setFormData] = useState<ProfileFormData>({
@@ -74,21 +76,18 @@ export function ProfileSettings() {
     emailNotifications: user?.publicMetadata?.emailNotifications as boolean || true,
   });
 
-  const fetchCampaigns = async () => {
+  const fetchProjects = async () => {
     if (!user) return;
-    setIsLoadingCampaigns(true);
+    setIsLoadingProjects(true);
     try {
-      const response = await fetch('/api/campaigns');
-      if (!response.ok) {
-        throw new Error('Failed to fetch campaigns.');
-      }
-      const data = await response.json();
-      setCampaigns(data.campaigns || []);
+      const token = await getToken();
+      const data = await api.getProjects(token);
+      setProjects(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error("Error fetching campaigns:", error);
-      toast.error("Could not load your campaigns.");
+      console.error("Error fetching projects:", error);
+      toast.error("Could not load your projects.");
     } finally {
-      setIsLoadingCampaigns(false);
+      setIsLoadingProjects(false);
     }
   };
 
@@ -103,7 +102,7 @@ export function ProfileSettings() {
             publicProfile: user?.publicMetadata?.publicProfile as boolean || false,
             emailNotifications: user?.publicMetadata?.emailNotifications as boolean || true,
         });
-        fetchCampaigns();
+        fetchProjects();
     }
   }, [isLoaded, user]);
 
@@ -181,32 +180,36 @@ export function ProfileSettings() {
     }
   };
 
-  const handleUpdateCampaign = async (id: string, name: string) => {
+  const handleUpdateProject = async (id: string, name: string) => {
     try {
-      const response = await fetch(`/api/campaigns/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
-      });
-      if (!response.ok) throw new Error("Server failed to update campaign.");
-      toast.success("Campaign updated successfully!");
-      await fetchCampaigns(); // Refetch to get the latest data
+      const token = await getToken();
+      await api.updateProject(id, { 
+        name,
+        analyzedUrl: '', // These are required by the API but not used in this context
+        generatedDescription: '',
+        generatedKeywords: [],
+        targetSubreddits: [],
+        competitors: [],
+        isActive: true
+      }, token);
+      toast.success("Project updated successfully!");
+      await fetchProjects(); // Refetch to get the latest data
     } catch (error) {
-      console.error("Failed to update campaign:", error)
-      toast.error("Failed to update campaign. Please try again.");
+      console.error("Failed to update project:", error)
+      toast.error("Failed to update project. Please try again.");
     }
-    setEditingCampaign(null); // Close the modal
+    setEditingProject(null); // Close the modal
   };
 
-  const handleDeleteCampaign = async (id: string) => {
+  const handleDeleteProject = async (id: string) => {
     try {
-      const response = await fetch(`/api/campaigns/${id}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error("Server failed to delete campaign.");
-      toast.success("Campaign deleted successfully!");
-      setCampaigns(prev => prev.filter(c => c._id !== id));
+      const token = await getToken();
+      await api.deleteProject(id, token);
+      toast.success("Project deleted successfully!");
+      setProjects(prev => prev.filter(c => c.id !== id));
     } catch (error) {
-      console.error("Failed to delete campaign:", error)
-      toast.error("Failed to delete campaign. Please try again.");
+      console.error("Failed to delete project:", error)
+      toast.error("Failed to delete project. Please try again.");
     }
   };
 
@@ -321,46 +324,46 @@ export function ProfileSettings() {
 
       <Separator className="bg-white/10" />
 
-      {/* --- CAMPAIGN MANAGEMENT SECTION --- */}
+      {/* --- PROJECT MANAGEMENT SECTION --- */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
             <h4 className={`${poppins.className} text-lg font-semibold text-white flex items-center gap-2`}>
-                <Briefcase className="text-orange-500" size={18} /> Campaign Management
+                <Briefcase className="text-orange-500" size={18} /> Project Management
             </h4>
             <Button variant="outline" className="text-sm font-semibold border-white/20 bg-white/5 text-white hover:bg-white/10 hover:border-white/30">
-                <PlusCircle size={16} className="mr-2"/> New Campaign
+                <PlusCircle size={16} className="mr-2"/> New Project
             </Button>
         </div>
         <div className="p-4 rounded-lg bg-white/5 border border-white/10 space-y-3">
-            {isLoadingCampaigns ? (
+            {isLoadingProjects ? (
                 <div className="flex items-center justify-center p-4"><Loader2 className="h-6 w-6 animate-spin text-orange-500" /></div>
-            ) : campaigns.length > 0 ? (
-                campaigns.map(campaign => (
-                    <div key={campaign._id} className="flex items-center justify-between p-3 rounded-md bg-white/5 hover:bg-white/10 transition-colors">
+            ) : projects.length > 0 ? (
+                projects.map(project => (
+                    <div key={project.id} className="flex items-center justify-between p-3 rounded-md bg-white/5 hover:bg-white/10 transition-colors">
                         <div>
-                            <p className="font-semibold text-white">{campaign.name}</p>
-                            <span className={`text-xs capitalize px-2 py-0.5 rounded-full ${ campaign.status === 'active' ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400' }`}>{campaign.status}</span>
+                            <p className="font-semibold text-white">{project.name}</p>
+                            <span className={`text-xs capitalize px-2 py-0.5 rounded-full ${ project.status === 'active' ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400' }`}>{project.status}</span>
                         </div>
                         <div className="flex gap-2">
-                           <Button variant="ghost" size="icon" onClick={() => setEditingCampaign(campaign)}>
+                           <Button variant="ghost" size="icon" onClick={() => setEditingProject(project)}>
                                 <Edit className="h-4 w-4 text-white/70 hover:text-white" />
                             </Button>
-                           <DeleteCampaignButton onDelete={() => handleDeleteCampaign(campaign._id)} />
+                           <DeleteProjectButton onDelete={() => handleDeleteProject(project.id)} />
                         </div>
                     </div>
                 ))
             ) : (
-                <p className="text-center text-white/60 py-4">You don't have any campaigns yet.</p>
+                <p className="text-center text-white/60 py-4">You don't have any projects yet.</p>
             )}
         </div>
       </div>
       
-      {/* This modal will be rendered when 'editingCampaign' is not null */}
-      {editingCampaign && (
-        <EditCampaignModal
-          campaign={editingCampaign}
-          onClose={() => setEditingCampaign(null)}
-          onSave={handleUpdateCampaign}
+      {/* This modal will be rendered when 'editingProject' is not null */}
+      {editingProject && (
+        <EditProjectModal
+          project={editingProject}
+          onClose={() => setEditingProject(null)}
+          onSave={handleUpdateProject}
         />
       )}
     </div>
@@ -393,17 +396,17 @@ function SettingToggle({ title, description, checked, onChange }: { title: strin
 
 // --- MODAL COMPONENTS ---
 
-function EditCampaignModal({ campaign, onClose, onSave }: { campaign: Campaign, onClose: () => void, onSave: (id: string, name: string) => void }) {
-  const [name, setName] = useState(campaign.name);
+function EditProjectModal({ project, onClose, onSave }: { project: Project, onClose: () => void, onSave: (id: string, name: string) => void }) {
+  const [name, setName] = useState(project.name);
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {
     if (!name.trim()) {
-      toast.error("Campaign name cannot be empty.");
+      toast.error("Project name cannot be empty.");
       return;
     }
     setIsSaving(true);
-    await onSave(campaign._id, name);
+    await onSave(project.id, name);
     setIsSaving(false);
   };
   
@@ -411,9 +414,9 @@ function EditCampaignModal({ campaign, onClose, onSave }: { campaign: Campaign, 
     <Dialog open={true} onOpenChange={onClose}>
       <DialogContent className="bg-slate-900/90 backdrop-blur-sm border-white/10 text-white">
         <DialogHeader>
-          <DialogTitle className="text-white">Edit Campaign</DialogTitle>
+          <DialogTitle className="text-white">Edit Project</DialogTitle>
           <DialogDescription className="text-white/60">
-            Make changes to your campaign here. Click save when you're done.
+            Make changes to your project here. Click save when you're done.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -433,7 +436,7 @@ function EditCampaignModal({ campaign, onClose, onSave }: { campaign: Campaign, 
   );
 }
 
-function DeleteCampaignButton({ onDelete }: { onDelete: () => void }) {
+function DeleteProjectButton({ onDelete }: { onDelete: () => void }) {
     return (
         <Dialog>
             <DialogTrigger asChild>
@@ -442,14 +445,14 @@ function DeleteCampaignButton({ onDelete }: { onDelete: () => void }) {
             <DialogContent className="bg-slate-900/90 backdrop-blur-sm border-white/10 text-white">
                 <DialogHeader>
                     <DialogTitle className="text-white">Are you absolutely sure?</DialogTitle>
-                    <DialogDescription className="text-white/60">This action cannot be undone. This will permanently delete your campaign.</DialogDescription>
+                    <DialogDescription className="text-white/60">This action cannot be undone. This will permanently delete your project.</DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
                     <DialogClose asChild>
                       <Button type="button" variant="outline" className="border-white/20 bg-white/5 text-white hover:bg-white/10 hover:border-white/30">Cancel</Button>
                     </DialogClose>
                     <DialogClose asChild>
-                      <Button variant="destructive" onClick={onDelete}>Yes, delete campaign</Button>
+                      <Button variant="destructive" onClick={onDelete}>Yes, delete project</Button>
                     </DialogClose>
                 </DialogFooter>
             </DialogContent>

@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { User, Bell, CreditCard, ShieldAlert, Cog } from "lucide-react"; // Import Cog
+import { User, Bell, CreditCard, Cog, ExternalLink } from "lucide-react"; // Import Cog and ExternalLink
 
 // Sidebar navigation items
 const sidebarNavItems = [
@@ -17,6 +17,11 @@ const sidebarNavItems = [
     view: "account",
   },
   {
+    title: "Reddit Integration",
+    icon: <ExternalLink className="mr-2 h-4 w-4" />,
+    view: "reddit",
+  },
+  {
     title: "Notifications",
     icon: <Bell className="mr-2 h-4 w-4" />,
     view: "notifications",
@@ -25,11 +30,6 @@ const sidebarNavItems = [
     title: "Billing",
     icon: <CreditCard className="mr-2 h-4 w-4" />,
     view: "billing",
-  },
-  {
-    title: "Danger Zone",
-    icon: <ShieldAlert className="mr-2 h-4 w-4" />,
-    view: "danger",
   },
 ];
 

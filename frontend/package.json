@@ -1,9 +1,9 @@
 {
-  "name": "frontend",
+  "name": "redditleads-frontend",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
@@ -37,10 +37,11 @@
     "motion": "^12.23.3",
     "next": "15.3.5",
     "next-themes": "^0.4.6",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
     "react-icons": "^5.5.0",
     "react-intersection-observer": "^9.16.0",
+    "react-markdown": "^10.1.0",
     "recharts": "^3.1.0",
     "simplex-noise": "^4.0.3",
     "sonner": "^2.0.6",

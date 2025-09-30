@@ -29,14 +29,14 @@ export function WhyReddit() {
         </div>
 
         <div className="relative z-20 mx-auto max-w-7xl">
-          <div className="grid md:grid-cols-5 gap-16 items-center">
+          <div className="grid md:grid-cols-2 gap-16 items-center">
             {/* Left Text Section */}
             <motion.div
               initial={{ opacity: 0, x: -40 }}
               whileInView={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6 }}
               viewport={{ once: true }}
-              className="md:col-span-2 space-y-8"
+              className="space-y-8"
             >
               {/* Small label - increased size */}
               <span className={`inline-block text-sm font-semibold tracking-wide uppercase text-orange-400 mb-4 ${inter.className}`}>
@@ -55,6 +55,12 @@ export function WhyReddit() {
 
               {/* Stats list - increased text and bullet size */}
               <div className="space-y-4 pt-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full bg-orange-500"></div>
+                  <p className={`text-base font-medium text-white/80 ${inter.className}`}>
+                    <span className="font-bold text-white">63%</span> more chances to get your product recommended on ChatGPT and other AI platforms
+                  </p>
+                </div>
                 <div className="flex items-center gap-3">
                   <div className="w-2 h-2 rounded-full bg-orange-500"></div>
                   <p className={`text-base font-medium text-white/80 ${inter.className}`}>
@@ -86,27 +92,22 @@ export function WhyReddit() {
               </div>
             </motion.div>
 
-            {/* Right Image Section - Slightly larger container */}
+            {/* Right Image Section - Frame fits image exactly */}
             <motion.div
               initial={{ opacity: 0, x: 40 }}
               whileInView={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
               viewport={{ once: true }}
-              className="relative md:col-span-3 cursor-pointer group max-w-3xl"
+              className="relative cursor-pointer group inline-block ml-32"
               onClick={() => setLightboxOpen(true)}
             >
-              {/* Enhanced glowing border frame effect */}
-              <div className="absolute -inset-3 bg-gradient-to-r from-orange-500/50 via-orange-400/60 to-orange-500/50 rounded-xl blur-lg opacity-70 group-hover:opacity-90 transition-all duration-500"></div>
               
-              {/* Secondary glow layer */}
-              <div className="absolute -inset-6 bg-gradient-radial from-orange-500/25 via-orange-400/15 to-transparent rounded-full blur-xl opacity-50 group-hover:opacity-70 transition-opacity duration-700" />
-              
-              {/* Frame container */}
-              <div className="relative rounded-xl overflow-hidden border border-orange-500/40 shadow-xl shadow-orange-500/20 bg-gray-900/50 p-4 group-hover:border-orange-400/60 group-hover:shadow-orange-500/30 transition-all duration-500 backdrop-blur-sm">
+              {/* Frame container - shows complete image with border */}
+              <div className="relative rounded-xl overflow-hidden border-l border-t border-b border-orange-500/40 shadow-xl shadow-orange-500/20 bg-gray-900/50 group-hover:border-orange-400/60 group-hover:shadow-orange-500/30 transition-all duration-500 backdrop-blur-sm inline-block">
                 <img
                   src="/redd.png"
                   alt="Infographic showing Reddit's dominance in AI and Search"
-                  className="relative z-10 w-full h-auto object-contain rounded-lg transform group-hover:scale-[1.01] transition-transform duration-700"
+                  className="relative z-10 h-auto object-contain transform group-hover:scale-[1.01] transition-transform duration-700 max-h-[500px] block"
                   style={{
                     imageRendering: 'crisp-edges',
                     backfaceVisibility: 'hidden',
@@ -118,10 +119,6 @@ export function WhyReddit() {
                 />
               </div>
 
-              {/* Click hint */}
-              <div className="absolute top-6 right-6 bg-black/60 text-white/70 px-3 py-2 rounded text-sm backdrop-blur-sm border border-orange-400/20">
-                Click to expand
-              </div>
             </motion.div>
           </div>
         </div>

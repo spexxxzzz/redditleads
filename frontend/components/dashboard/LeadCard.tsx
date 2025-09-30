@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useReplyModal } from "@/hooks/useReplyModal";
 import { toast } from "sonner";
+import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -46,6 +47,7 @@ export interface Lead {
   url: string;
   body: string;
   createdAt: number;
+  postedAt: number | string;
   intent: string;
   summary?: string | null;
   opportunityScore: number;
@@ -77,14 +79,46 @@ export const LeadCard = ({ lead, onStatusChange, onDelete }: LeadCardProps) => {
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
-  const timeAgo = (timestamp: number) => {
-    const seconds = Math.floor((new Date().getTime() - timestamp * 1000) / 1000);
-    if (seconds > 31536000) return Math.floor(seconds / 31536000) + "y ago";
-    if (seconds > 2592000) return Math.floor(seconds / 2592000) + "mo ago";
-    if (seconds > 86400) return Math.floor(seconds / 86400) + "d ago";
-    if (seconds > 3600) return Math.floor(seconds / 3600) + "h ago";
-    if (seconds > 60) return Math.floor(seconds / 60) + "m ago";
-    return "Just now";
+  const timeAgo = (timestamp: number | string) => {
+    // Debug logging with more detailed info
+    console.group('🕒 TimeAgo Debug');
+    console.log('📅 Input timestamp:', timestamp);
+    console.log('🔢 Type:', typeof timestamp);
+    console.log('📊 Raw value:', JSON.stringify(timestamp));
+    
+    // Handle both number timestamps and DateTime strings
+    const now = new Date().getTime();
+    let targetTime: number;
+    
+    if (typeof timestamp === 'string') {
+      // It's a DateTime string from the database
+      targetTime = new Date(timestamp).getTime();
+      console.log('📝 Parsed as DateTime string');
+    } else {
+      // It's a number timestamp (in seconds)
+      targetTime = timestamp * 1000;
+      console.log('🔢 Treated as Unix timestamp (seconds)');
+    }
+    
+    console.log('⏰ Current time (ms):', now);
+    console.log('🎯 Target time (ms):', targetTime);
+    console.log('⏱️ Time difference (ms):', now - targetTime);
+    
+    const seconds = Math.floor((now - targetTime) / 1000);
+    console.log('📊 Seconds difference:', seconds);
+    
+    let result: string;
+    if (seconds > 31536000) result = Math.floor(seconds / 31536000) + "y ago";
+    else if (seconds > 2592000) result = Math.floor(seconds / 2592000) + "mo ago";
+    else if (seconds > 86400) result = Math.floor(seconds / 86400) + "d ago";
+    else if (seconds > 3600) result = Math.floor(seconds / 3600) + "h ago";
+    else if (seconds > 60) result = Math.floor(seconds / 60) + "m ago";
+    else result = "Just now";
+    
+    console.log('✅ Final result:', result);
+    console.groupEnd();
+    
+    return result;
   };
 
   const getOpportunityColor = (score: number) => {
@@ -115,16 +149,35 @@ export const LeadCard = ({ lead, onStatusChange, onDelete }: LeadCardProps) => {
 
   const generateSummary = async () => {
     if (isSummarizing) return;
+    console.log('🚀 [LeadCard] Starting summary generation for lead:', lead.id);
     setIsSummarizing(true);
     setSummaryError(null);
     try {
       const token = await getToken();
+      console.log('🔐 [LeadCard] Token received:', token ? 'Present' : 'Missing');
+      console.log('📋 [LeadCard] Making API call to generate summary...');
+      
       const response = await api.generateSummary(lead.id, token);
+      console.log('✅ [LeadCard] Summary generated successfully:', response);
       setSummary(response.summary);
+      
+      // Trigger usage dashboard refresh
+      window.dispatchEvent(new CustomEvent('usageRefresh'));
     } catch (error: any) {
-      if (error instanceof ApiError && error.upgradeRequired) setShowUpgradeModal(true);
-      else setSummaryError(error.message || "Failed to generate summary.");
+      console.error('❌ [LeadCard] Summary generation failed:', error);
+      console.error('❌ [LeadCard] Error message:', error.message);
+      console.error('❌ [LeadCard] Error type:', typeof error);
+      console.error('❌ [LeadCard] Error details:', error);
+      
+      if (error instanceof ApiError && error.upgradeRequired) {
+        setShowUpgradeModal(true);
+      } else if (error.message && error.message.includes('limit reached')) {
+        setSummaryError("You have exhausted the limits of Summary Generation. Kindly upgrade your plan to generate more summaries.");
+      } else {
+        setSummaryError(error.message || "Failed to generate summary.");
+      }
     } finally {
+      console.log('🏁 [LeadCard] Summary generation finished');
       setIsSummarizing(false);
     }
   };
@@ -207,7 +260,7 @@ export const LeadCard = ({ lead, onStatusChange, onDelete }: LeadCardProps) => {
               )}
               <div className="flex items-center gap-1 text-sm text-gray-400">
                 <Clock className="w-3 h-3" />
-                <span className={inter.className}>{timeAgo(lead.createdAt)}</span>
+                <span className={inter.className}>{timeAgo(lead.postedAt)}</span>
               </div>
             </div>
           </div>
@@ -249,7 +302,7 @@ export const LeadCard = ({ lead, onStatusChange, onDelete }: LeadCardProps) => {
           {lead.body && (
             <div className="mb-3 sm:mb-4">
               <div className={`text-gray-300 leading-relaxed ${isExpanded ? '' : 'line-clamp-3'} ${inter.className}`}>
-                {lead.body}
+                <MarkdownRenderer content={lead.body} />
               </div>
               {wordCount > 50 && (
                 <Button 

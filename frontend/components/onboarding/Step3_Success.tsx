@@ -66,7 +66,7 @@ export const Step3_FindLeads: React.FC<Props> = ({
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
 
-      const response = await fetch('https://redlead.onrender.com/api/onboarding/complete', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/onboarding/complete`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -333,7 +333,7 @@ export const Step3_FindLeads: React.FC<Props> = ({
                           ⚡
                         </div>
                         <div className={`text-sm text-orange-300 ${inter.className}`}>
-                          Campaign Active
+                          Project Active
                         </div>
                       </div>
                     </div>

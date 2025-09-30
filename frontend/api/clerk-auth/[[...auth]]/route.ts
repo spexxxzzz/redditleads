@@ -10,7 +10,7 @@ export async function GET() {
 
   // Fetch your user data from your DB
   // This is a placeholder; you'd implement this API endpoint on your backend
-  const response = await fetch(`http://localhost:5000/api/users/${userId}`); 
+  const response = await fetch(`http://localhost:3001/api/users/${userId}`); 
   const user = await response.json();
 
   // Add custom claims

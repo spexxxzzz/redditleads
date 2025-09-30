@@ -21,7 +21,7 @@ export function RedButton() {
       <div className="relative z-10 bg-gray-900/80 backdrop-blur-sm rounded-full px-4 py-2 flex items-center gap-2">
         <hr className="mx-2 h-4 w-px shrink-0 bg-neutral-500" />
         <AnimatedGradientText className="text-sm font-medium text-white">
-          Why would you choose redlead?
+          Why would you choose redditleads?
         </AnimatedGradientText>
         <ChevronRight
           className="ml-1 size-4 stroke-neutral-300 transition-transform duration-300 ease-in-out group-hover:translate-x-0.5"
