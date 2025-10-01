@@ -1,18 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Separator } from "@/components/ui/separator";
 import { BillingSettings } from "@/components/settings/BillingSettings";
 import { NotificationSettings } from "@/components/settings/NotificationSettings";
 import { ProfileSettings } from "@/components/settings/ProfileSettings";
 import { SettingsSidebarNav } from "@/components/settings/SettingsSidebar";
-import { EmailSettings } from "@/components/settings/EmailSettings";
 import { AccountSettings } from "@/components/settings/AccountSettings";
 import { RedditConnection } from "@/components/dashboard/RedditSettings";
+import { WebhookManagement } from '@/components/dashboard/Management';
+import PerformancePage from '@/components/dashboard/ReplyPerformance';
 
-// Main component for the settings page
-export default function SettingsPage() {
+// Component that uses searchParams
+function SettingsPageContent() {
   const searchParams = useSearchParams();
   // State to manage the currently active settings view
   const [activeView, setActiveView] = useState("profile");
@@ -20,7 +21,7 @@ export default function SettingsPage() {
   // Handle URL parameters for direct navigation
   useEffect(() => {
     const view = searchParams.get('view');
-    if (view && ['profile', 'account', 'webhooks', 'notifications', 'performance'].includes(view)) {
+    if (view && ['profile', 'account', 'reddit', 'billing', 'webhooks', 'notifications', 'performance'].includes(view)) {
       setActiveView(view);
     }
   }, [searchParams]);
@@ -32,12 +33,16 @@ export default function SettingsPage() {
         return <ProfileSettings />;
       case "account":
         return <AccountSettings/>;
+      case "reddit":
+        return <RedditConnection />;
+      case "billing":
+        return <BillingSettings />;
       case "webhooks":
-        return <div className="text-white">Webhooks settings coming soon...</div>;
+        return <WebhookManagement />;
       case "notifications":
         return <NotificationSettings />;
       case "performance":
-        return <div className="text-white">Performance settings coming soon...</div>;
+        return <PerformancePage />;
       default:
         return <ProfileSettings />;
     }
@@ -63,5 +68,14 @@ export default function SettingsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Main component with Suspense wrapper
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<div className="text-white">Loading settings...</div>}>
+      <SettingsPageContent />
+    </Suspense>
   );
 }

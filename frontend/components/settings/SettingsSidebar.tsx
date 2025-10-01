@@ -3,6 +3,8 @@
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { User, Bell, CreditCard, Cog, ExternalLink, Webhook, Activity } from "lucide-react"; // Import Cog, ExternalLink, Webhook, Activity
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
 // Sidebar navigation items
 const sidebarNavItems = [
@@ -38,12 +40,23 @@ interface SettingsSidebarNavProps extends React.HTMLAttributes<HTMLElement> {
   setActiveView: (view: string) => void;
 }
 
-export function SettingsSidebarNav({
+function SettingsSidebarNavContent({
   className,
   activeView,
   setActiveView,
   ...props
 }: SettingsSidebarNavProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const handleViewChange = (view: string) => {
+    setActiveView(view);
+    // Update URL to reflect the current view
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('view', view);
+    router.push(`/dashboard/settings?${params.toString()}`);
+  };
+
   return (
     <nav
       className={cn(
@@ -55,7 +68,7 @@ export function SettingsSidebarNav({
       {sidebarNavItems.map((item) => (
         <Button
           key={item.view}
-          onClick={() => setActiveView(item.view)}
+          onClick={() => handleViewChange(item.view)}
           variant="ghost"
           className={cn(
             "w-full justify-start hover:bg-zinc-800 hover:text-white",
@@ -69,5 +82,13 @@ export function SettingsSidebarNav({
         </Button>
       ))}
     </nav>
+  );
+}
+
+export function SettingsSidebarNav(props: SettingsSidebarNavProps) {
+  return (
+    <Suspense fallback={<div className="text-white">Loading...</div>}>
+      <SettingsSidebarNavContent {...props} />
+    </Suspense>
   );
 }
