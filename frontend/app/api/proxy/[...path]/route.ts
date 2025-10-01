@@ -14,7 +14,8 @@ export async function GET(
   const params = await context.params;
   const path = params.path.join('/');
   const searchParams = request.nextUrl.searchParams.toString();
-  const url = `${BACKEND_URL}/api/${path}${searchParams ? `?${searchParams}` : ''}`;
+  // Path already includes 'api/', so don't add it again
+  const url = `${BACKEND_URL}/${path}${searchParams ? `?${searchParams}` : ''}`;
 
   const headers = new Headers();
   request.headers.forEach((value, key) => {
@@ -45,7 +46,7 @@ export async function POST(
 ) {
   const params = await context.params;
   const path = params.path.join('/');
-  const url = `${BACKEND_URL}/api/${path}`;
+  const url = `${BACKEND_URL}/${path}`;
   const body = await request.text();
 
   const headers = new Headers();
@@ -78,7 +79,7 @@ export async function PATCH(
 ) {
   const params = await context.params;
   const path = params.path.join('/');
-  const url = `${BACKEND_URL}/api/${path}`;
+  const url = `${BACKEND_URL}/${path}`;
   const body = await request.text();
 
   const headers = new Headers();
@@ -111,7 +112,7 @@ export async function DELETE(
 ) {
   const params = await context.params;
   const path = params.path.join('/');
-  const url = `${BACKEND_URL}/api/${path}`;
+  const url = `${BACKEND_URL}/${path}`;
 
   const headers = new Headers();
   request.headers.forEach((value, key) => {
