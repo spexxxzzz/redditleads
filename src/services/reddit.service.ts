@@ -168,7 +168,7 @@ export const findLeadsWithBusinessIntelligence = async (businessDNA: any, subred
                                 });
                                 console.log(`✅ [Lead Discovery] Found ${results.length} posts in r/${correctedSubreddit}`);
                                 return results;
-                            } catch (error: any) {
+    } catch (error: any) {
                                 console.log(`⚠️ [Lead Discovery] Error searching r/${correctedSubreddit}: ${error.message.substring(0, 100)}...`);
                                 return []; // Return empty array for failed searches
                             }

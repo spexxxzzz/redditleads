@@ -130,7 +130,7 @@ export function FeaturesStart() {
 
         {/* 3 - AI Summaries */}
         <section className="relative flex flex-col items-center gap-16 py-24 px-8 max-w-8xl mx-auto mb-32">
-          <motion.div
+          {/* <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: .6 }}
@@ -143,7 +143,7 @@ export function FeaturesStart() {
             <p className={`text-base font-medium text-white/80 leading-relaxed max-w-3xl mx-auto ${inter.className}`}>
               No more scrolling through endless comment threads. Get instant summaries that highlight the pain points, buying signals, and opportunities you actually care about.
             </p>
-          </motion.div>
+          </motion.div> */}
           <motion.div
             initial={{ opacity: 0, y: 40 }}
             whileInView={{ opacity: 1, y: 0 }}
