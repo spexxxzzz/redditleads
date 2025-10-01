@@ -62,7 +62,7 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
   const COOLDOWN_MS = COOLDOWN_SECONDS * 1000;
   
   // Check Reddit connection status
-  const isRedditConnected = !!user?.publicMetadata?.redditRefreshToken;
+  const isRedditConnected = !!user?.publicMetadata?.hasConnectedReddit;
 
   // Calculate time remaining for cooldowns
   const calculateTimeLeft = useCallback((lastRunAt: Date | null): number | null => {

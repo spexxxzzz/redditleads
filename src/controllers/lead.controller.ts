@@ -65,6 +65,13 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
         }
         
         const userRedditToken = user.redditRefreshToken;
+        if (!userRedditToken) {
+            return res.status(400).json({ 
+                message: 'Reddit refresh token not available. Please reconnect your Reddit account.',
+                requiresRedditConnection: true
+            });
+        }
+        
         console.log(`🔍 [Manual Discovery] Using user Reddit account for discovery`);
         
         let businessDNA = project.businessDNA as any;

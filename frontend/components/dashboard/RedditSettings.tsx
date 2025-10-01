@@ -20,7 +20,7 @@ export const RedditConnection = ({ onConnectionChange }: RedditConnectionProps) 
   // so a separate fetchUser call is no longer needed.
   useEffect(() => {
     if (isLoaded) {
-      onConnectionChange?.(!!user?.publicMetadata.redditRefreshToken);
+      onConnectionChange?.(!!user?.publicMetadata.hasConnectedReddit);
     }
   }, [isLoaded, user, onConnectionChange]);
 
@@ -70,10 +70,8 @@ export const RedditConnection = ({ onConnectionChange }: RedditConnectionProps) 
     );
   }
 
-  // NOTE: We now need to get custom data like 'redditRefreshToken' from Clerk's user.publicMetadata.
-  // You would need to save this data to Clerk when the user connects their account.
-  // For this example, I'll assume it's stored there.
-  const isConnected = !!user?.publicMetadata.redditRefreshToken;
+  // Check Reddit connection status from Clerk's publicMetadata
+  const isConnected = !!user?.publicMetadata.hasConnectedReddit;
   const redditUsername = user?.publicMetadata.redditUsername as string || 'user';
   const redditKarma = user?.publicMetadata.redditKarma as number || 0;
 

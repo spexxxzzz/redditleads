@@ -141,6 +141,11 @@ export const runLeadDiscoveryWorker = async (): Promise<void> => {
                     }
                     
                     const userRedditToken = user.redditRefreshToken;
+                    if (!userRedditToken) {
+                        console.log(`[Worker] Skipping project ${project.id} for user ${user.id} - Reddit token not available`);
+                        break;
+                    }
+                    
                     console.log(`[Worker] Using user Reddit account for discovery for user ${user.id}`);
 
                     const rawLeads = await findLeadsWithBusinessIntelligence(project.businessDNA as any, project.subredditBlacklist, 0, userRedditToken);

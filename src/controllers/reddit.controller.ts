@@ -78,12 +78,6 @@ export const handleRedditCallback: RequestHandler = async (req, res, next) => {
             }
         });
         // Update Clerk's public metadata to reflect Reddit connection
-        await clerkClient.users.updateUser(user.id, {
-            publicMetadata: {
-                hasConnectedReddit: true, // Set the flag here
-                redditUsername: me.name,
-            }
-        });
         const metadataPayload = {
             publicMetadata: {
                 hasConnectedReddit: true,
@@ -93,13 +87,7 @@ export const handleRedditCallback: RequestHandler = async (req, res, next) => {
 
         console.log(`[LOG] Backend: Attempting to update Clerk metadata for user ${user.id} with payload:`, metadataPayload);
 
-        
-        // Also update Clerk's public metadata for easy frontend access
-        await clerkClient.users.updateUser(user.id, {
-            publicMetadata: {
-                redditUsername: me.name,
-            }
-        });
+        await clerkClient.users.updateUser(user.id, metadataPayload);
 
         console.log(`[LOG] Backend: Successfully called clerkClient.users.updateUser for user ${user.id}.`);
         

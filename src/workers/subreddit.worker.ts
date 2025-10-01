@@ -1,5 +1,6 @@
 import { PrismaClient, User } from '@prisma/client';
 import { analyzeAndSaveSubredditProfile } from '../services/subreddit.service';
+import { isUserRedditConnected } from '../services/userReddit.service';
 
 const prisma = new PrismaClient();
 const ANALYSIS_EXPIRATION_DAYS = 7;
@@ -11,7 +12,28 @@ const ANALYSIS_EXPIRATION_DAYS = 7;
 export const runSubredditAnalysisWorker = async (): Promise<void> => {
     console.log('Starting subreddit analysis worker run...');
 
-    // 1. Get all projects for paying users to find which subreddits to analyze.
+    // 1. Get a paying user with Reddit connected to use for API calls
+    const userWithReddit = await prisma.user.findFirst({
+        where: {
+            plan: { in: ['starter', 'pro'] },
+            hasConnectedReddit: true,
+            redditRefreshToken: { not: null }
+        },
+        select: {
+            id: true,
+            redditRefreshToken: true,
+            redditUsername: true
+        }
+    });
+
+    if (!userWithReddit || !userWithReddit.redditRefreshToken) {
+        console.log('No paying user with Reddit connected found. Skipping subreddit analysis.');
+        return;
+    }
+
+    console.log(`Using Reddit account of user ${userWithReddit.id} (u/${userWithReddit.redditUsername}) for subreddit analysis`);
+
+    // 2. Get all projects for paying users to find which subreddits to analyze.
     const projects = await prisma.project.findMany({
         where: {
             isActive: true,
@@ -55,7 +77,7 @@ export const runSubredditAnalysisWorker = async (): Promise<void> => {
             }
 
             // If the profile doesn't exist or is stale, analyze it.
-            await analyzeAndSaveSubredditProfile(subredditName);
+            await analyzeAndSaveSubredditProfile(subredditName, userWithReddit.redditRefreshToken);
 
         } catch (error) {
             console.error(`An unexpected error occurred while processing r/${subredditName}:`, error);

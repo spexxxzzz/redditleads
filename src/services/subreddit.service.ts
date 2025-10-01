@@ -1,26 +1,21 @@
 import snoowrap from 'snoowrap';
 import { PrismaClient } from '@prisma/client';
 import { generateCultureNotes } from './ai.service';
+import { getUserRedditInstance } from './userReddit.service';
 
 const prisma = new PrismaClient();
-
-// Initialize snoowrap with credentials from environment variables
-const r = new snoowrap({
-    userAgent: process.env.REDDIT_USER_AGENT!,
-    clientId: process.env.REDDIT_CLIENT_ID!,
-    clientSecret: process.env.REDDIT_CLIENT_SECRET!,
-    refreshToken: process.env.REDDIT_REFRESH_TOKEN!
-});
 
 /**
  * Fetches details for a given subreddit, analyzes them using AI, and saves the profile to the database.
  * This function is designed to be resilient to errors.
  * @param subredditName The name of the subreddit to analyze (e.g., "solana").
+ * @param userRedditToken The Reddit refresh token of a user to use for API calls
  */
-export const analyzeAndSaveSubredditProfile = async (subredditName: string): Promise<void> => {
-    console.log(`Analyzing subreddit: r/${subredditName}`);
+export const analyzeAndSaveSubredditProfile = async (subredditName: string, userRedditToken: string): Promise<void> => {
+    console.log(`Analyzing subreddit: r/${subredditName} using user Reddit account`);
     try {
-        const subreddit = r.getSubreddit(subredditName);
+        const reddit = getUserRedditInstance(userRedditToken);
+        const subreddit = reddit.getSubreddit(subredditName);
 
         // Fetch raw data from Reddit in parallel
         const [description, rulesResult] = await Promise.all([

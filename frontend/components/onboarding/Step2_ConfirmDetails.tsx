@@ -33,7 +33,7 @@ export const Step2_ConnectReddit: React.FC<Props> = ({
   // Check if Reddit is already connected
   useEffect(() => {
     if (isLoaded && user) {
-      const connected = !!user.publicMetadata?.redditRefreshToken;
+      const connected = !!user.publicMetadata?.hasConnectedReddit;
       setIsConnected(connected);
     }
   }, [isLoaded, user]);
@@ -45,7 +45,7 @@ export const Step2_ConnectReddit: React.FC<Props> = ({
         if (user) {
           setCheckingConnection(true);
           await user.reload();
-          const connected = !!user.publicMetadata?.redditRefreshToken;
+          const connected = !!user.publicMetadata?.hasConnectedReddit;
           if (connected) {
             setIsConnected(true);
             setCheckingConnection(false);

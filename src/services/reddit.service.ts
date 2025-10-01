@@ -16,14 +16,7 @@ const monitorRateLimit = () => {
     requestCount++;
 };
 
-const getRedditInstance = () => {
-    return new snoowrap({
-            userAgent: process.env.REDDIT_USER_AGENT!,
-            clientId: process.env.REDDIT_CLIENT_ID!,
-            clientSecret: process.env.REDDIT_CLIENT_SECRET!,
-        refreshToken: process.env.REDDIT_REFRESH_TOKEN!,
-    });
-};
+// System Reddit instance removed - all Reddit API calls now use user accounts
 
 export const generateQueriesFromDNA = (dna: any, variationLevel: number = 0): string[] => {
     const queries = new Set<string>();
