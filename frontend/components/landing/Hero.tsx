@@ -100,14 +100,84 @@ export const Hero = () => {
             </div>
             
             {/* Subtitle */}
-            <motion.p
+            <motion.div
               initial={{ opacity: 0, y: 30, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.8, delay: 0.8, ease: "backOut" }}
-              className={`text-lg sm:text-xl lg:text-2xl font-medium text-white/90 mb-4 ${inter.className}`}
+              className="relative mb-4"
             >
-              We already know your customers
-            </motion.p>
+              <motion.p
+                animate={{ 
+                  backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
+                  scale: [1, 1.02, 1]
+                }}
+                transition={{ 
+                  duration: 3,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+                className={`text-lg sm:text-xl lg:text-2xl font-bold bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 bg-clip-text text-transparent bg-[length:200%_100%] ${inter.className}`}
+                style={{
+                  backgroundImage: "linear-gradient(90deg, #fb923c, #f97316, #ea580c, #f97316, #fb923c)",
+                  backgroundSize: "200% 100%"
+                }}
+              >
+                We already know your customers
+              </motion.p>
+              
+              {/* Animated underline */}
+              <motion.div
+                animate={{ 
+                  scaleX: [0, 1, 0],
+                  opacity: [0, 1, 0]
+                }}
+                transition={{ 
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                  delay: 1
+                }}
+                className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-orange-400 to-orange-600 origin-left"
+                style={{ width: "100%" }}
+              />
+              
+              {/* Floating particles */}
+              {[...Array(3)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  animate={{
+                    y: [0, -10, 0],
+                    opacity: [0.3, 0.8, 0.3],
+                    scale: [0.8, 1.2, 0.8]
+                  }}
+                  transition={{
+                    duration: 2 + i * 0.5,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: i * 0.3
+                  }}
+                  className="absolute w-1 h-1 bg-orange-400 rounded-full"
+                  style={{
+                    left: `${20 + i * 30}%`,
+                    top: `${-5 + i * 2}px`
+                  }}
+                />
+              ))}
+              
+              {/* Glow effect */}
+              <motion.div
+                animate={{
+                  opacity: [0.2, 0.5, 0.2],
+                  scale: [1, 1.1, 1]
+                }}
+                transition={{
+                  duration: 2.5,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+                className="absolute inset-0 bg-gradient-to-r from-orange-400/20 to-orange-600/20 blur-sm -z-10"
+              />
+            </motion.div>
             
             <motion.div
               initial={{ opacity: 0, y: 30, scale: 0.95 }}
