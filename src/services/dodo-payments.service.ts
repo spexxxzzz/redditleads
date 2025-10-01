@@ -63,7 +63,7 @@ class DodoPaymentsService {
       this.client = new DodoPayments({
         bearerToken: this.config.apiKey,
         environment: 'live_mode', // Use live environment
-        baseURL: this.config.baseUrl
+        baseURL: null // Must be null when using environment option
       });
     }
     
