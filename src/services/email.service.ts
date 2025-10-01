@@ -5,7 +5,7 @@ import { Lead, User } from '@prisma/client';
 dotenv.config();
 
 const resendApiKey = process.env.RESEND_API_KEY;
-const fromEmail = process.env.FROM_EMAIL || 'leads@redlead.net';
+const fromEmail = process.env.FROM_EMAIL || 'leads@redditleads.net';
 const appUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 
 // --- DIAGNOSTIC LOGGING ---
@@ -26,7 +26,7 @@ const resend = new Resend(resendApiKey);
 export const sendEmail = async (to: string, subject: string, html: string) => {
     try {
         await resend.emails.send({
-            from: `RedLead <${fromEmail}>`,
+            from: `RedditLeads <${fromEmail}>`,
             to,
             subject,
             html,
@@ -79,14 +79,14 @@ export const sendNewLeadsNotification = async (user: User, leads: Lead[], campai
             View Leads in Dashboard
         </a>
         <p style="margin-top: 25px; font-size: 0.9em; color: #555;">Happy lead hunting!</p>
-        <p style="font-size: 0.9em; color: #555;"><em>The RedLead Team</em></p>
+        <p style="font-size: 0.9em; color: #555;"><em>The RedditLeads Team</em></p>
     </div>
     `;
 
     try {
         console.log(`Attempting to send new leads notification to ${user.email}...`);
         const { data, error } = await resend.emails.send({
-            from: `RedLead <${fromEmail}>`,
+            from: `RedditLeads <${fromEmail}>`,
             to: user.email,
             subject,
             html: htmlBody,

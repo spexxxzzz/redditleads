@@ -71,22 +71,17 @@ export const handleClerkWebhook: RequestHandler = async (req, res, next) => {
         }
 
         try {
-            // Calculate the trial end date: 7 days from now
-            const trialEndsAt = new Date();
-            trialEndsAt.setDate(trialEndsAt.getDate() + 7);
-
             await prisma.user.create({
                 data: {
                     id: id,
                     email: primaryEmail,
                     firstName: first_name ? first_name : '',
                     lastName: last_name? last_name : '',
-                    subscriptionStatus : 'active',
-                    plan: 'pro', // Set the plan to 'pro' for the trial
-                    subscriptionEndsAt: trialEndsAt, // Set the trial expiration date
+                    subscriptionStatus : 'inactive',
+                    plan: 'basic', // Set the plan to 'basic' (free) for new users
                 },
             });
-            console.log(`✅ New user ${id} successfully synced to database with a 7-day pro trial.`);
+            console.log(`✅ New user ${id} successfully synced to database with basic (free) plan.`);
         } catch (dbError) {
             console.error('Database error while creating user:', dbError);
             res.status(500).send('Failed to create user in database.');

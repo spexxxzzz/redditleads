@@ -1,186 +1,124 @@
 import { RequestHandler } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { findLeadsOnReddit, findLeadsOnRedditWithUserAccount } from '../services/reddit.service';
-import { enrichLeadsForUser } from '../services/enrichment.service';
-import { calculateContentRelevance } from '../services/relevance.service';import { generateKeywords, generateDescription, generateSubredditSuggestions } from '../services/ai.service';
+import { extractBusinessDNA } from '../services/ai.service';
+import { scrapeAndProcessWebsite } from '../utils/scraping';
+import { dodoPaymentsService } from '../services/dodo-payments.service';
 
 const MIN_CONTENT_LENGTH = 300;
-import { scrapeWebsiteTextSimple, scrapeWebsiteTextAdvanced } from '../services/scraper.service';
 const prisma = new PrismaClient();
-import { getUserAuthenticatedInstance } from '../services/reddit.service';
-import { sendNewLeadsNotification } from '../services/email.service';
 
 export const completeOnboarding: RequestHandler = async (req: any, res, next) => {
-    const { userId } = req.auth;
+    const auth = await req.auth();
+    const userId = auth?.userId;
     const {
         websiteUrl,
-        generatedKeywords,
-        generatedDescription,
-        competitors
+        businessDNA,
     } = req.body;
 
     if (!userId) {
         res.status(401).json({ message: 'User not authenticated.' });
         return;
     }
+    
+    if (!businessDNA || !businessDNA.businessName) {
+        return res.status(400).json({ message: 'Business DNA is required to complete onboarding.' });
+    }
 
     try {
         console.log(`[Onboarding] Completing for user: ${userId}`);
 
-        // Check if user exists and has Reddit connected
-        const user = await prisma.user.findUnique({ where: { id: userId } });
+        // Check if user exists, create if not (fallback for webhook issues)
+        let user = await prisma.user.findUnique({ where: { id: userId } });
         if (!user) {
-            res.status(404).json({ message: 'User not found.' });
-            return;
+            console.log(`[Onboarding] User ${userId} not found in database, creating user...`);
+            
+            // Get user info from Clerk (we'll create a basic user record)
+            try {
+                user = await prisma.user.create({
+                    data: {
+                        id: userId,
+                        email: `user-${userId}@placeholder.local`, // Unique placeholder - will be updated when webhook fires
+                        firstName: '',
+                        lastName: '',
+                        subscriptionStatus: 'inactive',
+                        plan: 'basic',
+                    },
+                });
+                console.log(`[Onboarding] Created user ${userId} with basic (free) plan`);
+            } catch (createError) {
+                console.error(`[Onboarding] Failed to create user ${userId}:`, createError);
+                res.status(500).json({ message: 'Failed to create user account.' });
+                return;
+            }
         }
 
-        if (!user.redditRefreshToken) {
-            res.status(403).json({ 
-                message: 'Reddit account not connected. Please connect your Reddit account first.',
-                requiresRedditAuth: true 
+        // Check project limits before creating a new project
+        const canCreateProject = await dodoPaymentsService.checkPlanLimits(userId, 'projects');
+        if (!canCreateProject) {
+            console.log(`[Onboarding] User ${userId} has reached project limit for their plan`);
+            return res.status(403).json({ 
+                message: 'Project limit reached. Please upgrade your plan to create more projects.',
+                requiresUpgrade: true,
+                limitType: 'projects'
             });
-            return;
         }
 
-        // Generate subreddit suggestions
-        const subredditArray = await generateSubredditSuggestions(generatedDescription);
-        console.log(`[Onboarding] Generated ${subredditArray.length} subreddit suggestions.`);
+        // For testing purposes, make Reddit connection optional
+        // if (!user.redditRefreshToken) {
+        //     res.status(403).json({ 
+        //         message: 'Reddit account not connected. Please connect your Reddit account first.',
+        //         requiresRedditAuth: true 
+        //     });
+        //     return;
+        // }
+        
+        if (!user.redditRefreshToken) {
+            console.log(`[Onboarding] User ${userId} doesn't have Reddit connected, proceeding without Reddit integration`);
+        }
 
-        // Create campaign
-        const newCampaign = await prisma.campaign.create({
+        // Ensure subreddits are in the correct format (remove 'r/')
+        const subredditArray = Array.isArray(businessDNA.suggestedSubreddits)
+            ? businessDNA.suggestedSubreddits.map((sub: string) => sub.replace(/^r\//, ''))
+            : [];
+            
+        console.log(`[Onboarding] Creating project for user ${userId} with ${subredditArray.length} subreddits.`);
+        console.log(`[Onboarding] Business DNA extracted:`, JSON.stringify(businessDNA, null, 2));
+        console.log(`[Onboarding] Business Name: "${businessDNA.businessName}"`);
+
+        // 🚀 NEW: Create project directly from the provided data
+        const newCampaign = await prisma.project.create({
             data: {
                 userId,
                 analyzedUrl: websiteUrl,
-                generatedKeywords: Array.isArray(generatedKeywords) 
-                    ? generatedKeywords 
-                    : generatedKeywords.split(',').map((k: string) => k.trim()),
-                generatedDescription,
+                businessDNA: businessDNA as any, // Save the entire DNA object
+                generatedKeywords: businessDNA.naturalLanguageVocabulary.solutionKeywords || [],
+                generatedDescription: `${businessDNA.oneLiner}\n\n**Core Problem:**\n${businessDNA.coreProblem}`,
                 targetSubreddits: subredditArray,
-                competitors: competitors || [],
+                competitors: businessDNA.naturalLanguageVocabulary.competitors || [],
                 isActive: true,
-                name: `Campaign for ${websiteUrl}`
+                name: businessDNA.businessName || `Campaign for ${websiteUrl}`
             }
         });
-
-        const campaignName = newCampaign.analyzedUrl;
 
         console.log(`[Onboarding] Campaign created: ${newCampaign.id}`);
 
-        // Run lead discovery using USER'S Reddit account
-        let leadsFound = 0;
-        try {
-            console.log(`[Onboarding] Running lead discovery with user's Reddit account...`);
-            
-            // Use user's Reddit account for lead discovery
-            const rawLeads = await findLeadsOnRedditWithUserAccount(
-                newCampaign.generatedKeywords,
-                newCampaign.targetSubreddits,
-                user.redditRefreshToken // Use user's token
-            );
-
-            console.log(`[Onboarding] Found ${rawLeads.length} raw leads using user account.`);
-
-            // Filter for relevance
-            const relevantLeads = rawLeads.filter(lead => {
-                const relevance = calculateContentRelevance(
-                    lead, 
-                    newCampaign.generatedKeywords, 
-                    newCampaign.generatedDescription
-                );
-                return relevance.score >= 15;
-            });
-
-            console.log(`[Onboarding] Filtered to ${relevantLeads.length} relevant leads.`);
-
-            // Enrich leads
-            const enrichedLeads = await enrichLeadsForUser(relevantLeads, user);
-
-            // Save leads
-            const savedLeads = [];
-            for (const lead of enrichedLeads) {
-                try {
-                    const savedLead = await prisma.lead.upsert({
-                        where: { 
-                            redditId_campaignId: { 
-                                redditId: lead.id, 
-                                campaignId: newCampaign.id 
-                            } 
-                        },
-                        update: {
-                            opportunityScore: lead.opportunityScore,
-                            intent: lead.intent,
-                            isGoogleRanked: lead.isGoogleRanked,
-                        },
-                        create: {
-                            redditId: lead.id,
-                            title: lead.title,
-                            author: lead.author,
-                            subreddit: lead.subreddit,
-                            url: lead.url,
-                            body: lead.body || '',
-                            postedAt: new Date(lead.createdAt ? lead.createdAt * 1000 : Date.now()),
-                            userId: user.id,
-                            campaignId: newCampaign.id,
-                            opportunityScore: lead.opportunityScore || 0,
-                            intent: lead.intent || 'general_discussion',
-                            status: 'new',
-                            type: 'DIRECT_LEAD',
-                            isGoogleRanked: lead.isGoogleRanked || false,
-                        }
-                    });
-                    savedLeads.push(savedLead);
-                } catch (leadError) {
-                    console.warn(`[Onboarding] Failed to save lead ${lead.id}:`, leadError);
-                }
-            }
-
-            leadsFound = savedLeads.length;
-
-            // Update campaign with discovery timestamp
-            await prisma.campaign.update({
-                where: { id: newCampaign.id },
-                data: { 
-                    lastManualDiscoveryAt: new Date(),
-                    lastTargetedDiscoveryAt: new Date()
-                }
-            });
-
-           
-
-            console.log(`[Onboarding] Saved ${savedLeads.length} leads for new campaign.`);
-
-            // Send email notification with leads
-            if (savedLeads.length > 0) {
-                try {
-                    await sendNewLeadsNotification(user, savedLeads, campaignName);
-                    console.log(`[Onboarding] Email notification sent to ${user.email}`);
-                } catch (emailError) {
-                    console.error(`[Onboarding] Failed to send email notification:`, emailError);
-                }
-            }
-
-        } catch (discoveryError) {
-            console.error(`[Onboarding] Lead discovery failed:`, discoveryError);
-            // Don't fail onboarding if discovery fails, but log it
-        }
-
+        // The rest of the lead discovery logic is now triggered MANUALLY from the frontend
+        // after the project is created. This makes the onboarding flow faster and more reliable.
+        
         res.status(201).json({
-            success: true,
-            campaign: newCampaign,
-            leadsFound,
-            message: leadsFound > 0 
-                ? `Onboarding completed! Found ${leadsFound} leads and sent them to your email.`
-                : 'Onboarding completed! We\'ll continue monitoring for leads.',
+            message: 'Campaign created successfully!',
+            projectId: newCampaign.id
         });
 
     } catch (error) {
-        console.error('[Onboarding] Error:', error);
+        console.error(`[Onboarding] Error completing onboarding for user ${userId}:`, error);
         next(error);
     }
 };
 
 export const quickSetup: RequestHandler = async (req: any, res, next) => {
-    const { userId } = req.auth;
+    const auth = await req.auth();
+    const userId = auth?.userId;
     const { industry, description, keywords, targetSubreddits } = req.body;
 
     if (!userId) {
@@ -189,7 +127,18 @@ export const quickSetup: RequestHandler = async (req: any, res, next) => {
     }
 
     try {
-        const campaign = await prisma.campaign.create({
+        // Check project limits before creating a new project
+        const canCreateProject = await dodoPaymentsService.checkPlanLimits(userId, 'projects');
+        if (!canCreateProject) {
+            console.log(`[Quick Setup] User ${userId} has reached project limit for their plan`);
+            return res.status(403).json({ 
+                message: 'Project limit reached. Please upgrade your plan to create more projects.',
+                requiresUpgrade: true,
+                limitType: 'projects'
+            });
+        }
+
+        const project = await prisma.project.create({
             data: {
                 userId,
                 name: `${industry} Campaign`,
@@ -201,7 +150,7 @@ export const quickSetup: RequestHandler = async (req: any, res, next) => {
             }
         });
 
-        res.json({ success: true, campaignId: campaign.id });
+        res.json({ success: true, projectId: project.id });
     } catch (error) {
         console.error('[Quick Setup] Error:', error);
         next(error);
@@ -214,35 +163,34 @@ export const analyzeWebsite: RequestHandler = async (req, res, next) => {
     const { websiteUrl } = req.body;
 
     if (!websiteUrl) {
-         res.status(400).json({ message: 'Website URL is required.' });
-         return;
+        return res.status(400).json({ message: 'Website URL is required.' });
     }
 
     try {
-        let scrapedText = '';
-        // First, try a simple scrape.
-        scrapedText = await scrapeWebsiteTextSimple(websiteUrl);
+        console.log(`[Website Analysis] Starting analysis for: ${websiteUrl}`);
+        
+        // Use a single function to get all website text
+        const scrapedText = await scrapeAndProcessWebsite(websiteUrl);
 
-        // If the content is too short, fall back to the advanced scraper.
-        if (scrapedText.length < MIN_CONTENT_LENGTH) {
-            scrapedText = await scrapeWebsiteTextAdvanced(websiteUrl);
-        }
+        console.log(`[Website Analysis] Starting Business DNA extraction...`);
 
-        // Generate keywords and description in parallel for efficiency.
-        const [keywords, description] = await Promise.all([
-            generateKeywords(scrapedText),
-            generateDescription(scrapedText)
-        ]);
+        // 🚀 NEW APPROACH: One single call to extract all business intelligence
+        const businessDNA = await extractBusinessDNA(scrapedText);
 
+        console.log(`[Website Analysis] ✅ Business DNA extraction complete.`);
+
+        // The old analysisResult structure is maintained for frontend compatibility for now
         res.status(200).json({
             websiteUrl,
-            generatedKeywords: keywords,
-            generatedDescription: description
+            generatedKeywords: businessDNA.naturalLanguageVocabulary.solutionKeywords,
+            generatedDescription: `${businessDNA.oneLiner}\n\n**Core Problem:**\n${businessDNA.coreProblem}\n\n**Solution:**\n${businessDNA.solutionValue}`,
+            targetSubreddits: businessDNA.suggestedSubreddits,
+            // We can pass the full DNA object to the frontend if needed later
+            businessDNA: businessDNA 
         });
-        return;
 
     } catch (error) {
-        // Pass any errors to the global error handler.
+        console.error(`[Website Analysis] Error during analysis for ${websiteUrl}:`, error);
         next(error);
     }
 }; 

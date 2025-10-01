@@ -1,5 +1,4 @@
 import express, { Request, Response } from 'express';
-import { gateKeeper } from '../middleware/gateKeeper';
 import { 
   getLeadTrends, 
   getSubredditPerformance, 
@@ -10,19 +9,19 @@ import {
 
 const analyticsRouter = express.Router();
 
-// Lead trends over time for a campaign
-analyticsRouter.get('/trends/:campaignId', gateKeeper, getLeadTrends);
+// Lead trends over time for a project
+analyticsRouter.get('/trends/:projectId', getLeadTrends);
 
-// Subreddit performance for a campaign
-analyticsRouter.get('/subreddit-performance/:campaignId', gateKeeper, getSubredditPerformance);
+// Subreddit performance for a project
+analyticsRouter.get('/subreddit-performance/:projectId', getSubredditPerformance);
 
 // Analytics metrics (changes, trends, etc.)
-analyticsRouter.get('/metrics/:campaignId', gateKeeper, getAnalyticsMetrics);
+analyticsRouter.get('/metrics/:projectId', getAnalyticsMetrics);
 
 // Weekly activity patterns
-analyticsRouter.get('/weekly-activity/:campaignId', gateKeeper, getWeeklyActivity);
+analyticsRouter.get('/weekly-activity/:projectId', getWeeklyActivity);
 
 // Opportunity score distribution
-analyticsRouter.get('/opportunity-distribution/:campaignId', gateKeeper, getOpportunityDistribution);
+analyticsRouter.get('/opportunity-distribution/:projectId', getOpportunityDistribution);
 
 export default analyticsRouter;

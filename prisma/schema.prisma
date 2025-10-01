@@ -12,8 +12,10 @@ model User {
   email                   String                    @unique
   firstName               String?
   lastName                String?
-  plan                    String                    @default("free")
-  subscriptionStatus      String?
+  plan                    String                    @default("basic")
+  subscriptionStatus      String?                   @default("inactive")
+  subscriptionStartDate   DateTime?
+  subscriptionEndDate     DateTime?
   lastKarmaCheck          DateTime?
   redditKarma             Int?                      @default(0)
   redditRefreshToken      String?
@@ -23,13 +25,16 @@ model User {
   redditAuthState         String?                   @unique
   hasConnectedReddit      Boolean                   @default(false)
   AIUsage                 AIUsage[]
-  campaigns               Campaign[]
+  projects                Project[]
   leads                   Lead[]
   MarketInsight           MarketInsight[]
   scheduledReplies        ScheduledReply[]
   webhooks                Webhook[]
   emailNotificationSetting EmailNotificationSetting?
-  subscriptionEndsAt       DateTime?
+  paymentTransactions     PaymentTransaction[]
+  subscriptionHistory     SubscriptionHistory[]
+  billingAddress          BillingAddress?
+  invoices                Invoice[]
 }
 // ✨ NEW MODEL ADDED FOR EMAIL NOTIFICATIONS ✨
 model EmailNotificationSetting {
@@ -38,6 +43,14 @@ model EmailNotificationSetting {
   enabled Boolean @default(false)
   userId  String  @unique // Each user has one setting
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model NewsletterSubscriber {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  subscribedAt DateTime @default(now())
+  isActive  Boolean  @default(true)
+  source    String?  @default("blog") // Track where they subscribed from
 }
 
 model Webhook {
@@ -58,13 +71,14 @@ model Webhook {
   @@map("webhooks")
 }
 
-model Campaign {
+model Project {
   id                    String          @id @default(cuid())
   userId                String
   analyzedUrl           String
   generatedKeywords     String[]
   generatedDescription  String
   targetSubreddits      String[]        @default([])
+  businessDNA           Json?           // 👈 NEW: Store the full Business DNA object
   createdAt             DateTime        @default(now())
   updatedAt             DateTime        @updatedAt
   competitors           String[]        @default([])
@@ -84,18 +98,19 @@ model Campaign {
 
 model Lead {
   id                 String           @id @default(cuid())
-  redditId           String           @unique
+  redditId           String
   title              String
   author             String
   subreddit          String
-  url                String           @unique
+  url                String
   body               String?
   postedAt           DateTime
   discoveredAt       DateTime         @default(now())
   opportunityScore   Int
   status             String           @default("new")
-  campaignId         String
+  projectId          String
   intent             String?
+  relevanceReasoning String?          // 👈 NEW: Store the AI's reasoning
   userId             String
   createdAt          DateTime         @default(now())
   sentiment          String?
@@ -104,14 +119,13 @@ model Lead {
   insightAnalysisRan Boolean          @default(false)
   summary            String?
   isGoogleRanked     Boolean?         @default(false)
-  campaign           Campaign         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  project            Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
   user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   scheduledReplies   ScheduledReply[]
 
-  @@unique([id, userId])
-    @@unique([redditId, campaignId])    
+  @@unique([redditId, projectId])
   @@index([userId])
-  @@index([campaignId])
+  @@index([projectId])
 }
 
 model ScheduledReply {
@@ -152,13 +166,13 @@ model MarketInsight {
   context                  String
   status                   InsightStatus @default(NEW)
   userId                   String
-  campaignId               String
+  projectId                String
   discoveredAt             DateTime      @default(now())
-  campaign                 Campaign      @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  project                  Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   user                     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([campaignId, discoveredCompetitorName])
-  @@index([campaignId])
+  @@unique([projectId, discoveredCompetitorName])
+  @@index([projectId])
   @@index([userId])
 }
 
@@ -171,6 +185,79 @@ model AIUsage {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, month, type], name: "userId_month_type")
+}
+
+// 🚀 NEW: Payment Transaction History
+model PaymentTransaction {
+  id                String   @id @default(cuid())
+  userId            String
+  planId            String
+  amount            Decimal  @db.Decimal(10, 2)
+  currency          String   @default("USD")
+  status            PaymentStatus @default(PENDING)
+  paymentMethod     String?
+  externalId        String?  // DodoPayments transaction ID
+  checkoutUrl       String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  completedAt       DateTime?
+  failedAt          DateTime?
+  failureReason     String?
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([externalId])
+  @@index([status])
+}
+
+// 🚀 NEW: Subscription History Tracking
+model SubscriptionHistory {
+  id              String   @id @default(cuid())
+  userId          String
+  planId          String
+  action          SubscriptionAction
+  previousPlanId  String?
+  amount          Decimal? @db.Decimal(10, 2)
+  reason          String?
+  createdAt       DateTime @default(now())
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([action])
+}
+
+// 🚀 NEW: Billing Information
+model BillingAddress {
+  id         String @id @default(cuid())
+  userId     String @unique
+  address    String
+  city       String
+  state      String?
+  country    String
+  postalCode String
+  taxId      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// 🚀 NEW: Invoice Management
+model Invoice {
+  id            String   @id @default(cuid())
+  userId        String
+  transactionId String
+  amount        Decimal  @db.Decimal(10, 2)
+  currency      String   @default("USD")
+  status        InvoiceStatus @default(PENDING)
+  invoiceUrl    String?
+  pdfUrl        String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([transactionId])
+  @@index([userId])
+  @@index([status])
 }
 
 enum ScheduledReplyStatus {
@@ -191,4 +278,32 @@ enum InsightStatus {
   VIEWED
   ACTIONED
   IGNORED
+}
+
+// 🚀 NEW: Payment and Subscription Enums
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum SubscriptionAction {
+  CREATED
+  UPGRADED
+  DOWNGRADED
+  CANCELLED
+  RENEWED
+  EXPIRED
+  TRIAL_STARTED
+  TRIAL_ENDED
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+  REFUNDED
 }

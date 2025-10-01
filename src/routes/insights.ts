@@ -1,16 +1,15 @@
 import express from 'express';
-import { getInsightsForCampaign, updateInsightStatus, addCompetitorToCampaign } from '../controllers/insight.controller';
-import { gateKeeper } from '../middleware/gateKeeper';
+import { getInsightsForProject, updateInsightStatus, addCompetitorToProject } from '../controllers/insight.controller';
 
 const insightRouter = express.Router();
 
-// Get the "Market Insights" for a specific campaign (Pro feature)
-insightRouter.get('/campaign/:campaignId', gateKeeper, getInsightsForCampaign);
+// Get the "Market Insights" for a specific project (Pro feature)
+insightRouter.get('/project/:projectId', getInsightsForProject);
 
 // Update insight status (acknowledge, ignore, etc.) (Pro feature)
-insightRouter.patch('/:insightId/status', gateKeeper, updateInsightStatus);
+insightRouter.patch('/:insightId/status', updateInsightStatus);
 
-// Add discovered competitor to campaign (Pro feature)
-insightRouter.post('/:insightId/add-competitor', gateKeeper, addCompetitorToCampaign);
+// Add discovered competitor to project (Pro feature)
+insightRouter.post('/:insightId/add-competitor', addCompetitorToProject);
 
 export default insightRouter;

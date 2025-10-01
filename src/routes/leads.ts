@@ -1,25 +1,35 @@
-import express, { Request, Response } from 'express';
-import { deleteAllLeads, deleteLeadsByStatus, deleteSingleLead, getLeadsForCampaign, runManualDiscovery, runTargetedDiscovery, updateLeadStatus } from '../controllers/lead.controller';
+import express from 'express';
+import {
+    runManualDiscovery,
+    updateLeadStatus,
+    deleteLead,
+    deleteLeadsByStatus,
+    deleteAllLeads
+} from '../controllers/lead.controller';
+import { getLeadsForTable } from '../controllers/analytics.controller';
 import { summarizeLead } from '../controllers/post.controller';
-import { gateKeeper } from '../middleware/gateKeeper';
 
 const leadRouter = express.Router();
 
-// Get the "inbox" of saved leads for a specific campaign (Pro feature)
-leadRouter.get('/campaign/:campaignId', gateKeeper, getLeadsForCampaign);
+// Get the "inbox" of saved leads for a specific project (Pro feature)
+leadRouter.get('/project/:projectId', getLeadsForTable);
 
-// Manually trigger a new search for a campaign (Pro feature)
-leadRouter.post('/discover/manual/:campaignId', gateKeeper, runManualDiscovery);
+// Manually trigger a new search for a project (Pro feature)
+leadRouter.post('/discover/manual/:projectId', runManualDiscovery);
 
 // Update a lead's status (Pro feature)
-leadRouter.patch('/:leadId/status', gateKeeper, updateLeadStatus);
+leadRouter.patch('/:leadId/status', updateLeadStatus);
 
 // Summarize a lead using AI (Pro feature)
-leadRouter.post('/:id/summarize', gateKeeper, summarizeLead);
-leadRouter.delete('/campaign/:campaignId/all', deleteAllLeads);
-leadRouter.delete('/campaign/:campaignId/status', deleteLeadsByStatus);
-leadRouter.post('/campaign/:campaignId/discover/targeted', runTargetedDiscovery);
-leadRouter.delete('/:leadId', gateKeeper, deleteSingleLead);
+leadRouter.post('/:id/summarize', summarizeLead);
 
+// Delete individual lead
+leadRouter.delete('/:leadId', deleteLead);
+
+// Delete leads by status (bulk operation)
+leadRouter.post('/project/:projectId/delete-by-status', deleteLeadsByStatus);
+
+// Delete all leads for a project
+leadRouter.delete('/project/:projectId/all', deleteAllLeads);
 
 export default leadRouter;

@@ -6,7 +6,8 @@ import { clerkClient } from '@clerk/express';
 const prisma = new PrismaClient();
 
 export const deleteCurrentUser: RequestHandler = async (req: any, res, next) => {
-    const { userId } = req.auth;
+    const auth = await req.auth();
+    const userId = auth?.userId;
 
     if (!userId) {
         res.status(401).json({ message: 'User not authenticated.' });
@@ -32,7 +33,8 @@ export const deleteCurrentUser: RequestHandler = async (req: any, res, next) => 
 };
 
 export const updateCurrentUser: RequestHandler = async (req: any, res, next) => {
-    const { userId } = req.auth;
+    const auth = await req.auth();
+    const userId = auth?.userId;
     const { firstName, lastName, publicMetadata } = req.body;
 
     if (!userId) {

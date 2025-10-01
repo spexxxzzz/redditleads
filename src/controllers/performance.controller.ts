@@ -8,7 +8,8 @@ const prisma = new PrismaClient();
  */
 export const getReplyPerformance: RequestHandler = async (req: any, res, next) => {
     // Get the authenticated user's ID from Clerk
-    const { userId } = req.auth;
+    const auth = await req.auth();
+    const userId = auth?.userId;
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
     const skip = (page - 1) * limit;
@@ -89,7 +90,8 @@ export const getReplyPerformance: RequestHandler = async (req: any, res, next) =
  */
 export const getReplyDetails: RequestHandler = async (req: any, res, next) => {
     // Get the authenticated user's ID from Clerk
-    const { userId } = req.auth;
+    const auth = await req.auth();
+    const userId = auth?.userId;
     const { replyId } = req.params;
 
     // Ensure user is authenticated
@@ -115,7 +117,7 @@ export const getReplyDetails: RequestHandler = async (req: any, res, next) => {
             include: {
                 lead: {
                     include: {
-                        campaign: {
+                        project: {
                             select: {
                                 id: true,
                                 name: true,

@@ -3,9 +3,10 @@ import express from 'express';
 import { 
   getRedditAuthUrl, 
   handleRedditCallback, 
-  disconnectReddit 
+  disconnectReddit,
+  postReply
 } from '../controllers/reddit.controller';
-// We remove gateKeeper from here as it's not needed for this flow
+import { gateKeeper } from '../middleware/gateKeeper';
 
 const redditRouter = express.Router();
 
@@ -17,5 +18,8 @@ redditRouter.get('/callback', handleRedditCallback);
 
 // Disconnect Reddit account. Any authenticated user should be able to do this.
 redditRouter.delete('/disconnect', disconnectReddit);
+
+// Post a reply to Reddit automatically (requires authentication)
+redditRouter.post('/post-reply', gateKeeper, postReply);
 
 export default redditRouter;

@@ -17,7 +17,7 @@ export const expireUserTrials = async () => {
     const expiredTrialUsers = await prisma.user.findMany({
         where: {
             plan: 'pro',
-            subscriptionEndsAt: {
+            subscriptionEndDate: {
                 lte: now, // lte = less than or equal to
             },
         },
@@ -36,7 +36,7 @@ export const expireUserTrials = async () => {
             where: { id: user.id },
             data: {
                 plan: 'free',
-                subscriptionEndsAt: null, // Clear the expiration date
+                subscriptionEndDate: null, // Clear the expiration date
             },
         });
         console.log(`[Subscription Service] Reverted user ${user.id} to the free plan.`);

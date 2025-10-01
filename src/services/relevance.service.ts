@@ -76,7 +76,7 @@ export const calculateContentRelevance = (
     }
 
     // 6. Bonus for engagement (indicates an active, valuable discussion)
-    if (lead.numComments > 5) { // Lowered threshold from 10
+    if (lead.numComments && lead.numComments > 5) { // Lowered threshold from 10
         score += 5;
         reasons.push(`+5 (Good engagement: ${lead.numComments} comments)`);
     }
@@ -89,6 +89,6 @@ export const calculateContentRelevance = (
     return {
         score: finalScore,
         reasons: reasons,
-        isRelevant: finalScore >= 30 // Lowered threshold from 45 to 30
+        isRelevant: finalScore >= 40 // Raised threshold for better quality
     };
 };

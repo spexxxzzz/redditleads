@@ -5,8 +5,9 @@ const prisma = new PrismaClient();
 
 export const getLeadTrends: RequestHandler = async (req: any, res, next) => {
   try {
-    const { campaignId } = req.params;
-    const userId = req.auth.userId;
+    const { projectId } = req.params;
+    const auth = await req.auth();
+    const userId = auth?.userId;
 
     // Authentication check
     if (!userId) {
@@ -14,21 +15,21 @@ export const getLeadTrends: RequestHandler = async (req: any, res, next) => {
       return;
     }
 
-    if (!campaignId) {
-      res.status(400).json({ message: 'Campaign ID is required.' });
+    if (!projectId) {
+      res.status(400).json({ message: 'Project ID is required.' });
       return;
     }
 
-    // Verify campaign ownership
-    const campaign = await prisma.campaign.findFirst({
+    // Verify project ownership
+    const project = await prisma.project.findFirst({
       where: { 
-        id: campaignId,
+        id: projectId,
         userId: userId 
       }
     });
 
-    if (!campaign) {
-      res.status(404).json({ message: 'Campaign not found or you do not have permission to access it.' });
+    if (!project) {
+      res.status(404).json({ message: 'Project not found or you do not have permission to access it.' });
       return;
     }
 
@@ -38,7 +39,7 @@ export const getLeadTrends: RequestHandler = async (req: any, res, next) => {
 
     const leads = await prisma.lead.findMany({
       where: {
-        campaignId,
+        projectId,
         userId: userId, // Additional security check
         createdAt: {
           gte: thirtyDaysAgo
@@ -72,7 +73,7 @@ export const getLeadTrends: RequestHandler = async (req: any, res, next) => {
       leads
     }));
 
-    console.log(`📊 [Analytics] User ${userId} fetched lead trends for campaign ${campaignId}`);
+    console.log(`📊 [Analytics] User ${userId} fetched lead trends for project ${projectId}`);
     res.json({ data: trends });
   } catch (error) {
     console.error('Error fetching lead trends:', error);
@@ -81,29 +82,30 @@ export const getLeadTrends: RequestHandler = async (req: any, res, next) => {
 };
 export const getAnalyticsMetrics: RequestHandler = async (req: any, res, next) => {
   try {
-    const { campaignId } = req.params;
-    const userId = req.auth.userId;
+    const { projectId } = req.params;
+    const auth = await req.auth();
+    const userId = auth?.userId;
 
     if (!userId) {
       res.status(401).json({ message: 'User not authenticated.' });
       return;
     }
 
-    if (!campaignId) {
-      res.status(400).json({ message: 'Campaign ID is required.' });
+    if (!projectId) {
+      res.status(400).json({ message: 'Project ID is required.' });
       return;
     }
 
-    // Verify campaign ownership
-    const campaign = await prisma.campaign.findFirst({
+    // Verify project ownership
+    const project = await prisma.project.findFirst({
       where: { 
-        id: campaignId,
+        id: projectId,
         userId: userId 
       }
     });
 
-    if (!campaign) {
-      res.status(404).json({ message: 'Campaign not found or you do not have permission to access it.' });
+    if (!project) {
+      res.status(404).json({ message: 'Project not found or you do not have permission to access it.' });
       return;
     }
 
@@ -114,7 +116,7 @@ export const getAnalyticsMetrics: RequestHandler = async (req: any, res, next) =
     // Get current period stats (last 30 days)
     const currentPeriodLeads = await prisma.lead.findMany({
       where: {
-        campaignId,
+        projectId,
         userId: userId, // Additional security check
         createdAt: {
           gte: thirtyDaysAgo
@@ -125,7 +127,7 @@ export const getAnalyticsMetrics: RequestHandler = async (req: any, res, next) =
     // Get previous period stats (30-60 days ago)
     const previousPeriodLeads = await prisma.lead.findMany({
       where: {
-        campaignId,
+        projectId,
         userId: userId, // Additional security check
         createdAt: {
           gte: sixtyDaysAgo,
@@ -180,7 +182,7 @@ export const getAnalyticsMetrics: RequestHandler = async (req: any, res, next) =
       opportunityTrend: currentAvgScore > previousAvgScore ? 'up' as const : currentAvgScore < previousAvgScore ? 'down' as const : 'steady' as const
     };
 
-    console.log(`📊 [Analytics] User ${userId} fetched metrics for campaign ${campaignId}`);
+    console.log(`📊 [Analytics] User ${userId} fetched metrics for project ${projectId}`);
     res.json({ data: metrics });
   } catch (error) {
     console.error('Error fetching analytics metrics:', error);
@@ -190,29 +192,30 @@ export const getAnalyticsMetrics: RequestHandler = async (req: any, res, next) =
 
 export const getWeeklyActivity: RequestHandler = async (req: any, res, next) => {
   try {
-    const { campaignId } = req.params;
-    const userId = req.auth.userId;
+    const { projectId } = req.params;
+    const auth = await req.auth();
+    const userId = auth?.userId;
 
     if (!userId) {
       res.status(401).json({ message: 'User not authenticated.' });
       return;
     }
 
-    if (!campaignId) {
-      res.status(400).json({ message: 'Campaign ID is required.' });
+    if (!projectId) {
+      res.status(400).json({ message: 'Project ID is required.' });
       return;
     }
 
-    // Verify campaign ownership
-    const campaign = await prisma.campaign.findFirst({
+    // Verify project ownership
+    const project = await prisma.project.findFirst({
       where: { 
-        id: campaignId,
+        id: projectId,
         userId: userId 
       }
     });
 
-    if (!campaign) {
-      res.status(404).json({ message: 'Campaign not found or you do not have permission to access it.' });
+    if (!project) {
+      res.status(404).json({ message: 'Project not found or you do not have permission to access it.' });
       return;
     }
 
@@ -222,7 +225,7 @@ export const getWeeklyActivity: RequestHandler = async (req: any, res, next) => 
 
     const leads = await prisma.lead.findMany({
       where: {
-        campaignId,
+        projectId,
         userId: userId, // Additional security check
         createdAt: {
           gte: sevenDaysAgo
@@ -252,7 +255,7 @@ export const getWeeklyActivity: RequestHandler = async (req: any, res, next) => 
       activity: activityMap.get(day) || 0
     }));
 
-    console.log(`📊 [Analytics] User ${userId} fetched weekly activity for campaign ${campaignId}`);
+    console.log(`📊 [Analytics] User ${userId} fetched weekly activity for project ${projectId}`);
     res.json({ data: activity });
   } catch (error) {
     console.error('Error fetching weekly activity:', error);
@@ -262,36 +265,37 @@ export const getWeeklyActivity: RequestHandler = async (req: any, res, next) => 
 
 export const getOpportunityDistribution: RequestHandler = async (req: any, res, next) => {
   try {
-    const { campaignId } = req.params;
-    const userId = req.auth.userId;
+    const { projectId } = req.params;
+    const auth = await req.auth();
+    const userId = auth?.userId;
 
     if (!userId) {
       res.status(401).json({ message: 'User not authenticated.' });
       return;
     }
 
-    if (!campaignId) {
-      res.status(400).json({ message: 'Campaign ID is required.' });
+    if (!projectId) {
+      res.status(400).json({ message: 'Project ID is required.' });
       return;
     }
 
-    // Verify campaign ownership
-    const campaign = await prisma.campaign.findFirst({
+    // Verify project ownership
+    const project = await prisma.project.findFirst({
       where: { 
-        id: campaignId,
+        id: projectId,
         userId: userId 
       }
     });
 
-    if (!campaign) {
-      res.status(404).json({ message: 'Campaign not found or you do not have permission to access it.' });
+    if (!project) {
+      res.status(404).json({ message: 'Project not found or you do not have permission to access it.' });
       return;
     }
 
-    // Get all leads for this campaign
+    // Get all leads for this project
     const leads = await prisma.lead.findMany({
       where: {
-        campaignId,
+        projectId,
         userId: userId // Additional security check
       },
       select: {
@@ -340,7 +344,7 @@ export const getOpportunityDistribution: RequestHandler = async (req: any, res, 
       }
     ];
 
-    console.log(`📊 [Analytics] User ${userId} fetched opportunity distribution for campaign ${campaignId}`);
+    console.log(`📊 [Analytics] User ${userId} fetched opportunity distribution for project ${projectId}`);
     res.json({ data: distribution });
   } catch (error) {
     console.error('Error fetching opportunity distribution:', error);
@@ -349,29 +353,30 @@ export const getOpportunityDistribution: RequestHandler = async (req: any, res, 
 };
 export const getSubredditPerformance: RequestHandler = async (req: any, res, next) => {
     try {
-      const { campaignId } = req.params;
-      const userId = req.auth.userId;
+      const { projectId } = req.params;
+      const auth = await req.auth();
+    const userId = auth?.userId;
   
       if (!userId) {
         res.status(401).json({ message: 'User not authenticated.' });
         return;
       }
   
-      if (!campaignId) {
-        res.status(400).json({ message: 'Campaign ID is required.' });
+      if (!projectId) {
+        res.status(400).json({ message: 'Project ID is required.' });
         return;
       }
   
-      // Verify campaign ownership
-      const campaign = await prisma.campaign.findFirst({
+      // Verify project ownership
+      const project = await prisma.project.findFirst({
         where: { 
-          id: campaignId,
+          id: projectId,
           userId: userId 
         }
       });
   
-      if (!campaign) {
-        res.status(404).json({ message: 'Campaign not found or you do not have permission to access it.' });
+      if (!project) {
+        res.status(404).json({ message: 'Project not found or you do not have permission to access it.' });
         return;
       }
   
@@ -379,7 +384,7 @@ export const getSubredditPerformance: RequestHandler = async (req: any, res, nex
       const subredditStats = await prisma.lead.groupBy({
         by: ['subreddit'],
         where: {
-          campaignId,
+          projectId,
           userId: userId,
           subreddit: {
             not: undefined
@@ -418,3 +423,71 @@ export const getSubredditPerformance: RequestHandler = async (req: any, res, nex
       next(error);
     }
   };
+
+export const getLeadsForTable: RequestHandler = async (req: any, res, next) => {
+    try {
+        console.log('🔍 [Get Leads] Starting leads fetch...');
+        console.log('🔍 [Get Leads] Request headers:', req.headers);
+        console.log('🔍 [Get Leads] Authorization header:', req.headers.authorization);
+        
+        const auth = await req.auth();
+        const userId = auth?.userId;
+        const { projectId } = req.params;
+
+        console.log('🔍 [Get Leads] Auth object:', auth);
+        console.log('🔍 [Get Leads] User ID:', userId);
+        console.log('🔍 [Get Leads] Project ID:', projectId);
+
+        if (!userId || !projectId) {
+            console.log('❌ [Get Leads] Missing userId or projectId');
+            return res.status(400).json({ message: 'User and Project ID are required.' });
+        }
+
+        // Check if user exists, create if not (fallback for webhook issues)
+        let user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true }
+        });
+
+        if (!user) {
+            console.log(`[Analytics] User ${userId} not found in database, creating user...`);
+            
+            // Create a basic user record as fallback
+            try {
+                user = await prisma.user.create({
+                    data: {
+                        id: userId,
+                        email: `user-${userId}@placeholder.local`, // Unique placeholder - will be updated when webhook fires
+                        firstName: '',
+                        lastName: '',
+                        subscriptionStatus: 'inactive',
+                        plan: 'basic',
+                    },
+                    select: { id: true }
+                });
+                console.log(`[Analytics] Created user ${userId} with basic (free) plan`);
+            } catch (createError) {
+                console.error(`[Analytics] Failed to create user ${userId}:`, createError);
+                return res.status(500).json({
+                    success: false,
+                    error: 'Failed to create user account'
+                });
+            }
+        }
+
+        const leads = await prisma.lead.findMany({
+            where: {
+                userId: userId,
+                projectId: projectId,
+            },
+            orderBy: {
+                postedAt: 'desc',
+            },
+        });
+
+        res.status(200).json({ data: leads });
+    } catch (error) {
+        console.error('Error fetching leads for table:', error);
+        next(error);
+    }
+};

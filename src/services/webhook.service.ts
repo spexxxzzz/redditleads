@@ -113,7 +113,7 @@ class WebhookService {
       campaignId,
       priority,
       metadata: {
-        source: 'redlead',
+        source: 'redditleads',
         version: '1.0',
       },
     };
@@ -219,7 +219,7 @@ class WebhookService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'User-Agent': 'RedLead-Webhook/1.0',
+          'User-Agent': 'RedditLeads-Webhook/1.0',
         },
         body: JSON.stringify(formattedPayload),
       });
@@ -293,7 +293,7 @@ class WebhookService {
           ],
           timestamp: new Date(timestamp).toISOString(),
           footer: {
-            text: `RedLead • Priority: ${(priority || 'medium').toUpperCase()}`,
+            text: `RedditLeads • Priority: ${(priority || 'medium').toUpperCase()}`,
             icon_url: 'https://i.imgur.com/AfFp7pu.png',
           },
         });
@@ -309,7 +309,7 @@ class WebhookService {
     }
 
     return {
-      username: 'RedLead Bot',
+      username: 'RedditLeads Bot',
       avatar_url: 'https://i.imgur.com/AfFp7pu.png',
       embeds,
     };
@@ -336,7 +336,7 @@ class WebhookService {
     }
 
     return {
-      username: 'RedLead Bot',
+      username: 'RedditLeads Bot',
       icon_emoji: ':robot_face:',
       text,
       attachments: [{
@@ -488,7 +488,7 @@ class WebhookService {
     const testPayload: WebhookPayload = {
       event: 'webhook.test',
       data: {
-        message: 'This is a test message from RedLead!',
+        message: 'This is a test message from RedditLeads!',
         timestamp: new Date().toISOString(),
       },
       timestamp: Date.now(),

@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { getAppAuthenticatedInstance } from '../services/reddit.service';
+import { getAppAuthenticatedInstance } from '../services/userReddit.service';
 import snoowrap from 'snoowrap';
 import { distance } from 'fastest-levenshtein';
 
@@ -9,6 +9,7 @@ const prisma = new PrismaClient();
 const PENDING_REPLY_CHECK_INTERVAL_SECONDS = 60; 
 const PERFORMANCE_CHECK_INTERVAL_HOURS = 4;
 const PENDING_REPLY_TIMEOUT_HOURS = 24;
+
 
 /**
  * A high-frequency worker that finds and links manually posted replies.
@@ -36,17 +37,31 @@ export const findPendingRepliesWorker = async (): Promise<void> => {
     }
     
     console.log(`⚡ [High-Frequency Worker] Found ${pendingReplies.length} pending replies to link.`);
-    const r = await getAppAuthenticatedInstance();
-
+    
+    // Group replies by user to get their Reddit instances
+    const userRedditInstances = new Map<string, snoowrap>();
+    
     for (const pending of pendingReplies) {
         try {
             if (!pending.lead.redditId || !pending.user.redditUsername) continue;
+
+            // Get or create Reddit instance for this user
+            let r = userRedditInstances.get(pending.userId);
+            if (!r) {
+                const redditInstance = await getAppAuthenticatedInstance(pending.userId);
+                if (!redditInstance) {
+                    console.log(`⚡ [High-Frequency Worker] No Reddit auth for user ${pending.userId}, skipping`);
+                    continue;
+                }
+                r = redditInstance;
+                userRedditInstances.set(pending.userId, r);
+            }
 
             const submission = r.getSubmission(pending.lead.redditId);
             // FIX: Use fetchMore with an amount to limit the initial API call.
             const comments = await submission.comments.fetchMore({ amount: 200 });
 
-            const userComments = comments.filter(comment => 
+            const userComments = comments.filter((comment: any) => 
                 comment.author.name === pending.user.redditUsername &&
                 new Date(comment.created_utc * 1000) > pending.createdAt
             );
@@ -113,35 +128,30 @@ export const trackPostedReplyPerformanceWorker = async (): Promise<void> => {
     }
 
     console.log(`📊 [Low-Frequency Worker] Found ${repliesToTrack.length} posted replies to track.`);
-    const r = await getAppAuthenticatedInstance();
-    const replyIds = repliesToTrack.map(reply => reply.redditPostId).filter((id): id is string => id !== null);
+    
+    // Group replies by user to get their Reddit instances
+    const userRedditInstances = new Map<string, snoowrap>();
+    
+    for (const reply of repliesToTrack) {
+        try {
+            if (!reply.redditPostId) continue;
 
-    try {
-        // FIX: Fetch comments individually using Promise.allSettled for better error handling
-        const commentResults = await Promise.allSettled(
-            replyIds.map(async (id) => {
-                try {
-                    //@ts-expect-error
-                    const comment = await r.getComment(id);
-                    return { id, comment };
-                } catch (error) {
-                    console.warn(`Failed to fetch comment ${id}:`, error);
-                    return { id, comment: null };
+            // Get or create Reddit instance for this user
+            let r = userRedditInstances.get(reply.userId);
+            if (!r) {
+                const redditInstance = await getAppAuthenticatedInstance(reply.userId);
+                if (!redditInstance) {
+                    console.log(`📊 [Low-Frequency Worker] No Reddit auth for user ${reply.userId}, skipping`);
+                    continue;
                 }
-            })
-        );
-
-        // Create a map for successful fetches only
-        const commentsMap = new Map<string, snoowrap.Comment>();
-        commentResults.forEach((result) => {
-            if (result.status === 'fulfilled' && result.value && result.value.comment) {
-                commentsMap.set(result.value.id, result.value.comment);
+                r = redditInstance;
+                userRedditInstances.set(reply.userId, r);
             }
-        });
-
-        for (const reply of repliesToTrack) {
+    
+            // Process the comment tracking inline to avoid circular reference
+            const commentId = reply.redditPostId as string;
             try {
-                const redditComment = commentsMap.get(reply.redditPostId!);
+                const redditComment = await (r as any).getComment(commentId);
                 if (!redditComment) {
                     await prisma.scheduledReply.update({
                         where: { id: reply.id },
@@ -159,12 +169,11 @@ export const trackPostedReplyPerformanceWorker = async (): Promise<void> => {
                 // FIX: Properly fetch replies with error handling
                 let authorReplied = false;
                 try {
-                //@ts-expect-error
-                    await redditComment.refresh(); // Ensure we have the latest data
+                    await (redditComment as any).refresh(); // Ensure we have the latest data
                     const commentReplies = await (redditComment as any).replies.fetchAll();
-                    authorReplied = commentReplies.some((r: any) => r.author && r.author.name === reply.lead.author);
+                    authorReplied = commentReplies.some((replyItem: any) => replyItem.author && replyItem.author.name === reply.lead.author);
                 } catch (repliesError) {
-                    console.warn(`Failed to fetch replies for comment ${reply.redditPostId}:`, repliesError);
+                    console.warn(`Failed to fetch replies for comment ${commentId}:`, repliesError);
                     // authorReplied remains false, which is acceptable fallback
                 }
 
@@ -177,12 +186,12 @@ export const trackPostedReplyPerformanceWorker = async (): Promise<void> => {
                     }
                 });
                 console.log(`✅ [Low-Frequency Worker] Tracked reply ${reply.id}: Upvotes=${upvotes}, Author Replied=${authorReplied}`);
-            } catch (error) {
-                console.error(`❌ [Low-Frequency Worker] Error processing reply ${reply.id}:`, error);
+            } catch (commentError) {
+                console.error(`❌ [Low-Frequency Worker] Error processing comment ${commentId}:`, commentError);
             }
+        } catch (error) {
+            console.error(`❌ [Low-Frequency Worker] Error processing reply ${reply.id}:`, error);
         }
-    } catch (error) {
-        console.error('❌ [Low-Frequency Worker] A critical error occurred during batch reply tracking:', error);
     }
     console.log('📊 [Low-Frequency Worker] Run finished.');
 };

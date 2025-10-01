@@ -4,12 +4,13 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 /**
- * Fetches market insights for a campaign, ensuring it belongs to the authenticated user.
+ * Fetches market insights for a project, ensuring it belongs to the authenticated user.
  * Results are paginated and sorted by discovery date.
  */
-export const getInsightsForCampaign: RequestHandler = async (req: any, res, next) => {
-    const { userId } = req.auth;
-    const { campaignId } = req.params;
+export const getInsightsForProject: RequestHandler = async (req: any, res, next) => {
+    const auth = await req.auth();
+    const userId = auth?.userId;
+    const { projectId } = req.params;
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
     const skip = (page - 1) * limit;
@@ -19,25 +20,25 @@ export const getInsightsForCampaign: RequestHandler = async (req: any, res, next
         return;
     }
 
-    if (!campaignId) {
-         res.status(400).json({ message: 'Campaign ID is required.' });
+    if (!projectId) {
+         res.status(400).json({ message: 'Project ID is required.' });
          return;
     }
 
     try {
-        // First, verify the user owns the campaign to prevent data leakage
-        const campaign = await prisma.campaign.findFirst({
-            where: { id: campaignId, userId: userId }
+        // First, verify the user owns the project to prevent data leakage
+        const project = await prisma.project.findFirst({
+            where: { id: projectId, userId: userId }
         });
 
-        if (!campaign) {
-            res.status(404).json({ message: 'Campaign not found.' });
+        if (!project) {
+            res.status(404).json({ message: 'Project not found.' });
             return;
         }
 
         const insights = await prisma.marketInsight.findMany({
             where: { 
-                campaignId: campaignId,
+                projectId: projectId,
                 status: 'NEW'
             },
             orderBy: {
@@ -48,7 +49,7 @@ export const getInsightsForCampaign: RequestHandler = async (req: any, res, next
         });
 
         const totalInsights = await prisma.marketInsight.count({
-            where: { campaignId: campaignId, status: 'NEW' }
+            where: { projectId: projectId, status: 'NEW' }
         });
 
         res.status(200).json({
@@ -71,7 +72,8 @@ export const getInsightsForCampaign: RequestHandler = async (req: any, res, next
  * Updates the status of a market insight, ensuring it belongs to the authenticated user.
  */
 export const updateInsightStatus: RequestHandler = async (req: any, res, next) => {
-    const { userId } = req.auth;
+    const auth = await req.auth();
+    const userId = auth?.userId;
     const { insightId } = req.params;
     const { status } = req.body;
 
@@ -94,11 +96,11 @@ export const updateInsightStatus: RequestHandler = async (req: any, res, next) =
     try {
         console.log(`📝 [Update Insight] User ${userId} attempting to update insight ${insightId} to: ${status}`);
 
-        // Securely update only if the insight belongs to a campaign owned by the user
+        // Securely update only if the insight belongs to a project owned by the user
         const result = await prisma.marketInsight.updateMany({
             where: {
                 id: insightId,
-                campaign: {
+                project: {
                     userId: userId
                 }
             },
@@ -121,10 +123,11 @@ export const updateInsightStatus: RequestHandler = async (req: any, res, next) =
 };
 
 /**
- * Adds a discovered competitor to the campaign's competitor list, ensuring ownership.
+ * Adds a discovered competitor to the project's competitor list, ensuring ownership.
  */
-export const addCompetitorToCampaign: RequestHandler = async (req: any, res, next) => {
-    const { userId } = req.auth;
+export const addCompetitorToProject: RequestHandler = async (req: any, res, next) => {
+    const auth = await req.auth();
+    const userId = auth?.userId;
     const { insightId } = req.params;
 
     if (!userId) {
@@ -140,15 +143,15 @@ export const addCompetitorToCampaign: RequestHandler = async (req: any, res, nex
     try {
         console.log(`🏢 [Add Competitor] User ${userId} processing insight ${insightId}`);
 
-        // Get the insight, but only if it belongs to a campaign owned by the authenticated user
+        // Get the insight, but only if it belongs to a project owned by the authenticated user
         const insight = await prisma.marketInsight.findFirst({
             where: { 
                 id: insightId,
-                campaign: {
+                project: {
                     userId: userId
                 }
             },
-            include: { campaign: true }
+            include: { project: true }
         });
 
         if (!insight) {
@@ -156,7 +159,7 @@ export const addCompetitorToCampaign: RequestHandler = async (req: any, res, nex
             return;
         }
 
-        const currentCompetitors = insight.campaign.competitors.map(c => c.toLowerCase());
+        const currentCompetitors = insight.project.competitors.map(c => c.toLowerCase());
         const newCompetitorLower = insight.discoveredCompetitorName.toLowerCase();
 
         if (currentCompetitors.includes(newCompetitorLower)) {
@@ -168,8 +171,8 @@ export const addCompetitorToCampaign: RequestHandler = async (req: any, res, nex
             return;
         }
 
-        const updatedCampaign = await prisma.campaign.update({
-            where: { id: insight.campaignId },
+        const updatedProject = await prisma.project.update({
+            where: { id: insight.projectId },
             data: {
                 competitors: {
                     push: insight.discoveredCompetitorName
@@ -182,16 +185,16 @@ export const addCompetitorToCampaign: RequestHandler = async (req: any, res, nex
             data: { status: 'ACTIONED' }
         });
 
-        console.log(`✅ [Add Competitor] Added "${insight.discoveredCompetitorName}" to campaign competitors`);
+        console.log(`✅ [Add Competitor] Added "${insight.discoveredCompetitorName}" to project competitors`);
         res.status(200).json({
-            message: 'Competitor added to campaign successfully',
-            campaign: updatedCampaign,
+            message: 'Competitor added to project successfully',
+            project: updatedProject,
             insight: updatedInsight
         });
         return;
         
     } catch (error) {
-        console.error('❌ [Add Competitor] Error adding competitor to campaign:', error);
+        console.error('❌ [Add Competitor] Error adding competitor to project:', error);
         next(error);
     }
 };

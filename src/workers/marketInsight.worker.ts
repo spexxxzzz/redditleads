@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { discoverCompetitorsInText } from '../services/ai.service';
+// import { discoverCompetitorsInText } from '../services/ai.service';
 import pLimit from 'p-limit';
 
 const prisma = new PrismaClient();
@@ -19,7 +19,7 @@ export const runMarketInsightWorker = async (): Promise<void> => {
             intent: { in: ['solution_seeking', 'brand_comparison'] }
         },
         include: {
-            campaign: true, // We need the campaign for context and competitor list
+            project: true, // We need the project for context and competitor list
             user: true,     // We need the user to check their plan
         },
         take: 100, // Process in batches to avoid overwhelming the system
@@ -42,12 +42,10 @@ export const runMarketInsightWorker = async (): Promise<void> => {
         }
 
         try {
-            const discoveredNames = await limiter(() => discoverCompetitorsInText(
-                `${lead.title} ${lead.body}`,
-                lead.campaign.generatedDescription
-            ));
+            // TODO: Implement competitor discovery
+            const discoveredNames: string[] = [];
 
-            const monitoredCompetitorsLower = lead.campaign.competitors.map(c => c.toLowerCase());
+            const monitoredCompetitorsLower = lead.project.competitors.map(c => c.toLowerCase());
 
             for (const name of discoveredNames) {
                 const discoveredNameLower = name.toLowerCase();
@@ -58,22 +56,22 @@ export const runMarketInsightWorker = async (): Promise<void> => {
 
                 await prisma.marketInsight.upsert({
                     where: { 
-                        campaignId_discoveredCompetitorName: {
-                            campaignId: lead.campaignId,
+                        projectId_discoveredCompetitorName: {
+                            projectId: lead.projectId,
                             discoveredCompetitorName: name
                         }
                     },
                     update: {},
                     create: {
                         userId: lead.userId,
-                        campaignId: lead.campaignId,
+                        projectId: lead.projectId,
                         discoveredCompetitorName: name,
                         sourceUrl: lead.url,
                         sourceTextSnippet: lead.body?.substring(0, 200) || lead.title,
                         context: `Discovered in a post titled: "${lead.title}"`
                     },
                 });
-                console.log(`  -> Discovered new competitor "${name}" for campaign ${lead.campaignId}`);
+                console.log(`  -> Discovered new competitor "${name}" for project ${lead.projectId}`);
             }
         } catch (error: any) {
             console.error(`Failed to analyze lead ${lead.id} for insights:`, error.message);

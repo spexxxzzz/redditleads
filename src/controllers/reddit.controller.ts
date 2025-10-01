@@ -4,12 +4,14 @@ import { PrismaClient } from '@prisma/client';
 import snoowrap from 'snoowrap';
 import { clerkClient } from '@clerk/express';
 import crypto from 'crypto';
+import { postReplyToReddit, isUserRedditConnected } from '../services/userReddit.service';
 
 const prisma = new PrismaClient();
 
 // This function now generates a secure, random state and stores it.
 export const getRedditAuthUrl: RequestHandler = async (req: any, res, next) => {
-    const { userId } = req.auth;
+    const auth = await req.auth();
+    const userId = auth?.userId;
     if (!userId) {
         res.status(401).json({ message: 'User not authenticated.' });
         return;
@@ -91,7 +93,6 @@ export const handleRedditCallback: RequestHandler = async (req, res, next) => {
 
         console.log(`[LOG] Backend: Attempting to update Clerk metadata for user ${user.id} with payload:`, metadataPayload);
 
-
         
         // Also update Clerk's public metadata for easy frontend access
         await clerkClient.users.updateUser(user.id, {
@@ -117,8 +118,13 @@ export const handleRedditCallback: RequestHandler = async (req, res, next) => {
 /**
  * Disconnects user's Reddit account
  */
-export const disconnectReddit: RequestHandler = async (req, res, next) => {
-    const { userId } = req.params;
+export const disconnectReddit: RequestHandler = async (req: any, res, next) => {
+    const auth = await req.auth();
+    const userId = auth?.userId;
+    
+    if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated.' });
+    }
     
     try {
         await prisma.user.update({
@@ -127,13 +133,136 @@ export const disconnectReddit: RequestHandler = async (req, res, next) => {
                 redditUsername: null,
                 redditRefreshToken: null,
                 redditKarma: null,
-                lastKarmaCheck: null
+                lastKarmaCheck: null,
+                hasConnectedReddit: false
+            }
+        });
+
+        // Update Clerk metadata
+        await clerkClient.users.updateUser(userId, {
+            publicMetadata: {
+                hasConnectedReddit: false,
+                redditUsername: null,
             }
         });
 
         res.json({ message: 'Reddit account disconnected successfully' });
     } catch (error) {
         console.error('Error disconnecting Reddit:', error);
+        next(error);
+    }
+};
+
+/**
+ * Posts a reply to Reddit automatically
+ */
+export const postReply: RequestHandler = async (req: any, res, next) => {
+    const auth = await req.auth();
+    const userId = auth?.userId;
+    const { leadId, content } = req.body;
+
+    if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated.' });
+    }
+
+    if (!leadId || !content) {
+        return res.status(400).json({ message: 'leadId and content are required.' });
+    }
+
+    try {
+        // Check if user has Reddit connected
+        const isConnected = await isUserRedditConnected(userId);
+        if (!isConnected) {
+            return res.status(400).json({ message: 'Reddit account not connected. Please connect your Reddit account first.' });
+        }
+
+        // Get the lead
+        const lead = await prisma.lead.findFirst({
+            where: { id: leadId, userId: userId }
+        });
+
+        if (!lead) {
+            return res.status(404).json({ message: 'Lead not found.' });
+        }
+
+        // Get user's Reddit token
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { redditRefreshToken: true }
+        });
+
+        if (!user?.redditRefreshToken) {
+            return res.status(400).json({ message: 'Reddit authentication not available.' });
+        }
+
+        // Post the reply
+        const redditCommentId = await postReplyToReddit(
+            user.redditRefreshToken,
+            lead.redditId,
+            content
+        );
+
+        // Create scheduled reply record
+        const scheduledReply = await prisma.scheduledReply.create({
+            data: {
+                content,
+                status: 'POSTED',
+                scheduledAt: new Date(),
+                postedAt: new Date(),
+                redditPostId: redditCommentId,
+                lead: { connect: { id: lead.id } },
+                user: { connect: { id: userId } },
+            }
+        });
+
+        // Update lead status
+        await prisma.lead.update({
+            where: { id: leadId },
+            data: { status: 'replied' }
+        });
+
+        // Broadcast reply posted webhook event
+        try {
+            const { webhookService } = await import('../services/webhook.service');
+            await webhookService.broadcastEvent('lead.replied', {
+                leadId: lead.id,
+                replyText: content.substring(0, 100) + (content.length > 100 ? '...' : ''),
+                projectId: lead.projectId,
+                subreddit: lead.subreddit,
+                redditCommentId: redditCommentId,
+                leadTitle: lead.title,
+                leadUrl: lead.url
+            }, userId, lead.projectId, 'low');
+            console.log(`📡 [Post Reply] Reply posted webhook broadcasted for lead ${leadId}`);
+        } catch (webhookError) {
+            console.error(`❌ [Post Reply] Failed to broadcast reply posted webhook:`, webhookError);
+        }
+
+        res.json({ 
+            message: 'Reply posted successfully',
+            redditCommentId,
+            scheduledReplyId: scheduledReply.id
+        });
+
+    } catch (error: any) {
+        console.error('❌ [Post Reply] Error:', error);
+        
+        // Create failed reply record
+        try {
+            await prisma.scheduledReply.create({
+                data: {
+                    content,
+                    status: 'FAILED',
+                    failReason: error.message,
+                    scheduledAt: new Date(),
+                    lead: { connect: { id: leadId } },
+                    user: { connect: { id: userId } },
+                }
+            });
+        } catch (dbError) {
+            console.error('Failed to create failed reply record:', dbError);
+        }
+
         next(error);
     }
 };

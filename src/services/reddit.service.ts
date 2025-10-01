@@ -1,365 +1,189 @@
 import snoowrap from 'snoowrap';
 import { RawLead } from '../types/reddit.types';
-import pLimit from 'p-limit';
+import { generateDynamicSearchQueries } from './ai.service';
 
-let r: snoowrap | null = null;
+let requestCount = 0;
+let requestWindowStart = Date.now();
 
-const MAX_PAGES_TO_FETCH = 5; // Safety valve for global search
-
-export const getAppAuthenticatedInstance = async (): Promise<snoowrap> => {
-    if (r) {
-        return r;
+const monitorRateLimit = () => {
+    const now = Date.now();
+    const windowElapsed = now - requestWindowStart;
+    if (windowElapsed >= 60000) {
+        requestCount = 0;
+        requestWindowStart = now;
     }
+    requestCount++;
+};
 
-    console.log('Initializing and verifying Reddit application credentials...');
-    try {
-        const tempR = new snoowrap({
+const getRedditInstance = () => {
+    return new snoowrap({
             userAgent: process.env.REDDIT_USER_AGENT!,
             clientId: process.env.REDDIT_CLIENT_ID!,
             clientSecret: process.env.REDDIT_CLIENT_SECRET!,
-            refreshToken: process.env.REDDIT_REFRESH_TOKEN!
-        });
-        //@ts-expect-error
-        const me = await tempR.getMe();
-        console.log(`✅ Reddit credentials verified for user: u/${me.name}`);
-        
-        r = tempR;
-        return tempR;
-
-    } catch (error: any) {
-        console.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
-        console.error('!!! CRITICAL ERROR: FAILED TO AUTHENTICATE WITH REDDIT !!!');
-        console.error('!!! This is likely due to an invalid REDDIT_REFRESH_TOKEN in your .env file.');
-        console.error('!!! Please check your credentials on https://www.reddit.com/prefs/apps');
-        console.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
-        throw new Error(`Reddit Authentication Failed: ${error.message}`);
-    }
-};
-
-export const findLeadsInSubmissions = async (keywords: string[], subreddits: string[]): Promise<RawLead[]> => {
-    try {
-        const reddit = await getAppAuthenticatedInstance();
-        console.log(`[Submissions] Starting search in ${subreddits.length} subreddits.`);
-
-        const searchQuery = keywords.join(' OR ');
-        const searchPromises = subreddits.map(async (subreddit) => {
-            try {
-                const searchResults = await reddit.getSubreddit(subreddit).search({
-                    query: searchQuery,
-                    sort: 'new',
-                    time: 'month',
-                });
-                return searchResults.map((post): RawLead => ({
-                    id: post.id,
-                    title: post.title,
-                    author: post.author.name,
-                    subreddit: post.subreddit.display_name,
-                    url: `https://www.reddit.com${post.permalink}`,
-                    body: post.selftext,
-                    createdAt: post.created_utc,
-                    numComments: post.num_comments,
-                    upvoteRatio: post.upvote_ratio,
-                    authorKarma: post.author.link_karma + post.author.comment_karma,
-                    type: 'DIRECT_LEAD'
-                }));
-            } catch (error) {
-                console.warn(`[Submissions] Could not search r/${subreddit}. Skipping.`);
-                return [];
-            }
-        });
-
-        const results = await Promise.all(searchPromises);
-        return results.flat();
-    } catch (error) {
-        console.error('[Submissions] Could not perform search due to an error.', error);
-        return [];
-    }
-};
-
-export const findLeadsInComments = async (keywords: string[], subreddits: string[]): Promise<RawLead[]> => {
-    try {
-        const reddit = await getAppAuthenticatedInstance();
-        console.log(`[Comments] Starting search in ${subreddits.length} subreddits.`);
-        const lowerCaseKeywords = keywords.map(k => k.toLowerCase());
-        const limiter = pLimit(5);
-        let leads: RawLead[] = [];
-
-        const searchPromises = subreddits.map(subreddit => limiter(async () => {
-            try {
-                const comments = await reddit.getNewComments(subreddit, { limit: 100 });
-                for (const comment of comments) {
-                    const commentBodyLower = comment.body.toLowerCase();
-                    if (lowerCaseKeywords.some(keyword => commentBodyLower.includes(keyword))) {
-                        const submissionId = comment.link_id.replace('t3_', '');
-                        //@ts-expect-error
-                        const submission = await reddit.getSubmission(submissionId).fetch();
-                        leads.push({
-                            id: comment.id,
-                            title: `Comment in: "${submission.title}"`,
-                            author: comment.author.name,
-                            subreddit: comment.subreddit.display_name,
-                            url: `https://www.reddit.com${comment.permalink}`,
-                            body: comment.body,
-                            createdAt: comment.created_utc,
-                            numComments: submission.num_comments,
-                            upvoteRatio: submission.upvote_ratio,
-                            authorKarma: comment.author.link_karma + comment.author.comment_karma,
-                            type: 'DIRECT_LEAD'
-                        });
-                    }
-                }
-            } catch (error) {
-                console.warn(`[Comments] Could not fetch comments from r/${subreddit}. Skipping.`);
-            }
-        }));
-
-        await Promise.all(searchPromises);
-        return leads;
-    } catch (error) {
-        console.error('[Comments] Could not perform comment search due to an error.', error);
-        return [];
-    }
-};
-
-export const findLeadsGlobally = async (
-    keywords: string[],
-    negativeKeywords: string[],
-    subredditBlacklist: string[],
-    businessDescription?: string
-): Promise<RawLead[]> => {
-    try {
-        const reddit = await getAppAuthenticatedInstance();
-        console.log(`[Global Search] Starting comprehensive Reddit search.`);
-
-        // 🎯 IMPROVED: Cast a wider net with multiple search strategies
-        const primaryKeywords = keywords.slice(0, 5); // Increased from 3 to 5
-        
-        // Strategy 1: Direct keyword searches
-        const directQueries = primaryKeywords.map(keyword => `"${keyword}"`);
-        
-        // Strategy 2: Keyword + intent combinations  
-        const intentQueries = primaryKeywords.slice(0, 3).flatMap(keyword => [
-            `${keyword} (help OR advice OR recommendation)`,
-            `${keyword} (problem OR issue OR struggling)`,
-            `${keyword} (best OR better OR alternative)`
-        ]);
-
-        // Strategy 3: Broader context searches
-        const contextQueries = primaryKeywords.slice(0, 2).map(keyword => 
-            `${keyword} (experience OR thoughts OR opinion OR review)`
-        );
-
-        // Combine all strategies
-        const allQueries = [
-            ...directQueries,
-            ...intentQueries.slice(0, 6), // Limit to prevent too many calls
-            ...contextQueries
-        ];
-
-        const negativeKeywordQuery = negativeKeywords.length > 0 
-            ? negativeKeywords.map(kw => `-"${kw}"`).join(' ')
-            : '';
-        
-        const blacklistQuery = subredditBlacklist.length > 0
-            ? subredditBlacklist.map(sub => `-subreddit:${sub.trim().toLowerCase()}`).join(' ')
-            : '';
-
-        const uniqueLeads = new Map<string, RawLead>();
-        let queryCount = 0;
-
-        // 🎯 IMPROVED: Search with multiple strategies
-        for (const query of allQueries.slice(0, 8)) { // Increased limit to 8 queries
-            try {
-                const finalQuery = [query, negativeKeywordQuery, blacklistQuery]
-                    .filter(Boolean)
-                    .join(' ');
-                
-                console.log(`[Global Search] Query ${++queryCount}: ${finalQuery}`);
-
-                const searchResults = await reddit.search({
-                    query: finalQuery,
-                    sort: 'relevance',
-                    time: 'all', // CHANGED: Search all time instead of just 'week'
-                    limit: 25, 
-                });
-
-                console.log(`[Global Search] Query ${queryCount} returned ${searchResults.length} results`);
-
-                searchResults.forEach((post) => {
-                    if (!uniqueLeads.has(post.id)) {
-                        uniqueLeads.set(post.id, {
-                            id: post.id,
-                            title: post.title,
-                            author: post.author.name,
-                            subreddit: post.subreddit.display_name,
-                            url: `https://www.reddit.com${post.permalink}`,
-                            body: post.selftext,
-                            createdAt: post.created_utc,
-                            numComments: post.num_comments,
-                            upvoteRatio: post.upvote_ratio,
-                            authorKarma: post.author.link_karma + post.author.comment_karma,
-                            type: 'DIRECT_LEAD'
-                        });
-                    }
-                });
-
-                // Shorter delay between queries
-                await new Promise(resolve => setTimeout(resolve, 1500)); 
-            } catch (error) {
-                console.warn(`[Global Search] Query failed: ${query}. Continuing...`);
-            }
-        }
-
-        const leads = Array.from(uniqueLeads.values());
-        console.log(`[Global Search] Found ${leads.length} unique leads from ${queryCount} queries.`);
-        
-        return leads;
-
-    } catch (error) {
-        console.error('[Global Search] A critical error occurred during global search.', error);
-        return [];
-    }
-};
-
-export const findLeadsOnReddit = async (keywords: string[], subreddits: string[]): Promise<RawLead[]> => {
-    try {
-        const reddit = await getAppAuthenticatedInstance();
-        console.log(`Starting Reddit search for ${subreddits.length} subreddits.`);
-
-        const searchQuery = keywords.join(' OR ');
-        console.log(`  -> Using search query: "${searchQuery}"`);
-
-        const searchPromises = subreddits.map(async (subreddit) => {
-            try {
-                const searchResults = await reddit.getSubreddit(subreddit).search({
-                    query: searchQuery,
-                    sort: 'new',
-                    time: 'year',
-                });
-                return searchResults.map((post): RawLead => ({
-                    id: post.id,
-                    title: post.title,
-                    author: post.author.name,
-                    subreddit: post.subreddit.display_name,
-                    url: post.url,
-                    body: post.selftext,
-                    createdAt: post.created_utc,
-                    numComments: post.num_comments,
-                    upvoteRatio: post.upvote_ratio,
-                    authorKarma: post.author.link_karma,
-                    type: 'DIRECT_LEAD'
-                }));
-            } catch (error) {
-                console.warn(`⚠️  Could not search subreddit 'r/${subreddit}'. It might be private, banned, or non-existent. Skipping.`);
-                return [];
-            }
-        });
-
-        const results = await Promise.all(searchPromises);
-        const flattenedResults = results.flat();
-        console.log(`Reddit search complete. Found ${flattenedResults.length} total posts before filtering.`);
-        return flattenedResults;
-
-    } catch (error) {
-        console.error('Could not perform Reddit search due to an error.', error);
-        return [];
-    }
-};
-
-export const getCommentById = async (commentId: string): Promise<any> => {
-    try {
-        const reddit = await getAppAuthenticatedInstance();
-        const comment = await (reddit.getComment(commentId).fetch() as Promise<any>);
-        return comment;
-    } catch (error: any) {
-        console.error(`Failed to fetch comment ${commentId}:`, error.message);
-        throw new Error(`Reddit API Error: Could not fetch comment ${commentId}.`);
-    }
-};
-
-export const postReply = async (parentId: string, text: string, userRefreshToken: string): Promise<string> => {
-    try {
-        const userR = getUserAuthenticatedInstance(userRefreshToken);
-        const newComment = await (userR.getComment(parentId).reply(text) as Promise<any>);
-        return newComment.name as string;
-    } catch (error: any) {
-        console.error(`Failed to post reply to ${parentId}:`, error);
-        throw new Error(`Reddit API Error: ${error.message}`);
-    }
-};
-
-export const getOptimalPostingDelay = (subredditName: string): number => {
-    const popularSubreddits = ['askreddit', 'todayilearned', 'worldnews', 'pics'];
-    if (popularSubreddits.includes(subredditName.toLowerCase())) {
-        return 0;
-    } else {
-        return Math.floor(Math.random() * 10) + 5;
-    }
-};
-
-export const getUserAuthenticatedInstance = (userRefreshToken: string) => {
-    return new snoowrap({
-        userAgent: process.env.REDDIT_USER_AGENT!,
-        clientId: process.env.REDDIT_CLIENT_ID!,
-        clientSecret: process.env.REDDIT_CLIENT_SECRET!,
-        refreshToken: userRefreshToken,
+        refreshToken: process.env.REDDIT_REFRESH_TOKEN!,
     });
 };
 
-export const postReplyAsUser = async (parentId: string, text: string, userRefreshToken: string): Promise<string> => {
-    try {
-        const userR = getUserAuthenticatedInstance(userRefreshToken);
-        const newComment = await (userR.getComment(parentId).reply(text) as Promise<any>);
-        return newComment.name as string;
-    } catch (error: any) {
-        console.error(`Failed to post reply to ${parentId}:`, error);
-        throw new Error(`Reddit API Error: ${error.message}`);
+export const generateQueriesFromDNA = (dna: any, variationLevel: number = 0): string[] => {
+    const queries = new Set<string>();
+    const { naturalLanguageVocabulary: vocab, customerProfile, geographicalFocus } = dna;
+
+    // Add variation based on variationLevel (0-2)
+    const painPointCount = Math.min(8 + variationLevel * 2, vocab.painPoints?.length || 0);
+    const solutionCount = Math.min(6 + variationLevel * 2, vocab.solutionKeywords?.length || 0);
+    const competitorCount = Math.min(4 + variationLevel, vocab.competitors?.length || 0);
+
+    // Pain Point Queries (Highest Priority) - with business context
+    if (vocab.painPoints) {
+        const shuffledPainPoints = [...vocab.painPoints].sort(() => Math.random() - 0.5);
+        shuffledPainPoints.slice(0, painPointCount).forEach((pain: string) => {
+            queries.add(`"${pain}"`);
+            if (variationLevel > 0) {
+                queries.add(`struggling with ${pain}`);
+                queries.add(`need help with ${pain}`);
+            }
+        });
     }
+
+    // Solution-Oriented Queries - with business context
+    if (vocab.solutionKeywords) {
+        const shuffledSolutions = [...vocab.solutionKeywords].sort(() => Math.random() - 0.5);
+        shuffledSolutions.slice(0, solutionCount).forEach((solution: string) => {
+            const jobTitle = customerProfile?.commonTitles?.[Math.floor(Math.random() * (customerProfile.commonTitles.length || 1))] || 'call center';
+            queries.add(`best ${solution} for ${jobTitle}`);
+            queries.add(`${solution}`);
+            
+            // Add variation queries
+            if (variationLevel > 0) {
+                queries.add(`need ${solution}`);
+                queries.add(`looking for ${solution}`);
+            }
+        });
+    }
+
+    // Competitor Queries - with variation
+    if (vocab.competitors) {
+        const shuffledCompetitors = [...vocab.competitors].sort(() => Math.random() - 0.5);
+        shuffledCompetitors.slice(0, competitorCount).forEach((competitor: string) => {
+            queries.add(`alternative to ${competitor}`);
+            queries.add(`${competitor}`);
+            if (variationLevel > 0) {
+                queries.add(`${competitor} vs`);
+                queries.add(`better than ${competitor}`);
+            }
+        });
+    }
+
+    // Add time-based variation queries
+    if (variationLevel > 0) {
+        const timeVariations = ['recently', 'lately', 'this year', '2024'];
+        const randomTime = timeVariations[Math.floor(Math.random() * timeVariations.length)];
+        queries.forEach(q => queries.add(`${q} ${randomTime}`));
+    }
+    
+    // Geo-targeted Queries
+    if (geographicalFocus && geographicalFocus.toLowerCase() !== 'global' && queries.size > 0) {
+        const geoQueries = new Set<string>();
+        queries.forEach(q => geoQueries.add(`${q} ${geographicalFocus}`));
+        return Array.from(geoQueries);
+    }
+
+    return Array.from(queries);
 };
 
-export const getUserKarma = async (userRefreshToken: string): Promise<number> => {
-    try {
-        const userR = getUserAuthenticatedInstance(userRefreshToken);
-        const me = await (userR.getMe() as Promise<any>);
-        return (me.link_karma || 0) + (me.comment_karma || 0);
-    } catch (error: any) {
-        console.error(`Failed to fetch user karma:`, error);
-        throw new Error(`Reddit API Error while fetching karma: ${error.message}`);
-    }
-};
-
-export const checkKarmaThreshold = async (userRefreshToken: string, minimumKarma: number = 10): Promise<boolean> => {
-    try {
-        const karma = await getUserKarma(userRefreshToken);
-        return karma >= minimumKarma;
-    } catch (error) {
-        console.error('Failed to check karma threshold:', error);
+async function isQualityPost(post: any, oneYearAgo: number): Promise<boolean> {
+    if (post.created_utc < oneYearAgo) return false;
+    if (post.score < 1 && post.num_comments < 2) return false;
+    if (!post.title || post.title.length < 15) return false;
+    const combinedText = `${post.title} ${post.selftext || ''}`.toLowerCase();
+    const spamPatterns = [/looking for a job/i, /resume review/i, /career advice/i, /hiring/i, /free trial|discount/i];
+    if (spamPatterns.some(pattern => pattern.test(combinedText))) {
         return false;
     }
-};
+    return true;
+}
 
-// Add to reddit.service.ts
-export const findLeadsOnRedditWithUserAccount = async (
-    keywords: string[], 
-    subreddits: string[], 
-    userRefreshToken: string
-): Promise<RawLead[]> => {
+export const findLeadsWithBusinessIntelligence = async (businessDNA: any, subredditBlacklist: string[] = [], variationLevel: number = 0): Promise<RawLead[]> => {
     try {
-        // Use user's Reddit account instead of app account
-        const userReddit = getUserAuthenticatedInstance(userRefreshToken);
-        console.log(`[User Search] Starting search with user's Reddit account in ${subreddits.length} subreddits.`);
+        const reddit = getRedditInstance();
+        const oneYearAgo = Math.floor(Date.now() / 1000) - 31536000;
+        const uniqueLeads = new Map<string, RawLead>();
+        // Generate both static and dynamic queries for maximum diversity
+        const staticQueries = generateQueriesFromDNA(businessDNA, variationLevel);
+        const dynamicQueries = await generateDynamicSearchQueries(businessDNA, variationLevel);
+        const semanticQueries = [...staticQueries, ...dynamicQueries];
+        
+        console.log(`🔍 [Lead Discovery] Starting discovery process...`);
+        console.log(`🔍 [Lead Discovery] Generated ${staticQueries.length} static + ${dynamicQueries.length} dynamic = ${semanticQueries.length} total queries`);
+        console.log(`🔍 [Lead Discovery] Business DNA:`, businessDNA.businessName || 'Unknown');
+        console.log(`🔍 [Lead Discovery] Target Subreddits:`, businessDNA.suggestedSubreddits || []);
+        console.log(`🔍 [Lead Discovery] Blacklist:`, subredditBlacklist.length, 'subreddits');
+        const blacklistQuery = subredditBlacklist.map(sub => `-subreddit:${sub}`).join(' ');
 
-        const searchQuery = keywords.join(' OR ');
-        console.log(`[User Search] Using search query: "${searchQuery}"`);
+        // Add different search strategies based on variation level
+        const searchStrategies: Array<{ sort: 'relevance' | 'new' | 'top' | 'hot' | 'comments'; time: 'year' | 'month' | 'hour' | 'day' | 'week' | 'all' }> = [
+            { sort: 'relevance', time: 'year' },
+            { sort: 'new', time: 'month' },
+            { sort: 'top', time: 'month' }
+        ];
 
-        const searchPromises = subreddits.map(async (subreddit) => {
-            try {
-                const searchResults = await userReddit.getSubreddit(subreddit).search({
-                    query: searchQuery,
-                    sort: 'new',
-                    time: 'year',
-                });
-                return searchResults.map((post): RawLead => ({
+        // Enhanced scraping strategy: Collect 1000-2000 raw posts for better quality
+        const TARGET_RAW_POSTS = 1500; // Target 1500 raw posts for optimal quality
+        const PARALLEL_CHUNK_SIZE = 8; // Increased for more aggressive scraping
+        const queryChunks = [];
+        for (let i = 0; i < semanticQueries.length; i += PARALLEL_CHUNK_SIZE) {
+            queryChunks.push(semanticQueries.slice(i, i + PARALLEL_CHUNK_SIZE));
+        }
+
+        console.log(`🔍 [Lead Discovery] Enhanced Strategy: Targeting ${TARGET_RAW_POSTS} raw posts`);
+        console.log(`🔍 [Lead Discovery] Processing ${queryChunks.length} chunks of queries...`);
+        
+        for (let chunkIndex = 0; chunkIndex < queryChunks.length; chunkIndex++) {
+            const chunk = queryChunks[chunkIndex];
+            console.log(`🔍 [Lead Discovery] Processing chunk ${chunkIndex + 1}/${queryChunks.length} with ${chunk.length} queries...`);
+            
+            const searchPromises = chunk.map(async (query: string, index: number) => {
+                try {
+                    monitorRateLimit();
+                    // Use different search strategies for variation
+                    const strategy = searchStrategies[index % searchStrategies.length];
+                    // Target specific subreddits for better relevance
+                    const targetSubreddits = businessDNA.suggestedSubreddits || [];
+                    
+                    // Search each subreddit separately since Reddit doesn't support OR in subreddit filters
+                    const subredditSearchPromises = targetSubreddits.length > 0 
+                        ? targetSubreddits.map(async (subreddit: string) => {
+                            // Fix common subreddit name issues
+                            const correctedSubreddit = subreddit === 'artificialintelligence' ? 'MachineLearning' : subreddit;
+                            
+                            console.log(`🔍 [Lead Discovery] Searching subreddit: r/${correctedSubreddit} with query: "${query}"`);
+                            
+                            try {
+                                const results = await reddit.search({ 
+                                    query: query, 
+                                    subreddit: correctedSubreddit,
+                                    sort: strategy.sort, 
+                                    time: strategy.time, 
+                                    limit: Math.max(15, Math.floor((50 + (variationLevel * 10)) / targetSubreddits.length))
+                                });
+                                console.log(`✅ [Lead Discovery] Found ${results.length} posts in r/${correctedSubreddit}`);
+                                return results;
+                            } catch (error: any) {
+                                console.log(`⚠️ [Lead Discovery] Error searching r/${correctedSubreddit}: ${error.message.substring(0, 100)}...`);
+                                return []; // Return empty array for failed searches
+                            }
+                        })
+                        : [reddit.search({ 
+                            query: [query, blacklistQuery].filter(Boolean).join(' '), 
+                            sort: strategy.sort, 
+                            time: strategy.time, 
+                            limit: 50 + (variationLevel * 10)
+                        })];
+                    
+                    const subredditResults = await Promise.all(subredditSearchPromises);
+                    const searchResults = subredditResults.flat();
+                    const qualityChecks = await Promise.all(searchResults.map(async (post: any) => ({ post, isQuality: !uniqueLeads.has(post.id) && await isQualityPost(post, oneYearAgo) })));
+                    return qualityChecks.filter(({ isQuality }) => isQuality).map(({ post }): RawLead => ({
                     id: post.id,
                     title: post.title,
                     author: post.author.name,
@@ -368,24 +192,44 @@ export const findLeadsOnRedditWithUserAccount = async (
                     body: post.selftext,
                     createdAt: post.created_utc,
                     numComments: post.num_comments,
-                    upvoteRatio: post.upvote_ratio,
-                    authorKarma: post.author.link_karma + post.author.comment_karma,
+                        score: post.score,
+                        commentCount: post.num_comments,
                     type: 'DIRECT_LEAD'
                 }));
-            } catch (error) {
-                console.warn(`[User Search] Could not search r/${subreddit} with user account. Skipping.`);
-                return [];
+                } catch (error) { return []; }
+            });
+            const chunkResults = await Promise.all(searchPromises);
+            const newLeadsFromChunk = chunkResults.flat();
+            const beforeCount = uniqueLeads.size;
+            newLeadsFromChunk.forEach((lead: RawLead) => { if (!uniqueLeads.has(lead.id)) uniqueLeads.set(lead.id, lead); });
+            const afterCount = uniqueLeads.size;
+            const newLeadsAdded = afterCount - beforeCount;
+            
+            console.log(`✅ [Lead Discovery] Chunk ${chunkIndex + 1} completed: Found ${newLeadsFromChunk.length} leads, ${newLeadsAdded} new unique leads added`);
+            console.log(`📊 [Lead Discovery] Total unique leads so far: ${afterCount}`);
+            
+            // Early termination if we've collected enough raw posts
+            if (afterCount >= TARGET_RAW_POSTS) {
+                console.log(`🎯 [Lead Discovery] Target reached! Collected ${afterCount} raw posts, stopping early for efficiency`);
+                break;
             }
+            
+            await new Promise(resolve => setTimeout(resolve, 200)); // Further reduced for faster processing
+        }
+        
+        const finalLeads = Array.from(uniqueLeads.values());
+        console.log(`🎉 [Lead Discovery] Discovery completed! Found ${finalLeads.length} total unique leads`);
+        console.log(`📈 [Lead Discovery] Lead breakdown:`, {
+            total: finalLeads.length,
+            subreddits: [...new Set(finalLeads.map(l => l.subreddit))].length,
+            avgScore: Math.round(finalLeads.reduce((sum, l) => sum + (l.score || 0), 0) / finalLeads.length),
+            avgComments: Math.round(finalLeads.reduce((sum, l) => sum + (l.commentCount || 0), 0) / finalLeads.length)
         });
-
-        const results = await Promise.all(searchPromises);
-        const flattenedResults = results.flat();
-        console.log(`[User Search] Found ${flattenedResults.length} total posts using user account.`);
-        return flattenedResults;
-
+        
+        return finalLeads;
     } catch (error) {
-        console.error('[User Search] Could not perform Reddit search with user account:', error);
-        throw new Error('Failed to search Reddit with your account. Please ensure your Reddit connection is valid.');
+        console.error(`❌ [Lead Discovery] Error during discovery:`, error);
+        return [];
     }
 };
 

@@ -5,7 +5,8 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 export const createWebhook = async (req: any, res: Response) => {
-  const { userId } = req.auth;
+  const auth = await req.auth();
+  const userId = auth?.userId;
   const webhookData = req.body;
 
   if (!userId) {
@@ -29,7 +30,8 @@ export const createWebhook = async (req: any, res: Response) => {
 };
 
 export const getWebhooks = async (req: any, res: Response) => {
-  const { userId } = req.auth;
+  const auth = await req.auth();
+  const userId = auth?.userId;
 
   if (!userId) {
     res.status(401).json({ error: 'User not authenticated.' });
@@ -48,7 +50,8 @@ export const getWebhooks = async (req: any, res: Response) => {
 };
 
 export const getWebhookStats = async (req: any, res: Response) => {
-  const { userId } = req.auth;
+  const auth = await req.auth();
+  const userId = auth?.userId;
 
   if (!userId) {
     res.status(401).json({ error: 'User not authenticated.' });
@@ -79,7 +82,8 @@ const verifyWebhookOwner = async (webhookId: string, userId: string): Promise<bo
 
 
 export const updateWebhook = async (req: any, res: Response) => {
-  const { userId } = req.auth;
+  const auth = await req.auth();
+  const userId = auth?.userId;
   const { webhookId } = req.params;
   const updates = req.body;
 
@@ -106,7 +110,8 @@ export const updateWebhook = async (req: any, res: Response) => {
 };
 
 export const deleteWebhook = async (req: any, res: Response) => {
-  const { userId } = req.auth;
+  const auth = await req.auth();
+  const userId = auth?.userId;
   const { webhookId } = req.params;
 
   if (!userId) {
@@ -132,7 +137,8 @@ export const deleteWebhook = async (req: any, res: Response) => {
 };
 
 export const testWebhook = async (req: any, res: Response) => {
-    const { userId } = req.auth;
+    const auth = await req.auth();
+  const userId = auth?.userId;
     const { webhookId } = req.params;
 
     if (!userId) {

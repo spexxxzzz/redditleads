@@ -4,10 +4,11 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 /**
- * Fetches all campaigns for the currently authenticated user
+ * Fetches all projects for the currently authenticated user
  */
-export const getCampaignsForUser: RequestHandler = async (req: any, res, next) => {
-    const { userId } = req.auth;
+export const getProjectsForUser: RequestHandler = async (req: any, res, next) => {
+    const auth = await req.auth();
+    const userId = auth?.userId;
 
     if (!userId) {
         res.status(401).json({ message: 'User not authenticated.' });
@@ -15,7 +16,7 @@ export const getCampaignsForUser: RequestHandler = async (req: any, res, next) =
     }
 
     try {
-        const campaigns = await prisma.campaign.findMany({
+        const projects = await prisma.project.findMany({
             where: { userId },
             orderBy: { createdAt: 'desc' },
             include: {
@@ -35,34 +36,35 @@ export const getCampaignsForUser: RequestHandler = async (req: any, res, next) =
             }
         });
 
-        res.status(200).json(campaigns);
+        res.status(200).json(projects);
     } catch (error) {
-        console.error('Error fetching campaigns:', error);
+        console.error('Error fetching projects:', error);
         next(error);
     }
 };
 
 /**
- * Fetches a specific campaign by ID, ensuring it belongs to the authenticated user
+ * Fetches a specific project by ID, ensuring it belongs to the authenticated user
  */
-export const getCampaignById: RequestHandler = async (req: any, res, next) => {
-    const { userId } = req.auth;
-    const { campaignId } = req.params;
+export const getProjectById: RequestHandler = async (req: any, res, next) => {
+    const auth = await req.auth();
+    const userId = auth?.userId;
+    const { projectId } = req.params;
 
     if (!userId) {
         res.status(401).json({ message: 'User not authenticated.' });
         return;
     }
 
-    if (!campaignId) {
-        res.status(400).json({ message: 'Campaign ID is required.' });
+    if (!projectId) {
+        res.status(400).json({ message: 'Project ID is required.' });
         return;
     }
 
     try {
-        const campaign = await prisma.campaign.findFirst({
+        const project = await prisma.project.findFirst({
             where: { 
-                id: campaignId,
+                id: projectId,
                 userId: userId 
             },
             include: {
@@ -82,24 +84,25 @@ export const getCampaignById: RequestHandler = async (req: any, res, next) => {
             }
         });
 
-        if (!campaign) {
-            res.status(404).json({ message: 'Campaign not found.' });
+        if (!project) {
+            res.status(404).json({ message: 'Project not found.' });
             return;
         }
 
-        res.status(200).json(campaign);
+        res.status(200).json(project);
     } catch (error) {
-        console.error('Error fetching campaign:', error);
+        console.error('Error fetching project:', error);
         next(error);
     }
 };
 
 /**
- * Updates a campaign by ID, ensuring it belongs to the authenticated user
+ * Updates a project by ID, ensuring it belongs to the authenticated user
  */
-export const updateCampaignById: RequestHandler = async (req: any, res, next) => {
-    const { userId } = req.auth;
-    const { campaignId } = req.params;
+export const updateProjectById: RequestHandler = async (req: any, res, next) => {
+    const auth = await req.auth();
+    const userId = auth?.userId;
+    const { projectId } = req.params;
     const {
         name,
         analyzedUrl,
@@ -115,22 +118,22 @@ export const updateCampaignById: RequestHandler = async (req: any, res, next) =>
         return;
     }
 
-    if (!campaignId) {
-        res.status(400).json({ message: 'Campaign ID is required.' });
+    if (!projectId) {
+        res.status(400).json({ message: 'Project ID is required.' });
         return;
     }
 
     try {
-        // First verify the campaign exists and belongs to the user
-        const existingCampaign = await prisma.campaign.findFirst({
+        // First verify the project exists and belongs to the user
+        const existingProject = await prisma.project.findFirst({
             where: {
-                id: campaignId,
+                id: projectId,
                 userId: userId
             }
         });
 
-        if (!existingCampaign) {
-            res.status(404).json({ message: 'Campaign not found or you do not have permission to update it.' });
+        if (!existingProject) {
+            res.status(404).json({ message: 'Project not found or you do not have permission to update it.' });
             return;
         }
 
@@ -156,8 +159,8 @@ export const updateCampaignById: RequestHandler = async (req: any, res, next) =>
         }
         if (isActive !== undefined) updateData.isActive = Boolean(isActive);
 
-        const updatedCampaign = await prisma.campaign.update({
-            where: { id: campaignId },
+        const updatedProject = await prisma.project.update({
+            where: { id: projectId },
             data: updateData,
             include: {
                 user: {
@@ -176,41 +179,42 @@ export const updateCampaignById: RequestHandler = async (req: any, res, next) =>
             }
         });
 
-        console.log(`✅ [Campaign Update] Successfully updated campaign ${campaignId} for user ${userId}`);
+        console.log(`✅ [Project Update] Successfully updated project ${projectId} for user ${userId}`);
         res.status(200).json({
             success: true,
-            message: 'Campaign updated successfully',
-            campaign: updatedCampaign
+            message: 'Project updated successfully',
+            project: updatedProject
         });
 
     } catch (error) {
-        console.error(`❌ [Campaign Update] Error updating campaign ${campaignId}:`, error);
+        console.error(`❌ [Project Update] Error updating project ${projectId}:`, error);
         next(error);
     }
 };
 
 /**
- * Deletes a campaign by ID, ensuring it belongs to the authenticated user
+ * Deletes a project by ID, ensuring it belongs to the authenticated user
  */
-export const deleteCampaignById: RequestHandler = async (req: any, res, next) => {
-    const { userId } = req.auth;
-    const { campaignId } = req.params;
+export const deleteProjectById: RequestHandler = async (req: any, res, next) => {
+    const auth = await req.auth();
+    const userId = auth?.userId;
+    const { projectId } = req.params;
 
     if (!userId) {
         res.status(401).json({ message: 'User not authenticated.' });
         return;
     }
 
-    if (!campaignId) {
-        res.status(400).json({ message: 'Campaign ID is required.' });
+    if (!projectId) {
+        res.status(400).json({ message: 'Project ID is required.' });
         return;
     }
 
     try {
-        // First verify the campaign exists and belongs to the user
-        const existingCampaign = await prisma.campaign.findFirst({
+        // First verify the project exists and belongs to the user
+        const existingProject = await prisma.project.findFirst({
             where: {
-                id: campaignId,
+                id: projectId,
                 userId: userId
             },
             include: {
@@ -222,15 +226,15 @@ export const deleteCampaignById: RequestHandler = async (req: any, res, next) =>
             }
         });
 
-        if (!existingCampaign) {
-            res.status(404).json({ message: 'Campaign not found or you do not have permission to delete it.' });
+        if (!existingProject) {
+            res.status(404).json({ message: 'Project not found or you do not have permission to delete it.' });
             return;
         }
 
         // Delete all associated leads first (cascade should handle this, but being explicit)
         const deletedLeadsCount = await prisma.lead.deleteMany({
             where: {
-                campaignId: campaignId,
+                projectId: projectId,
                 userId: userId
             }
         });
@@ -238,7 +242,7 @@ export const deleteCampaignById: RequestHandler = async (req: any, res, next) =>
         // Delete all associated market insights
         await prisma.marketInsight.deleteMany({
             where: {
-                campaignId: campaignId
+                projectId: projectId
             }
         });
 
@@ -246,31 +250,31 @@ export const deleteCampaignById: RequestHandler = async (req: any, res, next) =>
         await prisma.scheduledReply.deleteMany({
             where: {
                 lead: {
-                    campaignId: campaignId,
+                    projectId: projectId,
                     userId: userId
                 }
             }
         });
 
-        // Finally delete the campaign
-        const deletedCampaign = await prisma.campaign.delete({
-            where: { id: campaignId }
+        // Finally delete the project
+        const deletedProject = await prisma.project.delete({
+            where: { id: projectId }
         });
 
-        console.log(`✅ [Campaign Delete] Successfully deleted campaign ${campaignId} and ${deletedLeadsCount.count} associated leads for user ${userId}`);
+        console.log(`✅ [Project Delete] Successfully deleted project ${projectId} and ${deletedLeadsCount.count} associated leads for user ${userId}`);
         
         res.status(200).json({
             success: true,
-            message: `Campaign deleted successfully. ${deletedLeadsCount.count} associated leads were also removed.`,
-            deletedCampaign: {
-                id: deletedCampaign.id,
-                name: deletedCampaign.name || 'Unnamed Campaign'
+            message: `Project deleted successfully. ${deletedLeadsCount.count} associated leads were also removed.`,
+            deletedProject: {
+                id: deletedProject.id,
+                name: deletedProject.name || 'Unnamed Project'
             },
             deletedLeadsCount: deletedLeadsCount.count
         });
 
     } catch (error) {
-        console.error(`❌ [Campaign Delete] Error deleting campaign ${campaignId}:`, error);
+        console.error(`❌ [Project Delete] Error deleting project ${projectId}:`, error);
         next(error);
     }
 };

@@ -5,7 +5,8 @@ const prisma = new PrismaClient();
 
 export const getUserUsage = async (req: any, res: Response, next: NextFunction) => {
     // Get the authenticated user's ID from Clerk's middleware
-    const { userId } = req.auth;
+    const auth = await req.auth();
+    const userId = auth?.userId;
 
     // Ensure the user is authenticated
     if (!userId) {
@@ -81,12 +82,12 @@ async function getCurrentMonthLeadCount(userId: string): Promise<number> {
 }
 
 async function getCurrentKeywordCount(userId: string): Promise<number> {
-    const campaigns = await prisma.campaign.findMany({
+    const projects = await prisma.project.findMany({
         where: { userId },
         select: { generatedKeywords: true }
     });
 
-    return campaigns.reduce((total, campaign) => 
-        total + (campaign.generatedKeywords?.length || 0), 0
+    return projects.reduce((total, project) => 
+        total + (project.generatedKeywords?.length || 0), 0
     );
 }

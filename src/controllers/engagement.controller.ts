@@ -1,67 +1,50 @@
 import { RequestHandler } from 'express';
-import { generateReplyOptions, refineReply } from '../services/engagement.service';
+import { generateReplyOptions } from '../services/ai.service';
 import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 export const getReplyOptions: RequestHandler = async (req: any, res, next) => {
-    const { userId } = req.auth;
-    // --- MODIFIED: Destructure 'funMode' from the request body ---
-    const { leadId, funMode } = req.body;
+    const auth = await req.auth();
+    const userId = auth?.userId;
+    const { leadId } = req.body;
+
+    console.log(`[GET REPLIES] Request received - User: ${userId}, LeadId: ${leadId}`);
 
     if (!userId) {
+        console.log(`[GET REPLIES] User not authenticated`);
         return res.status(401).json({ message: 'User not authenticated.' });
     }
 
     if (!leadId) {
-        return res.status(400).json({ message: 'A leadId is required.' });
+        console.log(`[GET REPLIES] LeadId not provided`);
+        return res.status(400).json({ message: 'LeadId is required.' });
     }
 
     try {
-        // --- MODIFIED: Pass 'funMode' to the service ---
-        const replies = await generateReplyOptions(leadId, userId, funMode);
-        res.status(200).json({ replies });
-    } catch (error) {
-        next(error);
+        console.log(`[GET REPLIES] User ${userId} requesting reply options for lead ${leadId}`);
+        const replies = await generateReplyOptions(leadId);
+        console.log(`[GET REPLIES] Successfully generated ${replies.length} replies`);
+        return res.status(200).json({ replies });
+    } catch (error: any) {
+        console.error('❌ [GET REPLIES] Error getting reply options:', error);
+        console.error('❌ [GET REPLIES] Error message:', error.message);
+        console.error('❌ [GET REPLIES] Error stack:', error.stack);
+        
+        if (error.message.includes('quota exceeded') || error.message.includes('limit reached')) {
+            return res.status(429).json({ message: error.message });
+        }
+        return res.status(500).json({ message: 'Failed to generate reply options.', error: error.message });
     }
 };
 
 
 
-/**
- * Handles the request to refine an existing reply based on an instruction.
- * This is a protected action, requiring an authenticated user.
- */
-export const postRefineReply: RequestHandler = async (req: any, res, next) => {
-    // Get the authenticated user's ID to ensure the action is performed by a valid user.
-    const { userId } = req.auth;
-    const { originalReply, instruction } = req.body;
-
-    // Ensure the user is authenticated
-    if (!userId) {
-         res.status(401).json({ message: 'User not authenticated.' });
-         return
-    }
-
-    if (!originalReply || !instruction) {
-          res.status(400).json({ message: 'Both originalReply and instruction are required.' });
-          return
-    }
-
-    try {
-        const refinedReply = await refineReply(originalReply, instruction);
-        res.status(200).json({ refinedReply });
-    } catch (error) {
-        next(error);
-    }
-};
-
- 
- 
 /**
  * Creates a placeholder reply record so the worker can track a manually posted reply.
  */
 export const prepareReplyForTracking: RequestHandler = async (req: any, res, next) => {
-    const { userId } = req.auth;
+    const auth = await req.auth();
+    const userId = auth?.userId;
     const { leadId, content } = req.body;
 
     if (!userId) {
