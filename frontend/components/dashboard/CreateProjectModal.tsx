@@ -104,15 +104,22 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
       // Construct businessDNA object from form data
       const businessDNA = {
         businessName: formData.businessDNA?.businessName || formData.name || 'Untitled Project',
-        businessDescription: formData.generatedDescription || '',
-        targetKeywords: formData.generatedKeywords || [],
-        targetSubreddits: formData.targetSubreddits || [],
-        competitors: formData.competitors || [],
-        industry: 'Technology', // Default industry
-        problemStatement: formData.generatedDescription || '',
-        solutionDescription: formData.generatedDescription || '',
-        targetCustomerProfile: 'Tech-savvy professionals',
-        naturalLanguageVocabulary: formData.generatedKeywords || []
+        oneLiner: formData.businessDNA?.oneLiner || formData.generatedDescription?.split('\n')[0] || '',
+        coreProblem: formData.businessDNA?.coreProblem || 'Problem to be defined',
+        solutionValue: formData.businessDNA?.solutionValue || formData.generatedDescription || '',
+        customerProfile: formData.businessDNA?.customerProfile || {
+          description: 'Tech-savvy professionals',
+          commonTitles: []
+        },
+        naturalLanguageVocabulary: {
+          painPoints: formData.businessDNA?.naturalLanguageVocabulary?.painPoints || [],
+          solutionKeywords: formData.generatedKeywords || [],
+          useCases: formData.businessDNA?.naturalLanguageVocabulary?.useCases || [],
+          competitors: formData.competitors || []
+        },
+        suggestedSubreddits: formData.targetSubreddits || [],
+        geographicalFocus: formData.businessDNA?.geographicalFocus || 'Global',
+        disqualifiers: formData.businessDNA?.disqualifiers || []
       };
       
       await api.createProject({
