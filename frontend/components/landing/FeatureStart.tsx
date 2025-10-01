@@ -48,7 +48,7 @@ export function FeaturesStart() {
 
       <div className="relative max-w-8xl mx-auto">
         {/* Section Header */}
-        <motion.header
+        {/* <motion.header
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
@@ -64,10 +64,10 @@ export function FeaturesStart() {
               lead generation machine
             </span>
           </h2>
-        </motion.header>
+        </motion.header> */}
 
         {/* 1 - Main Hero Feature */}
-        <section className="relative flex flex-col items-center gap-16 py-32 px-8 max-w-8xl mx-auto mb-32">
+        {/* <section className="relative flex flex-col items-center gap-16 py-32 px-8 max-w-8xl mx-auto mb-32">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -95,10 +95,10 @@ export function FeaturesStart() {
               </div>
             </div>
           </motion.div>
-        </section>
+        </section> */}
 
         {/* 2 - AI-Generated Replies */}
-        <section className="relative flex flex-col items-center gap-16 py-24 px-8 max-w-8xl mx-auto mb-32">
+        {/* <section className="relative flex flex-col items-center gap-16 py-24 px-8 max-w-8xl mx-auto mb-32">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -126,7 +126,7 @@ export function FeaturesStart() {
               </div>
             </div>
           </motion.div>
-        </section>
+        </section> */}
 
         {/* 3 - AI Summaries */}
         <section className="relative flex flex-col items-center gap-16 py-24 px-8 max-w-8xl mx-auto mb-32">

@@ -23,10 +23,10 @@ export const Header = () => {
   }, []);
 
   const navLinks = [
-    { href: "#features", label: "Features" },
+    // { href: "#features", label: "Features" },
     { href: "#how-it-works", label: "How It Works" },
     { href: "#pricing", label: "Pricing" },
-    { href: "#faq", label: "FAQ" },
+    // { href: "#faq", label: "FAQ" },
     { href: "/blog", label: "Blog" },
   ];
 

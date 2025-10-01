@@ -136,17 +136,15 @@ export const Hero = () => {
             </motion.p>
         
             {/* ... rest of your component (Image, etc.) ... */}
-            <motion.div
+            {/* <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 1, delay: 1.4 }}
-              className="relative mx-auto mt-20" // <-- REMOVED max-w- class to make it larger
+              className="relative mx-auto mt-20"
             >
               <div className="relative">
-                {/* Static Glow Layers */}
                 <div className="absolute -inset-2 bg-transparent rounded-3xl [background:conic-gradient(from_90deg_at_50%_50%,#fb923c_0%,#f97316_50%,#ea580c_100%)] blur-lg" />
                 
-                {/* Animated Breathing Glow Layers */}
                 <motion.div
                   animate={{ opacity: [0.3, 0.8, 0.3] }}
                   transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
@@ -158,7 +156,6 @@ export const Hero = () => {
                   className="absolute -inset-8 bg-orange-500/30 blur-3xl rounded-full"
                 />
 
-                {/* Image Container */}
                 <div className="relative overflow-hidden rounded-xl shadow-2xl shadow-orange-500/20 z-10 border border-white/10">
                   <Image
                     src="/Redlead1.png"
@@ -171,7 +168,7 @@ export const Hero = () => {
                   />
                 </div>
               </div>
-            </motion.div>
+            </motion.div> */}
 
           </div>
         </div>

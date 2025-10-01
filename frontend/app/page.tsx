@@ -17,10 +17,10 @@ export default function Home() {
   return (
      <>
        <div className="relative">
-         <Header />
-         <Hero />
-         <IntegrationsMarquee/>
-         <FeaturesStart />
+        <Header />
+        <Hero />
+        {/* <IntegrationsMarquee/> */}
+        <FeaturesStart />
           <WhyReddit />    
           <HowToDo/>
           <div id="pricing" className="bg-black py-20">
