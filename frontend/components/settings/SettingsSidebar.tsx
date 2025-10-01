@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { User, Bell, CreditCard, Cog, ExternalLink } from "lucide-react"; // Import Cog and ExternalLink
+import { User, Bell, CreditCard, Cog, ExternalLink, Webhook, Activity } from "lucide-react"; // Import Cog, ExternalLink, Webhook, Activity
 
 // Sidebar navigation items
 const sidebarNavItems = [
@@ -17,9 +17,9 @@ const sidebarNavItems = [
     view: "account",
   },
   {
-    title: "Reddit Integration",
-    icon: <ExternalLink className="mr-2 h-4 w-4" />,
-    view: "reddit",
+    title: "Webhooks",
+    icon: <Webhook className="mr-2 h-4 w-4" />,
+    view: "webhooks",
   },
   {
     title: "Notifications",
@@ -27,9 +27,9 @@ const sidebarNavItems = [
     view: "notifications",
   },
   {
-    title: "Billing",
-    icon: <CreditCard className="mr-2 h-4 w-4" />,
-    view: "billing",
+    title: "Performance",
+    icon: <Activity className="mr-2 h-4 w-4" />,
+    view: "performance",
   },
 ];
 

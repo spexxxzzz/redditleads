@@ -19,7 +19,9 @@ import {
   Webhook,
   PieChart,
   Activity,
-  FolderOpen // Add this import for project management
+  FolderOpen, // Add this import for project management
+  ExternalLink,
+  CreditCard
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useUser, useAuth } from '@clerk/nextjs';
@@ -339,16 +341,16 @@ export const DashboardSidebar = ({
               isActive={pathname === '/dashboard/projects'} 
             />
             <NavButton 
-              href="/dashboard/webhooks" 
-              icon={Webhook} 
-              label="Webhooks" 
-              isActive={pathname === '/dashboard/webhooks'} 
+              href="/dashboard/settings?view=reddit" 
+              icon={ExternalLink} 
+              label="Reddit Integration" 
+              isActive={pathname === '/dashboard/settings'} 
             />
             <NavButton 
-              href="/dashboard/performance" 
-              icon={Activity} 
-              label="Performance" 
-              isActive={pathname === '/dashboard/performance'} 
+              href="/dashboard/settings?view=billing" 
+              icon={CreditCard} 
+              label="Billing" 
+              isActive={pathname === '/dashboard/settings'} 
             />
             <NavButton 
               href="/dashboard/settings" 

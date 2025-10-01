@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Separator } from "@/components/ui/separator";
 import { BillingSettings } from "@/components/settings/BillingSettings";
 import { NotificationSettings } from "@/components/settings/NotificationSettings";
@@ -12,24 +13,31 @@ import { RedditConnection } from "@/components/dashboard/RedditSettings";
 
 // Main component for the settings page
 export default function SettingsPage() {
+  const searchParams = useSearchParams();
   // State to manage the currently active settings view
   const [activeView, setActiveView] = useState("profile");
+
+  // Handle URL parameters for direct navigation
+  useEffect(() => {
+    const view = searchParams.get('view');
+    if (view && ['profile', 'account', 'webhooks', 'notifications', 'performance'].includes(view)) {
+      setActiveView(view);
+    }
+  }, [searchParams]);
 
   // Function to render the component based on the active view
   const renderView = () => {
     switch (activeView) {
       case "profile":
         return <ProfileSettings />;
-      case "notifications":
-        return <NotificationSettings />
-      case "billing":
-        return <BillingSettings />;
       case "account":
-        return <AccountSettings/>; // Assuming Account settings are similar to Profile
-      case "reddit":
-        return <RedditConnection />;
-      case "email":
-        return <EmailSettings />;
+        return <AccountSettings/>;
+      case "webhooks":
+        return <div className="text-white">Webhooks settings coming soon...</div>;
+      case "notifications":
+        return <NotificationSettings />;
+      case "performance":
+        return <div className="text-white">Performance settings coming soon...</div>;
       default:
         return <ProfileSettings />;
     }
