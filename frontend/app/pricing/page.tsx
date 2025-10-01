@@ -81,8 +81,8 @@ export default function PricingPage() {
       id: "pdt_2A3SVJeAnBgj8XjLeoiaR",
       name: "Starter",
       description: "For SaaS builders, in the validation phase and finding their first potential customers",
-      monthlyPrice: 19,
-      yearlyPrice: 15,
+      monthlyPrice: 13,
+      yearlyPrice: 10,
       icon: Zap,
       color: "blue",
       features: [
@@ -99,8 +99,8 @@ export default function PricingPage() {
       id: "pdt_jhcgzC7RawLnUVJr4bn0a",
       name: "Pro",
       description: "For Solopreneurs finding their initial customers",
-      monthlyPrice: 49,
-      yearlyPrice: 39,
+      monthlyPrice: 39,
+      yearlyPrice: 31,
       icon: Crown,
       color: "orange",
       features: [
@@ -120,8 +120,8 @@ export default function PricingPage() {
       id: "pdt_mXpMfglw1fhJpQGW2AFnj",
       name: "Ultimate",
       description: "Best for growing startups to get aggressive leads",
-      monthlyPrice: 99,
-      yearlyPrice: 79,
+      monthlyPrice: 90,
+      yearlyPrice: 72,
       icon: Building,
       color: "purple",
       features: [
@@ -359,6 +359,22 @@ export default function PricingPage() {
                                 <span className={`text-sm font-bold ${plan.name === 'Ultimate' ? 'text-cyan-700 drop-shadow-sm' : 'text-gray-400'} ${inter.className}`}>/mo</span>
                               )}
                             </div>
+                            {/* Customer Expectations */}
+                            {plan.name === "Starter" && (
+                              <p className={`text-sm font-medium text-orange-400 ${inter.className}`}>
+                                expect 8-10 customers
+                              </p>
+                            )}
+                            {plan.name === "Pro" && (
+                              <p className={`text-sm font-medium text-orange-400 ${inter.className}`}>
+                                expect 25-30 customers
+                              </p>
+                            )}
+                            {plan.name === "Ultimate" && (
+                              <p className={`text-sm font-medium text-orange-400 ${inter.className}`}>
+                                expect 99+ customers
+                              </p>
+                            )}
                           </div>
                           <hr className={`${plan.name === 'Ultimate' ? 'border-cyan-300' : 'border-gray-700'}`} />
                           <div className="flex flex-col gap-4">
