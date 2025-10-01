@@ -1,6 +1,7 @@
 // frontend/lib/api.ts
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+// Use relative path to leverage Vercel's proxy, or fallback to direct URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api/proxy';
 
 // Global request lock to prevent duplicate requests
 let isManualDiscoveryRunning = false;
