@@ -1,0 +1,823 @@
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
+import { perplexity } from '@ai-sdk/perplexity';
+import { generateText } from 'ai';
+import OpenAI from 'openai';
+import { PrismaClient } from '@prisma/client';
+import { AIUsageService } from './aitracking.service';
+import { getAppAuthenticatedInstance } from './reddit.service';
+
+const prisma = new PrismaClient();
+const aiCache = new Map<string, any>();
+
+function safeJsonParse<T>(jsonString: string, validator: (obj: any) => obj is T): T | null {
+    try {
+        // Clean the string first - remove trailing commas and whitespace
+        let cleanedString = jsonString.trim();
+        
+        // Remove markdown code blocks if present
+        if (cleanedString.includes('```json')) {
+            cleanedString = cleanedString.replace(/```json\s*/, '').replace(/\s*```$/, '');
+        } else if (cleanedString.includes('```')) {
+            cleanedString = cleanedString.replace(/```\s*/, '').replace(/\s*```$/, '');
+        }
+        
+        // Clean up any remaining whitespace
+        cleanedString = cleanedString.trim();
+        
+        // Extract JSON object or array
+        const jsonMatch = cleanedString.match(/{[\s\S]*}/) || cleanedString.match(/\[[\s\S]*\]/);
+        if (!jsonMatch) {
+            console.error("No JSON structure found in response");
+            return null;
+        }
+        
+        let potentialJson = jsonMatch[0];
+        
+        // Remove trailing commas before closing braces/brackets
+        potentialJson = potentialJson
+            .replace(/,(\s*[}\]])/g, '$1') // Remove trailing commas before } or ]
+            .replace(/,(\s*$)/g, ''); // Remove trailing commas at the end
+        
+        const parsed = JSON.parse(potentialJson);
+        
+        if (validator(parsed)) {
+            return parsed;
+        } else {
+            console.error("Parsed JSON doesn't match expected structure:", parsed);
+            return null;
+        }
+    } catch (error) {
+        console.error("JSON parsing failed:", error);
+        console.error("Original string:", jsonString);
+        
+        // Fallback: try to extract just the content between quotes for replies
+        if (jsonString.includes('"replies"')) {
+            try {
+                // Extract array content more aggressively
+                const arrayMatch = jsonString.match(/\["[^"]*"(?:,\s*"[^"]*")*\]/);
+                if (arrayMatch) {
+                    const repliesArray = JSON.parse(arrayMatch[0]);
+                    const fallbackObj = { replies: repliesArray };
+                    if (validator(fallbackObj)) {
+                        console.log("Fallback parsing succeeded");
+                        return fallbackObj;
+                    }
+                }
+            } catch (fallbackError) {
+                console.error("Fallback parsing also failed:", fallbackError);
+            }
+        }
+        
+        return null;
+    }
+}
+
+// Helper function to manually extract replies if JSON parsing fails
+function extractRepliesManually(text: string): string[] {
+    const replies: string[] = [];
+    
+    // Try to find quoted strings that look like replies
+    const quoteMatches = text.match(/"([^"]{50,}?)"/g);
+    if (quoteMatches) {
+        for (const match of quoteMatches) {
+            const reply = match.slice(1, -1); // Remove quotes
+            if (reply.length > 50 && reply.length < 1000) { // Reasonable reply length
+                replies.push(reply);
+            }
+        }
+    }
+    
+    return replies;
+}
+
+const aiProviders = [
+    {
+        name: 'Gemini',
+        generate: async function(prompt: string, expectJson: boolean): Promise<string> {
+            console.log(`[AI Service] API Key loaded: ${process.env.GOOGLE_GENERATIVE_AI_API_KEY ? 'YES' : 'NO'}`);
+            if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) throw new Error("Gemini API key is not set.");
+            const client = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
+            const model = client.getGenerativeModel({ 
+                model: 'gemini-2.5-pro',
+                generationConfig: {
+                    maxOutputTokens: 3072,
+                    temperature: 0,
+                },
+                safetySettings: [
+                    {
+                        category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+                        threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
+                    },
+                    {
+                        category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+                        threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
+                    },
+                    {
+                        category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+                        threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
+                    },
+                    {
+                        category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                        threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
+                    }
+                ]
+            });
+            const result = await model.generateContent(prompt);
+            
+            // Check if the response was blocked
+            if (result.response.candidates && result.response.candidates[0] && result.response.candidates[0].finishReason === 'SAFETY') {
+                console.log(`[AI Service]  response blocked by safety filters`);
+                throw new Error("Response blocked by safety filters");
+            }
+            
+            const responseText = result.response.text();
+            console.log(`[AI Service]  response length: ${responseText.length}`);
+            console.log(`[AI Service] Gemini response preview: ${responseText.slice(0, 100)}`);
+            
+            if (!responseText || responseText.trim().length === 0) {
+                console.log(`[AI Service] Gemini returned empty response`);
+                throw new Error("Received an empty response from the API.");
+            }
+            
+            return responseText;
+        }
+    }
+];
+
+const generateContentWithFallback = async (prompt: string, expectJson: boolean, cacheKey?: string): Promise<string> => {
+    const finalCacheKey = cacheKey || `ai_response:${Buffer.from(prompt).toString('base64').slice(0, 50)}`;
+    
+    if (aiCache.has(finalCacheKey)) {
+        console.log(`[CACHE HIT] Returning cached AI response for key: ${finalCacheKey}`);
+        return aiCache.get(finalCacheKey);
+    }
+
+    let lastError: Error | null = null;
+    for (const provider of aiProviders) {
+        try {
+            console.log(`[AI Service] Attempting to use ${provider.name}...`);
+            const text = await provider.generate(prompt, expectJson);
+            if (!text) throw new Error("Received an empty response from the API.");
+            console.log(`[AI Service] Successfully received response from ${provider.name}.`);
+            aiCache.set(finalCacheKey, text);
+            return text;
+        } catch (error) {
+            lastError = error instanceof Error ? error : new Error(String(error));
+            console.error(`[AI Service] ${provider.name} failed:`, lastError.message);
+        }
+    }
+    throw new Error(`All AI services are currently unavailable. Last error: ${lastError?.message}`);
+};
+
+export const generateAIReplies = async (
+    leadTitle: string,
+    leadBody: string | null,
+    companyDescription: string,
+    subredditCultureNotes: string,
+    subredditRules: string[]
+): Promise<string[]> => {
+    const truncatedTitle = leadTitle.slice(0, 250);
+    const truncatedBody = (leadBody || '').slice(0, 400);
+    const truncatedDescription = companyDescription.slice(0, 250);
+    const truncatedCulture = subredditCultureNotes.slice(0, 200);
+    const limitedRules = subredditRules.slice(0, 4).map(rule => rule.slice(0, 70));
+    
+    const cacheKey = `replies_v3:${truncatedTitle}:${truncatedBody.slice(0, 100)}`;
+    
+    const prompt = `You are an expert Reddit commenter. Your goal is to write 3 helpful and natural-sounding replies to a Reddit post. You must sound like a real person, not a corporate bot.
+
+**The Post:**
+* **Title:** "${truncatedTitle}"
+* **Body:** "${truncatedBody}"
+
+**Your Product:**
+* **Description:** "${truncatedDescription}"
+
+**Subreddit Context:**
+* **Culture:** "${truncatedCulture}"
+* **Key Rules to Follow:** ${limitedRules.join('; ')}
+
+**Your Task:**
+Generate 3 distinct replies. Each reply MUST:
+1.  **Be Helpful First:** Directly address the user's question or problem in the post. Provide value.
+2.  **Sound Human:** Use a casual, conversational tone. Use "I" or "we" naturally.
+3.  **Subtly Promote:** After being helpful, you can *casually* mention how your product might be a good fit. Don't be pushy. Frame it as a friendly suggestion. For example: "Oh, and for something like this, I've had good luck with [Your Product]. It's pretty good at [solving the specific problem]." or "Full disclosure, I'm part of the team behind [Your Product], but it might be genuinely useful for you here because..."
+4.  **Respect the Rules:** Your reply must not violate the subreddit rules.
+5.  **Vary the Style:** Create three different styles of replies (e.g., one very direct, one more story-based, one more inquisitive).
+
+**CRITICAL: Your response must be ONLY valid JSON with no extra text, comments, or trailing commas. Use this exact format:**
+{"replies": ["reply1", "reply2", "reply3"]}
+
+**Do not add any text before or after the JSON object.**`;
+
+    try {
+        const responseText = await generateContentWithFallback(prompt, true, cacheKey);
+        console.log("Raw AI response:", responseText);
+
+        const parsed = safeJsonParse<{ replies: string[] }>(responseText, (obj): obj is { replies: string[] } =>
+            obj && 
+            typeof obj === 'object' && 
+            'replies' in obj && 
+            Array.isArray(obj.replies) && 
+            obj.replies.length > 0 &&
+            obj.replies.every((item: any) => typeof item === 'string' && item.trim().length > 0)
+        );
+        
+        if (parsed && parsed.replies.length >= 3) {
+            return parsed.replies.slice(0, 3);
+        }
+
+        console.error("Failed to parse AI response for replies as JSON. Attempting manual extraction...");
+        
+        // Manual extraction fallback
+        const manuallyExtracted = extractRepliesManually(responseText);
+        if (manuallyExtracted.length >= 3) {
+            return manuallyExtracted.slice(0, 3);
+        }
+
+        console.error("All parsing attempts failed. Using fallback reply.");
+        return [`I saw you were asking about "${truncatedTitle}". Could you clarify a bit more? We're building a tool that might help, but I want to ensure it's a good fit before recommending.`];
+
+    } catch (error) {
+        console.error("Error in generateAIReplies:", error);
+        return [`I saw you were asking about "${truncatedTitle}". Could you clarify a bit more? We're building a tool that might help, but I want to ensure it's a good fit before recommending.`];
+    }
+};
+
+// Helper function to parse subreddit responses with multiple strategies
+const parseSubredditResponse = (responseText: string): string[] => {
+    const subreddits: string[] = [];
+    
+    // Strategy 1: Split by common delimiters
+    const delimiters = [',', '\n', ';', '|', '-', '•', '*'];
+    let parts: string[] = [responseText];
+    
+    for (const delimiter of delimiters) {
+        const newParts: string[] = [];
+        for (const part of parts) {
+            newParts.push(...part.split(delimiter));
+        }
+        parts = newParts;
+    }
+    
+    // Strategy 2: Extract from each part
+    for (const part of parts) {
+        const cleaned = part.trim().toLowerCase();
+        
+        // Remove common prefixes/suffixes
+        let subreddit = cleaned
+            .replace(/^r\//, '') // Remove r/ prefix
+            .replace(/^subreddit:?\s*/i, '') // Remove "subreddit:" prefix
+            .replace(/^community:?\s*/i, '') // Remove "community:" prefix
+            .replace(/^forum:?\s*/i, '') // Remove "forum:" prefix
+            .replace(/[^\w]/g, '') // Remove special characters
+            .replace(/^\d+\.?\s*/, '') // Remove numbered lists
+            .replace(/^[-•*]\s*/, ''); // Remove bullet points
+        
+        // Validate subreddit name
+        if (subreddit.length >= 2 && subreddit.length <= 21 && /^[a-zA-Z0-9_]+$/.test(subreddit)) {
+            // Filter out common non-subreddit words
+            const stopWords = ['the', 'and', 'or', 'but', 'for', 'with', 'about', 'from', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'between', 'among', 'within', 'without', 'against', 'towards', 'upon', 'concerning', 'regarding', 'respecting', 'considering', 'including', 'excluding', 'following', 'preceding', 'succeeding', 'prior', 'subsequent', 'consequent', 'resultant', 'derived', 'based', 'founded', 'established', 'created', 'built', 'developed', 'designed', 'implemented', 'launched', 'released', 'published', 'announced', 'introduced', 'presented', 'offered', 'provided', 'delivered', 'supplied', 'distributed', 'marketed', 'promoted', 'advertised', 'featured', 'highlighted', 'showcased', 'demonstrated', 'exhibited', 'displayed', 'presented', 'shared', 'discussed', 'talked', 'mentioned', 'referenced', 'cited', 'quoted', 'linked', 'connected', 'associated', 'related', 'relevant', 'pertinent', 'applicable', 'suitable', 'appropriate', 'useful', 'helpful', 'beneficial', 'valuable', 'important', 'significant', 'notable', 'remarkable', 'outstanding', 'excellent', 'great', 'good', 'best', 'top', 'popular', 'famous', 'wellknown', 'known', 'recognized', 'acknowledged', 'accepted', 'approved', 'recommended', 'suggested', 'proposed', 'offered', 'available', 'accessible', 'reachable', 'findable', 'discoverable', 'searchable', 'browsable', 'navigable', 'explorable', 'investigatable', 'researchable', 'studiable', 'learnable', 'teachable', 'educational', 'informative', 'instructive', 'explanatory', 'descriptive', 'detailed', 'comprehensive', 'complete', 'thorough', 'extensive', 'wide', 'broad', 'deep', 'profound', 'insightful', 'meaningful', 'substantial', 'considerable', 'significant', 'major', 'main', 'primary', 'principal', 'key', 'essential', 'fundamental', 'basic', 'core', 'central', 'important', 'crucial', 'critical', 'vital', 'necessary', 'required', 'needed', 'wanted', 'desired', 'preferred', 'chosen', 'selected', 'picked', 'chosen', 'opted', 'decided', 'determined', 'resolved', 'settled', 'agreed', 'concluded', 'finished', 'completed', 'done', 'accomplished', 'achieved', 'attained', 'reached', 'obtained', 'gained', 'earned', 'won', 'succeeded', 'triumphed', 'prevailed', 'conquered', 'overcame', 'surpassed', 'exceeded', 'outperformed', 'outdone', 'beaten', 'defeated', 'overthrown', 'overpowered', 'overwhelmed', 'dominated', 'controlled', 'managed', 'handled', 'dealt', 'coped', 'handled', 'addressed', 'tackled', 'approached', 'method', 'way', 'approach', 'strategy', 'technique', 'tactic', 'methodology', 'procedure', 'process', 'system', 'framework', 'structure', 'organization', 'arrangement', 'layout', 'design', 'pattern', 'model', 'template', 'format', 'style', 'form', 'type', 'kind', 'sort', 'category', 'classification', 'group', 'set', 'collection', 'bunch', 'batch', 'lot', 'number', 'amount', 'quantity', 'count', 'total', 'sum', 'aggregate', 'combination', 'mixture', 'blend', 'fusion', 'merger', 'integration', 'connection', 'link', 'bond', 'relationship', 'association', 'partnership', 'collaboration', 'cooperation', 'teamwork', 'alliance', 'union', 'unity', 'harmony', 'agreement', 'consensus', 'accord', 'understanding', 'comprehension', 'knowledge', 'awareness', 'consciousness', 'realization', 'recognition', 'perception', 'insight', 'wisdom', 'intelligence', 'smartness', 'cleverness', 'brilliance', 'genius', 'talent', 'skill', 'ability', 'capability', 'capacity', 'potential', 'possibility', 'opportunity', 'chance', 'prospect', 'hope', 'expectation', 'anticipation', 'prediction', 'forecast', 'projection', 'estimate', 'calculation', 'computation', 'analysis', 'evaluation', 'assessment', 'judgment', 'opinion', 'view', 'perspective', 'standpoint', 'position', 'stance', 'attitude', 'approach', 'method', 'technique', 'tactic', 'strategy', 'plan', 'scheme', 'program', 'project', 'initiative', 'campaign', 'movement', 'effort', 'endeavor', 'attempt', 'trial', 'experiment', 'test', 'examination', 'investigation', 'research', 'study', 'inquiry', 'exploration', 'discovery', 'finding', 'result', 'outcome', 'consequence', 'effect', 'impact', 'influence', 'significance', 'importance', 'value', 'worth', 'benefit', 'advantage', 'merit', 'virtue', 'quality', 'characteristic', 'feature', 'attribute', 'property', 'trait', 'aspect', 'element', 'component', 'part', 'section', 'segment', 'portion', 'fraction', 'piece', 'bit', 'fragment', 'chunk', 'block', 'unit', 'item', 'object', 'thing', 'entity', 'being', 'existence', 'reality', 'truth', 'fact', 'information', 'data', 'evidence', 'proof', 'confirmation', 'verification', 'validation', 'authentication', 'certification', 'accreditation', 'approval', 'endorsement', 'recommendation', 'suggestion', 'proposal', 'offer', 'proposition', 'deal', 'agreement', 'contract', 'arrangement', 'plan', 'scheme', 'program', 'project', 'initiative', 'campaign', 'movement', 'effort', 'endeavor', 'attempt', 'trial', 'experiment', 'test', 'examination', 'investigation', 'research', 'study', 'inquiry', 'exploration', 'discovery', 'finding', 'result', 'outcome', 'consequence', 'effect', 'impact', 'influence', 'significance', 'importance', 'value', 'worth', 'benefit', 'advantage', 'merit', 'virtue', 'quality', 'characteristic', 'feature', 'attribute', 'property', 'trait', 'aspect', 'element', 'component', 'part', 'section', 'segment', 'portion', 'fraction', 'piece', 'bit', 'fragment', 'chunk', 'block', 'unit', 'item', 'object', 'thing', 'entity', 'being', 'existence', 'reality', 'truth', 'fact', 'information', 'data', 'evidence', 'proof', 'confirmation', 'verification', 'validation', 'authentication', 'certification', 'accreditation', 'approval', 'endorsement', 'recommendation', 'suggestion', 'proposal', 'offer', 'proposition', 'deal', 'agreement', 'contract', 'arrangement'];
+            
+            if (!stopWords.includes(subreddit)) {
+                subreddits.push(subreddit);
+            }
+        }
+    }
+    
+    return subreddits;
+};
+
+export const generateSubredditSuggestions = async (businessDescription: string): Promise<string[]> => {
+    console.log('[Subreddit Suggestions] Starting process...');
+    const cacheKey = `verified_subreddits_v7:${businessDescription.slice(0, 200)}`;
+
+    // Try multiple specialized prompts for better results
+    const prompts = [
+        `List 15-20 Reddit subreddits where people discuss topics related to: "${businessDescription.slice(0, 300)}". Include both general and specific communities. Format as: subreddit1, subreddit2, subreddit3...`,
+        `What are popular Reddit communities for this type of business: "${businessDescription.slice(0, 250)}"? List at least 15 subreddit names separated by commas.`,
+        `Find Reddit subreddits where users talk about: "${businessDescription.slice(0, 200)}". Include technology, business, and industry-specific communities. List 15+ subreddits.`,
+        `Based on this business description: "${businessDescription.slice(0, 150)}", what are 15-20 relevant Reddit communities where potential customers might be?`
+    ];
+
+    let candidateSubreddits: string[] = [];
+
+    for (let i = 0; i < prompts.length; i++) {
+        try {
+            console.log(`[Subreddit Suggestions] Trying prompt ${i + 1}...`);
+            const responseText = await generateContentWithFallback(prompts[i], false, cacheKey);
+            
+            if (!responseText || responseText.trim().length === 0) {
+                console.log(`[Subreddit Suggestions] Empty response for prompt ${i + 1}, trying next...`);
+                continue;
+            }
+            
+            console.log(`[Subreddit Suggestions] Raw response: ${responseText.slice(0, 200)}...`);
+            
+            // Enhanced parsing with multiple strategies
+            const parsed = parseSubredditResponse(responseText);
+            candidateSubreddits = [...new Set(parsed)].slice(0, 25);
+            
+            if (candidateSubreddits.length >= 5) {
+                console.log(`[Subreddit Suggestions] Success with prompt ${i + 1}, found ${candidateSubreddits.length} candidates.`);
+                break;
+            } else if (candidateSubreddits.length > 0) {
+                console.log(`[Subreddit Suggestions] Found ${candidateSubreddits.length} candidates with prompt ${i + 1}, trying next for more...`);
+            }
+        } catch (error) {
+            console.log(`[Subreddit Suggestions] Error with prompt ${i + 1}:`, error);
+            continue;
+        }
+    }
+    
+    // Fallback: use comprehensive business-relevant subreddits
+    if (candidateSubreddits.length < 10) {
+        console.log(`[Subreddit Suggestions] Only found ${candidateSubreddits.length} candidates, adding comprehensive fallback subreddits`);
+        
+        const fallbackSubreddits = [
+            // Technology & Business
+            'technology', 'business', 'startups', 'entrepreneur', 'marketing',
+            'webdev', 'programming', 'artificial', 'machinelearning', 'datascience',
+            'tech', 'software', 'SaaS', 'productivity', 'innovation',
+            'digitalmarketing', 'smallbusiness', 'entrepreneurship', 'automation',
+            'workflow', 'consulting', 'freelance', 'entrepreneurs', 'sideproject',
+            'indiehackers', 'startup', 'businessideas', 'passiveincome', 'investing',
+            'personalfinance', 'financialindependence', 'cryptocurrency', 'stocks',
+            'trading', 'wealth', 'money', 'finance', 'banking', 'fintech',
+            'ai', 'machinelearning', 'datascience', 'programming', 'coding',
+            'webdevelopment', 'softwareengineering', 'devops', 'cybersecurity',
+            'blockchain', 'crypto', 'defi', 'nft', 'web3', 'metaverse',
+            'productivity', 'efficiency', 'organization', 'timemanagement',
+            'projectmanagement', 'agile', 'scrum', 'lean', 'kanban',
+            'sales', 'marketing', 'advertising', 'seo', 'sem', 'ppc',
+            'contentmarketing', 'socialmedia', 'influencermarketing', 'emailmarketing',
+            'growthhacking', 'analytics', 'dataanalysis', 'businessintelligence',
+            'customerexperience', 'userresearch', 'usability', 'ux', 'ui',
+            'design', 'graphicdesign', 'webdesign', 'productdesign', 'branding',
+            'copywriting', 'content', 'blogging', 'writing', 'journalism',
+            'publicrelations', 'communications', 'media', 'journalism', 'news'
+        ];
+        
+        // Combine with existing candidates and remove duplicates
+        candidateSubreddits = [...new Set([...candidateSubreddits, ...fallbackSubreddits])].slice(0, 25);
+        console.log(`[Subreddit Suggestions] Combined with fallbacks: ${candidateSubreddits.length} total candidates`);
+    }
+
+    try {
+        const snoowrap = await getAppAuthenticatedInstance();
+        const verificationPromises = candidateSubreddits.map(async (name) => {
+            try {
+                //@ts-expect-error
+                await snoowrap.getSubreddit(name).fetch();
+                return name;
+            } catch (error) {
+                return null;
+            }
+        });
+
+        const results = await Promise.all(verificationPromises);
+        const finalSubreddits = results.filter((name): name is string => name !== null);
+
+        console.log(`[Subreddit Suggestions] Verified ${finalSubreddits.length} real subreddits.`);
+        
+        // Ensure we always return at least 10 subreddits
+        if (finalSubreddits.length < 10) {
+            console.log(`[Subreddit Suggestions] Only ${finalSubreddits.length} verified subreddits, supplementing with unverified candidates`);
+            const supplement = candidateSubreddits.filter(name => !finalSubreddits.includes(name)).slice(0, 10 - finalSubreddits.length);
+            const result = [...finalSubreddits, ...supplement].slice(0, 15);
+            setTimeout(() => aiCache.delete(cacheKey), 24 * 60 * 60 * 1000);
+            return result;
+        }
+        
+        setTimeout(() => aiCache.delete(cacheKey), 24 * 60 * 60 * 1000);
+        return finalSubreddits.slice(0, 15);
+    } catch (error) {
+        console.error("Error in generateSubredditSuggestions:", error);
+        return candidateSubreddits; // Return unverified subreddits as fallback
+    }
+};
+
+export const generateKeywords = async (websiteText: string): Promise<string[]> => {
+    const cacheKey = `keywords_v7:${websiteText.slice(0, 200)}`;
+    const truncatedText = websiteText.slice(0, 800);
+    
+    // Enhanced prompts that encourage detailed analysis and more keywords
+    const prompts = [
+        `Analyze this business content and extract 15-20 key topics, features, and benefits: "${truncatedText}". List each as a short phrase (2-4 words).`,
+        `What are the main subjects, technologies, and value propositions mentioned in: "${truncatedText.slice(0, 400)}"? Provide 15-20 specific keywords.`,
+        `Extract key business terms, features, and concepts from: "${truncatedText.slice(0, 300)}". Focus on what the company does, how it works, and what makes it unique. List 15-20 items.`
+    ];
+    
+    for (let i = 0; i < prompts.length; i++) {
+        try {
+            console.log(`[Keywords] Using prompt ${i + 1}: ${prompts[i].slice(0, 60)}...`);
+            const responseText = await generateContentWithFallback(prompts[i], false, cacheKey);
+            
+            if (!responseText || responseText.trim().length === 0) {
+                console.log(`[Keywords] Empty response for prompt ${i + 1}, trying next...`);
+                continue;
+            }
+            
+            console.log(`[Keywords] Raw response length: ${responseText.length}`);
+            console.log(`[Keywords] Raw response: ${responseText}`);
+            
+            // Enhanced keyword extraction with multiple parsing strategies
+            let keywords: string[] = [];
+            
+            // Method 1: Extract from bullet points and bold text (most common format)
+            const listItems = responseText.match(/\*\*([^*]+)\*\*/g) || 
+                            responseText.match(/\d+\.\s*([^\n]+)/g) || 
+                            responseText.match(/[-*•]\s*([^\n]+)/g);
+            
+            if (listItems && listItems.length > 0) {
+                keywords = listItems
+                    .map(item => item.replace(/^\d+\.\s*/, '').replace(/^[-*•]\s*/, '').replace(/\*\*/g, '').trim())
+                    .map(item => {
+                        // Extract key phrases from longer descriptions
+                        if (item.includes(':')) {
+                            const parts = item.split(':');
+                            return parts[1] ? parts[1].trim() : parts[0].trim();
+                        }
+                        return item;
+                    })
+                    .filter(item => item.length > 2 && item.length < 60)
+                    .map(item => item.toLowerCase())
+                    .slice(0, 20);
+            }
+            
+            // Method 2: Look for comma-separated lists
+            if (keywords.length === 0 && responseText.includes(',')) {
+                keywords = responseText.split(',')
+                    .map(k => k.trim().toLowerCase())
+                    .filter(k => k.length > 2 && k.length < 50)
+                    .slice(0, 15);
+            }
+            
+            // Method 3: Extract from structured text (lines)
+            if (keywords.length === 0) {
+                const lines = responseText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+                keywords = lines
+                    .flatMap(line => {
+                        // Clean up the line
+                        let cleanLine = line
+                            .replace(/^[-*•]\s*/, '') // Remove bullet points
+                            .replace(/^\*\*(.*?)\*\*:?\s*/, '$1') // Remove bold formatting
+                            .replace(/^[A-Z][a-z]+\s*:\s*/, '') // Remove "Category: " prefixes
+                            .replace(/^\d+\.\s*/, ''); // Remove numbers
+                        
+                        // Split by common separators
+                        return cleanLine.split(/[,;|]/)
+                            .map(word => word.trim().toLowerCase())
+                            .filter(word => word.length > 2 && word.length < 30);
+                    })
+                    .slice(0, 15);
+            }
+            
+            // Method 4: Extract meaningful business terms from the response
+            if (keywords.length === 0) {
+                const businessTerms = responseText
+                    .toLowerCase()
+                    .replace(/[^\w\s]/g, ' ')
+                    .split(/\s+/)
+                    .filter(word => 
+                        word.length > 3 && 
+                        word.length < 20 &&
+                        !['based', 'text', 'provided', 'here', 'summary', 'this', 'that', 'with', 'from', 'they', 'have', 'been', 'will', 'would', 'could', 'should', 'about', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'between', 'among', 'within', 'without', 'extract', 'identify', 'list', 'main', 'most', 'important', 'business', 'content', 'focus', 'include', 'terms', 'product', 'service', 'company', 'website'].includes(word)
+                    )
+                    .slice(0, 15);
+                keywords = businessTerms;
+            }
+            
+            if (keywords.length > 0) {
+                console.log(`[Keywords] Success with prompt ${i + 1}, found ${keywords.length} keywords`);
+                console.log(`[Keywords] Final result:`, keywords);
+                setTimeout(() => aiCache.delete(cacheKey), 24 * 60 * 60 * 1000);
+                return keywords;
+            }
+            
+        } catch (error) {
+            console.log(`[Keywords] Error with prompt ${i + 1}:`, error);
+            continue;
+        }
+    }
+    
+    // Enhanced fallback: extract meaningful business terms and phrases directly from website text
+    console.log(`[Keywords] All prompts failed, using enhanced direct text extraction`);
+    
+    // Extract business-relevant terms and phrases
+    const text = websiteText.toLowerCase();
+    const businessTerms = [];
+    
+    // Extract 2-4 word phrases that are likely to be business terms
+    const words = text.replace(/[^\w\s]/g, ' ').split(/\s+/);
+    for (let i = 0; i < words.length - 1; i++) {
+        const phrase = `${words[i]} ${words[i + 1]}`;
+        if (words[i].length > 2 && words[i + 1].length > 2 && 
+            !['the and', 'and the', 'for the', 'with the', 'from the', 'this is', 'that is', 'will be', 'can be', 'has been'].includes(phrase)) {
+            businessTerms.push(phrase);
+        }
+        
+        // Also try 3-word phrases
+        if (i < words.length - 2) {
+            const threeWordPhrase = `${words[i]} ${words[i + 1]} ${words[i + 2]}`;
+            if (words[i + 2].length > 2 && 
+                !['the and the', 'and the and', 'for the and', 'with the and'].includes(threeWordPhrase)) {
+                businessTerms.push(threeWordPhrase);
+            }
+        }
+    }
+    
+    // Add single meaningful words
+    const singleWords = words
+        .filter(word => 
+            word.length > 3 && 
+            word.length < 20 &&
+            !['based', 'text', 'provided', 'here', 'summary', 'this', 'that', 'with', 'from', 'they', 'have', 'been', 'will', 'would', 'could', 'should', 'about', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'between', 'among', 'within', 'without', 'analysis', 'platform', 'system', 'solution', 'service', 'product', 'company', 'business', 'technology', 'customer', 'market', 'industry'].includes(word)
+        );
+    
+    const allTerms = [...new Set([...businessTerms, ...singleWords])].slice(0, 20);
+    console.log(`[Keywords] Enhanced fallback extracted:`, allTerms);
+    
+    return allTerms.length > 0 ? allTerms : ['automation', 'productivity', 'workflow', 'digital', 'solution', 'technology', 'business', 'software', 'platform', 'service', 'ai powered', 'machine learning', 'data analysis', 'business intelligence', 'customer service', 'sales optimization', 'marketing automation', 'workflow management', 'digital transformation', 'cloud computing'];
+};
+
+export const discoverCompetitorsInText = async (text: string, ownProductDescription: string): Promise<string[]> => {
+    const cacheKey = `competitors_v2:${text.slice(0, 200)}:${ownProductDescription.slice(0, 100)}`;
+    
+    const prompt = `Find competitor names in the following text. My product is "${ownProductDescription.slice(0,150)}". Text: "${text.slice(0,400)}".
+    
+    **CRITICAL: Your response must be ONLY valid JSON with no extra text, comments, or trailing commas. Use this exact format:**
+    {"competitors": ["competitor1", "competitor2"]}
+    
+    If none are found, return an empty array: {"competitors": []}
+    Do not add any text before or after the JSON object.`;
+    
+    try {
+        const responseText = await generateContentWithFallback(prompt, true, cacheKey);
+        const parsed = safeJsonParse<{ competitors: string[] }>(responseText, (obj): obj is { competitors: string[] } =>
+            obj && typeof obj === 'object' && 'competitors' in obj && Array.isArray(obj.competitors) && obj.competitors.every((item: any) => typeof item === 'string')
+        );
+
+        const competitorList = parsed ? parsed.competitors : [];
+        setTimeout(() => aiCache.delete(cacheKey), 24 * 60 * 60 * 1000);
+        return competitorList.slice(0, 5);
+    } catch (error) {
+        console.error("Error in discoverCompetitorsInText:", error);
+        return [];
+    }
+};
+
+export const generateDescription = async (websiteText: string): Promise<string> => {
+    const cacheKey = `description_v7:${websiteText.slice(0, 200)}`;
+    const truncatedText = websiteText.slice(0, 800);
+    
+    // Enhanced prompts that encourage detailed analysis with specific features and benefits
+    const prompts = [
+        `Write a comprehensive business description (1000-2000 characters) for this company: "${truncatedText}". Include detailed analysis of: core technology/approach, scalability and efficiency benefits, key features and capabilities, target market, value proposition, competitive advantages, and specific use cases.`,
+        `Create a detailed company overview (1000-2000 characters) based on: "${truncatedText.slice(0, 600)}". Explain the business model, services offered, target audience, market positioning, how it solves customer problems, and include specific technical capabilities and benefits mentioned.`,
+        `Provide a thorough business description (1000-2000 characters) of this company: "${truncatedText.slice(0, 500)}". Cover the product/service offering, technology stack, business strategy, market opportunity, customer benefits, and include all specific features, capabilities, and advantages mentioned in the content.`
+    ];
+    
+    for (let i = 0; i < prompts.length; i++) {
+        try {
+            console.log(`[Description] Trying prompt ${i + 1}...`);
+            const rawResponse = await generateContentWithFallback(prompts[i], false, cacheKey);
+            
+            if (!rawResponse || rawResponse.trim().length === 0) {
+                console.log(`[Description] Empty response for prompt ${i + 1}, trying next...`);
+                continue;
+            }
+            
+            // Clean up unwanted prefixes
+            let cleanedResponse = rawResponse.trim();
+            
+            // Remove common AI response prefixes
+            const prefixesToRemove = [
+                "Based on the text provided, here is a summary:",
+                "Based on the text provided,",
+                "Here is a summary:",
+                "Summary:",
+                "This text describes",
+                "The text describes",
+                "Based on the content,",
+                "Here's what this is about:",
+                "This is about",
+                "Here's a comprehensive business description:",
+                "Here's a detailed company overview:"
+            ];
+            
+            for (const prefix of prefixesToRemove) {
+                if (cleanedResponse.toLowerCase().startsWith(prefix.toLowerCase())) {
+                    cleanedResponse = cleanedResponse.substring(prefix.length).trim();
+                    break;
+                }
+            }
+            
+            // Check if response is long enough (at least 500 characters for comprehensive description)
+            if (cleanedResponse.length >= 500) {
+                console.log(`[Description] Success with prompt ${i + 1}, length: ${cleanedResponse.length}`);
+                setTimeout(() => aiCache.delete(cacheKey), 24 * 60 * 60 * 1000);
+                return cleanedResponse;
+            } else {
+                console.log(`[Description] Response too short (${cleanedResponse.length} chars), trying next prompt...`);
+            }
+    } catch (error) {
+            console.log(`[Description] Error with prompt ${i + 1}:`, error);
+            continue;
+        }
+    }
+    
+    // Fallback: return a comprehensive description
+    console.log(`[Description] All prompts failed, using comprehensive fallback`);
+    return "A technology company that provides innovative digital solutions to help businesses streamline their operations and improve productivity through automated workflows and intelligent systems. The company specializes in developing cutting-edge software platforms that leverage artificial intelligence and machine learning to solve complex business challenges. Their comprehensive suite of tools enables organizations to automate routine tasks, optimize processes, and make data-driven decisions. With a focus on scalability and user experience, the company serves clients across various industries including healthcare, finance, manufacturing, and professional services. Their solutions are designed to integrate seamlessly with existing business infrastructure while providing measurable improvements in efficiency, cost reduction, and operational excellence. The company's commitment to innovation and customer success has established them as a trusted partner for businesses looking to modernize their operations and stay competitive in today's digital landscape.";
+};
+
+export const generateCultureNotes = async (description: string, rules: string[]): Promise<string> => {
+    const cacheKey = `culture_v2:${description.slice(0, 100)}:${rules.join(',').slice(0, 100)}`;
+    const prompt = `Summarize subreddit culture in 1 paragraph. Description: "${description.slice(0,200)}" Rules: "${rules.slice(0,5).map(r => r.slice(0,100)).join('\n')}"`;
+    
+    try {
+        const result = await generateContentWithFallback(prompt, false, cacheKey);
+        return result.trim();
+    } catch (error) {
+        console.error("Error in generateCultureNotes:", error);
+        return "Be respectful, helpful, and follow community guidelines.";
+    }
+};
+
+export const refineAIReply = async (originalText: string, instruction: string): Promise<string> => {
+    const prompt = `Rewrite: "${originalText.slice(0, 300)}" \nInstruction: "${instruction.slice(0, 100)}" \nNew version:`;
+    
+    try {
+        const result = await generateContentWithFallback(prompt, false);
+        return result.trim();
+    } catch (error) {
+        console.error("Error in refineAIReply:", error);
+        return originalText;
+    }
+};
+
+export const generateReplyOptions = async (leadId: string): Promise<string[]> => {
+    try {
+        const lead = await prisma.lead.findUnique({
+            where: { id: leadId },
+            include: {
+                campaign: {
+                    include: { user: true }
+                }
+            }
+        });
+
+        if (!lead) {
+            throw new Error('Lead not found.');
+        }
+
+        const user = lead.campaign.user;
+        const aiUsage = AIUsageService.getInstance();
+
+        const canUseAI = await aiUsage.trackAIUsage(user.id, 'manual_discovery', user.plan);
+        if (!canUseAI) {
+            throw new Error('AI reply quota exceeded. Upgrade your plan or wait for next month.');
+        }
+
+        const subredditProfile = await prisma.subredditProfile.findUnique({
+            where: { name: lead.subreddit }
+        });
+
+        const companyDescription = lead.campaign.generatedDescription || "No description available.";
+        const cultureNotes = subredditProfile?.cultureNotes ?? "Be respectful and helpful.";
+        const rules = subredditProfile?.rules ?? ["No spam."];
+
+        return await generateAIReplies(
+            lead.title,
+            lead.body,
+            companyDescription,
+            cultureNotes,
+            rules
+        );
+    } catch (error) {
+        console.error("Error in generateReplyOptions:", error);
+        throw error;
+    }
+};
+
+export const generateFunReplies = async (
+    leadTitle: string,
+    leadBody: string | null,
+    companyDescription: string
+): Promise<string[]> => {
+    const truncatedTitle = leadTitle.slice(0, 100);
+    const truncatedBody = (leadBody || '').slice(0, 200);
+    const truncatedDescription = companyDescription.slice(0, 150);
+    
+    const prompt = `Create 3 funny promotional replies for an unrelated post.
+Title: "${truncatedTitle}"
+Body: "${truncatedBody}"  
+Product: "${truncatedDescription}"
+
+**CRITICAL: Your response must be ONLY valid JSON with no extra text, comments, or trailing commas. Use this exact format:**
+["funny reply 1", "funny reply 2", "funny reply 3"]
+
+Do not add any text before or after the JSON array.`;
+
+    try {
+        const responseText = await generateContentWithFallback(prompt, true);
+
+        const parsed = safeJsonParse<string[]>(responseText, (obj): obj is string[] => 
+            Array.isArray(obj) && obj.every(item => typeof item === 'string')
+        );
+
+        if (parsed && parsed.length >= 3) {
+            return parsed.slice(0, 3);
+        }
+        
+        console.error("Failed to parse AI response as JSON for fun replies:", responseText);
+        return [
+            `I have no idea what "${truncatedTitle}" is about, but have you heard of our amazing product? You should totally check it out!`
+        ];
+    } catch (error) {
+        console.error("Error in generateFunReplies:", error);
+        return [
+            `I have no idea what "${leadTitle}" is about, but have you heard of our amazing product? You should totally check it out!`
+        ];
+    }
+};
+
+export const analyzeLeadIntent = async (title: string, body: string | null, userId: string, userPlan: string): Promise<string> => {
+    try {
+        const aiUsage = AIUsageService.getInstance();
+        const canUseAI = await aiUsage.trackAIUsage(userId, 'intent', userPlan);
+
+        if (!canUseAI) {
+            return determineBasicIntent(title, body);
+        }
+
+        const truncatedTitle = title.slice(0, 100);
+        const truncatedBody = (body || '').slice(0, 200);
+        
+        const prompt = `Classify intent as one of: pain_point, solution_seeking, brand_comparison, or general_discussion. Title: "${truncatedTitle}" Body: "${truncatedBody}"`;
+        
+        const intent = await generateContentWithFallback(prompt, false);
+        return intent.trim().toLowerCase().replace(/_ /g, '_');
+    } catch (error) {
+        console.error("Error in analyzeLeadIntent:", error);
+        return determineBasicIntent(title, body);
+    }
+};
+
+function determineBasicIntent(title: string, body: string | null): string {
+    const text = `${title} ${body || ''}`.toLowerCase();
+    if (text.includes('help') || text.includes('recommend') || text.includes('suggest') || text.includes('looking for')) {
+        return 'solution_seeking';
+    }
+    if (text.includes('vs') || text.includes('better than') || text.includes('alternative') || text.includes('compare')) {
+        return 'brand_comparison';
+    }
+    if (text.includes('problem') || text.includes('issue') || text.includes('struggling') || text.includes('broken')) {
+        return 'pain_point';
+    }
+    return 'general_discussion';
+}
+
+export const analyzeSentiment = async (title: string, body: string | null, userId: string, userPlan: string): Promise<string> => {
+    try {
+        const aiUsage = AIUsageService.getInstance();
+        const canUseAI = await aiUsage.trackAIUsage(userId, 'competitor', userPlan);
+
+        if (!canUseAI) {
+            return determineBasicSentiment(title, body);
+        }
+
+        const truncatedTitle = title.slice(0, 100);
+        const truncatedBody = (body || '').slice(0, 200);
+        
+        const prompt = `Classify sentiment as one of: positive, negative, or neutral. Title: "${truncatedTitle}" Body: "${truncatedBody}"`;
+        
+        const sentiment = await generateContentWithFallback(prompt, false);
+        return sentiment.trim().toLowerCase();
+    } catch (error) {
+        console.error("Error in analyzeSentiment:", error);
+        return determineBasicSentiment(title, body);
+    }
+};
+
+function determineBasicSentiment(title: string, body: string | null): string {
+    const text = `${title} ${body || ''}`.toLowerCase();
+    const positiveWords = ['love', 'great', 'awesome', 'excellent', 'amazing', 'perfect', 'good', 'best', 'fantastic'];
+    const negativeWords = ['hate', 'terrible', 'awful', 'bad', 'worst', 'sucks', 'broken', 'useless', 'disappointed'];
+
+    const positiveCount = positiveWords.filter(word => text.includes(word)).length;
+    const negativeCount = negativeWords.filter(word => text.includes(word)).length;
+
+    if (positiveCount > negativeCount) return 'positive';
+    if (negativeCount > positiveCount) return 'negative';
+    return 'neutral';
+}
+
+// Clean up cache periodically
+setInterval(() => {
+    if (aiCache.size > 1000) {
+        console.log('[AI Service] Cleaning up cache...');
+        aiCache.clear();
+    }
+}, 60 * 60 * 1000);

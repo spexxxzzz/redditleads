@@ -29,7 +29,7 @@ rl.question('Enter your REDDIT_CLIENT_ID: ', (clientId) => {
         scope: redditScriptScopes,
         redirectUri: redirectUri,
         permanent: true, // This is key to get a refresh token
-        state: 'redlead-auth' // Can be any random string
+        state: 'redditleads-auth' // Can be any random string
       });
 
       console.log('\nSTEP 1: Open this URL in your browser:\n');

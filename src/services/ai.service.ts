@@ -94,7 +94,7 @@ export async function generateContentWithFallback(
         throw new Error("Prompt cannot be empty.");
     }
 
-    const cacheResult = cache.get<string>(cacheKey);
+    const cacheResult = cache.get(cacheKey) as string | undefined;
     if (cacheResult) {
         return cacheResult;
     }
