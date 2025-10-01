@@ -315,7 +315,7 @@ export const api = {
     });
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || 'Failed to post reply to Reddit');
+      throw new Error(errorData.message || 'Failed to post reply to Reddit. Kindly post after a minute, this is to prevent rate limiting.');
     }
     return response.json();
   },
