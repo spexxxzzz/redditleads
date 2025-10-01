@@ -236,16 +236,16 @@ class DodoPaymentsService {
             amount: plan.price,
             currency: 'USD',
             status: 'PENDING',
-            externalId: session.id,
-            checkoutUrl: session.url
+            externalId: session.session_id,
+            checkoutUrl: session.checkout_url
           }
         });
         
         return {
           success: true,
           data: {
-            checkoutUrl: session.url,
-            subscriptionId: session.id,
+            checkoutUrl: session.checkout_url,
+            subscriptionId: session.session_id,
             transactionId: transaction.id
           }
         };
