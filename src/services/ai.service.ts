@@ -2,7 +2,7 @@ import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/ge
 import { PrismaClient } from '@prisma/client';
 import { AIUsageService } from './aitracking.service';
 import { generateQueriesFromDNA } from './reddit.service';
-import NodeCache from 'node-cache';
+const NodeCache = require('node-cache');
 
 const prisma = new PrismaClient();
 const CACHE_TTL_SECONDS = 60 * 60 * 24; // 24 hours

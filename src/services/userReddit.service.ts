@@ -26,7 +26,7 @@ export const postReplyToReddit = async (
     try {
         const r = getUserRedditInstance(userRefreshToken);
         const submission = r.getSubmission(redditPostId);
-        const comment = await submission.reply(content);
+        const comment: any = await submission.reply(content);
         return comment.name; // Reddit comment ID
     } catch (error: any) {
         console.error(`[User Reddit] Failed to post reply:`, error.message);
