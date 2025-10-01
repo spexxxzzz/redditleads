@@ -101,19 +101,19 @@ export const Hero = () => {
             
             {/* Subtitle */}
             <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.8 }}
-              className={`text-lg sm:text-xl lg:text-2xl font-medium text-white/90 mb-8 ${inter.className}`}
+              initial={{ opacity: 0, y: 30, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.8, delay: 0.8, ease: "backOut" }}
+              className={`text-lg sm:text-xl lg:text-2xl font-medium text-white/90 mb-4 ${inter.className}`}
             >
               We already know your customers
             </motion.p>
             
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 1.0 }}
-              className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-6"
+              initial={{ opacity: 0, y: 30, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.8, delay: 1.0, ease: "backOut" }}
+              className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-4"
             >
               {/* CORRECTED BUTTONS */}
               <button
@@ -131,11 +131,10 @@ export const Hero = () => {
               </button>
             </motion.div>
             <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.6, delay: 1.2 }}
-              className={`${inter.className} text-white/80 font-medium text-sm`}
-              style={{ marginTop: '1rem' }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 1.2, ease: "backOut" }}
+              className={`${inter.className} text-white/80 font-medium text-sm mb-8`}
             >
               Already have Reddit leads?{" "}
               <Link

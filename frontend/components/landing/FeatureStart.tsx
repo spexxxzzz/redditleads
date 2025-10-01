@@ -40,7 +40,7 @@ function FeatureVideo({ src }: { src: string }) {
 
 export function FeaturesStart() {
   return (
-    <section id="features" className="relative py-32 px-8 bg-black overflow-hidden">
+    <section id="features" className="relative py-8 px-8 bg-black overflow-hidden">
       {/* Background decoration */}
       <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 via-transparent to-orange-600/5" />
       <div className="absolute top-1/4 right-0 w-96 h-96 bg-orange-500/10 rounded-full blur-3xl" />
@@ -129,7 +129,7 @@ export function FeaturesStart() {
         </section> */}
 
         {/* 3 - AI Summaries */}
-        <section className="relative flex flex-col items-center gap-16 py-24 px-8 max-w-8xl mx-auto mb-32">
+        <section className="relative flex flex-col items-center gap-8 py-8 px-8 max-w-8xl mx-auto mb-16">
           {/* <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
