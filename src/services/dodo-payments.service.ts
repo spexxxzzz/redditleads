@@ -53,27 +53,18 @@ class DodoPaymentsService {
   constructor() {
     this.config = {
       apiKey: process.env.DODO_PAYMENTS_API_KEY || 'mock_api_key',
-      baseUrl: 'https://test.dodopayments.com', // Force test environment
+      baseUrl: process.env.DODO_PAYMENTS_BASE_URL || 'https://api.dodopayments.com',
       webhookSecret: process.env.DODO_PAYMENTS_WEBHOOK_SECRET || 'mock_webhook_secret'
     };
     
     // Initialize Dodo Payments client
     const isMockMode = this.config.apiKey === 'mock_api_key';
     if (!isMockMode) {
-      // Temporarily unset the baseURL env var to avoid conflicts
-      const originalBaseUrl = process.env.DODO_PAYMENTS_BASE_URL;
-      delete process.env.DODO_PAYMENTS_BASE_URL;
-      
       this.client = new DodoPayments({
         bearerToken: this.config.apiKey,
-        environment: 'test_mode', // Force test mode for now
-        baseURL: null // Clear baseURL to avoid conflicts
+        environment: 'live_mode', // Use live environment
+        baseURL: this.config.baseUrl
       });
-      
-      // Restore the original env var
-      if (originalBaseUrl) {
-        process.env.DODO_PAYMENTS_BASE_URL = originalBaseUrl;
-      }
     }
     
     // Log payment mode
