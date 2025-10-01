@@ -36,9 +36,11 @@ const PORT = process.env.PORT || 3001;
 
 // --- CORRECT CORS CONFIGURATION ---
 const allowedOrigins = [
-  'https://red-lead.vercel.app', 
+  'https://red-lead.vercel.app',
+  'https://redditleads-phi.vercel.app',
   'http://localhost:3000',
-  'https://www.redditleads.net',
+  'https://www.redditleads.org',
+  'https://redditleads.org',
   // Allow all Vercel preview deployments (for PR previews)
   /^https:\/\/.*\.vercel\.app$/
 ];

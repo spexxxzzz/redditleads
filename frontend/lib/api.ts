@@ -186,6 +186,17 @@ export const api = {
       if (!response.ok) {
         const errorText = await response.text();
         console.error('❌ API Error Response:', errorText);
+        
+        // Try to parse error data for Reddit connection requirement
+        try {
+          const errorData = JSON.parse(errorText);
+          if (errorData.requiresRedditConnection) {
+            throw new Error('Reddit account connection required for lead discovery. Please connect your Reddit account in Settings.');
+          }
+        } catch (parseError) {
+          // If parsing fails, use original error
+        }
+        
         throw new Error(`Failed to run manual discovery: ${response.status} ${errorText}`);
       }
       return response.json();

@@ -5,6 +5,7 @@ import { webhookService } from '../services/webhook.service';
 import { AIUsageService } from '../services/aitracking.service';
 // Import the email notification service
 import { sendNewLeadsNotification } from '../services/email.service';
+import { isUserRedditConnected } from '../services/userReddit.service';
 
 
 const prisma = new PrismaClient();
@@ -131,7 +132,18 @@ export const runLeadDiscoveryWorker = async (): Promise<void> => {
 
                     console.log(`[Worker] Running discovery for project ${project.id} for user ${user.id}`);
 
-                    const rawLeads = await findLeadsWithBusinessIntelligence(project.businessDNA as any, project.subredditBlacklist);
+                    // Check if user has Reddit connected - REQUIRED for discovery
+                    const isRedditConnected = await isUserRedditConnected(user.id);
+                    
+                    if (!isRedditConnected) {
+                        console.log(`[Worker] Skipping project ${project.id} for user ${user.id} - Reddit connection required`);
+                        break;
+                    }
+                    
+                    const userRedditToken = user.redditRefreshToken;
+                    console.log(`[Worker] Using user Reddit account for discovery for user ${user.id}`);
+
+                    const rawLeads = await findLeadsWithBusinessIntelligence(project.businessDNA as any, project.subredditBlacklist, 0, userRedditToken);
                     const scoredLeads = await enrichLeadsForUser(rawLeads, user, project.businessDNA as any);
                     const qualifiedLeads = scoredLeads.filter(lead => lead.relevanceScore >= 50);
 

@@ -95,9 +95,14 @@ export const RedditConnection = ({ onConnectionChange }: RedditConnectionProps) 
             <p className="text-sm text-gray-400">
               {isConnected 
                 ? `Connected as u/${redditUsername}`
-                : 'Connect your Reddit account to post replies'
+                : 'Connect your Reddit account for better lead discovery'
               }
             </p>
+            {isConnected && (
+              <p className="text-xs text-green-400 mt-1">
+                ✓ Using your Reddit account for lead discovery (better rate limits)
+              </p>
+            )}
           </div>
         </div>
         

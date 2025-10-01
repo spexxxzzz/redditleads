@@ -33,9 +33,22 @@ export async function GET(
       headers,
     });
 
-    const data = await response.json();
+    const text = await response.text();
+    console.log('[PROXY DEBUG] Response text:', text.substring(0, 200));
+    
+    // Check if response is HTML (ngrok interstitial)
+    if (text.startsWith('<!DOCTYPE') || text.startsWith('<html')) {
+      console.error('[PROXY] Received HTML instead of JSON from ngrok');
+      return NextResponse.json(
+        { error: 'Backend returned HTML instead of JSON. Ngrok interstitial page detected.' },
+        { status: 502 }
+      );
+    }
+
+    const data = JSON.parse(text);
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
+    console.error('[PROXY] Error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch from backend' },
       { status: 500 }

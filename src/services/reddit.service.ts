@@ -1,6 +1,7 @@
 import snoowrap from 'snoowrap';
 import { RawLead } from '../types/reddit.types';
 import { generateDynamicSearchQueries } from './ai.service';
+import { getUserRedditInstance } from './userReddit.service';
 
 let requestCount = 0;
 let requestWindowStart = Date.now();
@@ -103,9 +104,15 @@ async function isQualityPost(post: any, oneYearAgo: number): Promise<boolean> {
     return true;
 }
 
-export const findLeadsWithBusinessIntelligence = async (businessDNA: any, subredditBlacklist: string[] = [], variationLevel: number = 0): Promise<RawLead[]> => {
+export const findLeadsWithBusinessIntelligence = async (businessDNA: any, subredditBlacklist: string[] = [], variationLevel: number = 0, userRedditToken: string): Promise<RawLead[]> => {
     try {
-        const reddit = getRedditInstance();
+        // REQUIRED: Use user's Reddit account for discovery
+        if (!userRedditToken) {
+            throw new Error('User Reddit token is required for lead discovery');
+        }
+        
+        const reddit = getUserRedditInstance(userRedditToken);
+        console.log(`🔍 [Lead Discovery] Using user Reddit account for discovery`);
         const oneYearAgo = Math.floor(Date.now() / 1000) - 31536000;
         const uniqueLeads = new Map<string, RawLead>();
         // Generate both static and dynamic queries for maximum diversity

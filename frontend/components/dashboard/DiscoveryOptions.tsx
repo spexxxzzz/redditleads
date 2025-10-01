@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { api } from '@/lib/api';
-import { useAuth } from '@clerk/nextjs';
+import { useAuth, useUser } from '@clerk/nextjs';
 import { Inter, Poppins } from 'next/font/google';
 import { toast } from 'sonner';
 
@@ -41,6 +41,7 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
   disabled = false
 }) => {
   const { getToken, isLoaded, isSignedIn, userId } = useAuth();
+  const { user } = useUser();
   const [isRunningGlobal, setIsRunningGlobal] = useState<boolean>(false);
   const [globalTimeLeft, setGlobalTimeLeft] = useState<number | null>(null);
   const [discoveryProgress, setDiscoveryProgress] = useState<{
@@ -59,6 +60,9 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
 
   const COOLDOWN_SECONDS = 10;
   const COOLDOWN_MS = COOLDOWN_SECONDS * 1000;
+  
+  // Check Reddit connection status
+  const isRedditConnected = !!user?.publicMetadata?.redditRefreshToken;
 
   // Calculate time remaining for cooldowns
   const calculateTimeLeft = useCallback((lastRunAt: Date | null): number | null => {
@@ -597,28 +601,39 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
             <Button
               data-tour="discovery-button"
               onClick={() => {
+                if (!isRedditConnected) {
+                  toast.error('Please connect your Reddit account first');
+                  return;
+                }
                 console.log('🔘 Button clicked!');
                 console.log('🔘 isAnyRunning:', isAnyRunning);
                 console.log('🔘 isGlobalOnCooldown:', isGlobalOnCooldown);
                 console.log('🔘 isRunningGlobal:', isRunningGlobal);
                 console.log('🔘 projectId:', projectId);
-                console.log('🔘 Button disabled:', isAnyRunning || isGlobalOnCooldown);
+                console.log('🔘 Button disabled:', isAnyRunning || isGlobalOnCooldown || !isRedditConnected);
                 console.log('🔘 globalTimeLeft:', globalTimeLeft);
                 handleGlobalDiscovery();
               }}
-              disabled={isAnyRunning || isGlobalOnCooldown || disabled}
+              disabled={isAnyRunning || isGlobalOnCooldown || disabled || !isRedditConnected}
               className={`w-full border-0 shadow-sm hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-semibold h-9 sm:h-10 px-3 sm:px-4 text-sm sm:text-base rounded-md ${
-                isGlobalOnCooldown 
-                  ? 'bg-red-500/20 text-red-400 hover:bg-red-500/20' 
-                  : 'bg-white text-blue-600 hover:bg-gray-50'
+                !isRedditConnected
+                  ? 'bg-gray-500/20 text-gray-400 hover:bg-gray-500/20'
+                  : isGlobalOnCooldown 
+                    ? 'bg-red-500/20 text-red-400 hover:bg-red-500/20' 
+                    : 'bg-white text-blue-600 hover:bg-gray-50'
               }`}
             >
               {isRunningGlobal ? (
                 <span className={poppins.className}>Discovering Globally...</span>
               ) : isGlobalOnCooldown ? (
                 <span className={poppins.className}>On Cooldown</span>
+              ) : !isRedditConnected ? (
+                <span className={poppins.className}>Connect Reddit to Start</span>
               ) : (
-                <span className={poppins.className}>Start Global Discovery</span>
+                <div className="flex items-center justify-center gap-2">
+                  <span className={poppins.className}>Start Global Discovery</span>
+                  <span className="text-xs text-green-400">✓ Reddit</span>
+                </div>
               )}
             </Button>
           </div>

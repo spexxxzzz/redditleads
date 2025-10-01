@@ -4,6 +4,7 @@ import { findLeadsWithBusinessIntelligence } from '../services/reddit.service';
 import { enrichLeadsForUser } from '../services/enrichment.service';
 import { extractBusinessDNA } from '../services/ai.service';
 import { scrapeAndProcessWebsite } from '../utils/scraping';
+import { isUserRedditConnected } from '../services/userReddit.service';
 
 const prisma = new PrismaClient();
 
@@ -53,6 +54,19 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
         const user = project.user;
         const discoveryStartTime = Date.now();
         
+        // Check if user has Reddit connected - REQUIRED for discovery
+        const isRedditConnected = await isUserRedditConnected(userId);
+        
+        if (!isRedditConnected) {
+            return res.status(400).json({ 
+                message: 'Reddit account connection required for lead discovery. Please connect your Reddit account in Settings.',
+                requiresRedditConnection: true
+            });
+        }
+        
+        const userRedditToken = user.redditRefreshToken;
+        console.log(`🔍 [Manual Discovery] Using user Reddit account for discovery`);
+        
         let businessDNA = project.businessDNA as any;
         if (!businessDNA || !businessDNA.businessName) {
             const websiteText = await scrapeAndProcessWebsite(project.analyzedUrl);
@@ -71,7 +85,7 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
         console.log(`[Global Discovery] Using variation level ${variationLevel} (${hoursSinceLastDiscovery.toFixed(1)} hours since last discovery)`);
         
         const targetSubreddits = project.targetSubreddits || [];
-        const rawLeads = await findLeadsWithBusinessIntelligence(businessDNA, project.subredditBlacklist as string[], variationLevel);
+        const rawLeads = await findLeadsWithBusinessIntelligence(businessDNA, project.subredditBlacklist as string[], variationLevel, userRedditToken);
         const scoredLeads = await enrichLeadsForUser(rawLeads, user, businessDNA);
         
         // Debug: Show score distribution
