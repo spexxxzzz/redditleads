@@ -23,6 +23,9 @@ export async function GET(
       headers.set(key, value);
     }
   });
+  
+  // Add ngrok bypass header for free tier
+  headers.set('ngrok-skip-browser-warning', 'true');
 
   try {
     const response = await fetch(url, {
@@ -55,6 +58,9 @@ export async function POST(
       headers.set(key, value);
     }
   });
+  
+  // Add ngrok bypass header for free tier
+  headers.set('ngrok-skip-browser-warning', 'true');
 
   try {
     const response = await fetch(url, {
@@ -88,6 +94,9 @@ export async function PATCH(
       headers.set(key, value);
     }
   });
+  
+  // Add ngrok bypass header for free tier
+  headers.set('ngrok-skip-browser-warning', 'true');
 
   try {
     const response = await fetch(url, {
@@ -120,6 +129,9 @@ export async function DELETE(
       headers.set(key, value);
     }
   });
+  
+  // Add ngrok bypass header for free tier
+  headers.set('ngrok-skip-browser-warning', 'true');
 
   try {
     const response = await fetch(url, {
