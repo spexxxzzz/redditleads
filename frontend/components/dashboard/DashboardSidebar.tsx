@@ -166,6 +166,7 @@ export const DashboardSidebar = ({
   }
 
   const redditUsername = user.publicMetadata?.redditUsername as string | undefined;
+  const isRedditConnected = !!user?.publicMetadata?.hasConnectedReddit;
 
   const FilterButton = ({ icon: Icon, label, count, isActive, onClick }: any) => (
     <Button
@@ -257,7 +258,7 @@ export const DashboardSidebar = ({
                 <p className={`text-sm font-medium truncate text-white ${poppins.className}`}>
                   {user.fullName || 'User'}
                 </p>
-                {redditUsername && (
+                {redditUsername && isRedditConnected && (
                   <p className={`text-xs text-orange-400 truncate ${inter.className}`}>
                     u/{redditUsername}
                   </p>

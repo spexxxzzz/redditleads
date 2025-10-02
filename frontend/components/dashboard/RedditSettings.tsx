@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { ExternalLink, Check, AlertCircle, User, Loader } from 'lucide-react';
+import { ExternalLink, Check, AlertCircle, User } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth, useUser } from '@clerk/nextjs'; // Import Clerk hooks
 
@@ -15,6 +15,28 @@ export const RedditConnection = ({ onConnectionChange }: RedditConnectionProps) 
 
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Sync Reddit connection with database on component mount (ONCE ONLY)
+  useEffect(() => {
+    let hasSynced = false;
+    
+    const syncConnection = async () => {
+      if (isLoaded && user && !hasSynced) {
+        hasSynced = true;
+        try {
+          const token = await getToken();
+          await api.syncRedditConnection(token);
+          // Reload user data after sync
+          await user.reload();
+        } catch (error) {
+          console.error('Failed to sync Reddit connection:', error);
+          hasSynced = false; // Allow retry on error
+        }
+      }
+    };
+
+    syncConnection();
+  }, [isLoaded]); // Only run when isLoaded changes, not on every user change
 
   // The user object from useUser already contains the latest data,
   // so a separate fetchUser call is no longer needed.
@@ -56,6 +78,7 @@ export const RedditConnection = ({ onConnectionChange }: RedditConnectionProps) 
       setError(err.message);
     }
   };
+
 
 
   if (!isLoaded) {

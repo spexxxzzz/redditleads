@@ -317,6 +317,16 @@ export const api = {
     return response.json();
   },
 
+  // Sync Reddit connection with database
+  syncRedditConnection: async (token: string | null) => {
+    const response = await fetch(`${API_BASE_URL}/api/user/sync-reddit`, {
+      method: 'POST',
+      headers: getAuthHeaders(token)
+    });
+    if (!response.ok) throw new Error('Failed to sync Reddit connection');
+    return response.json();
+  },
+
   // Post reply to Reddit automatically
   postRedditReply: async (leadId: string, content: string, token: string | null) => {
     const response = await fetch(`${API_BASE_URL}/api/reddit/post-reply`, {

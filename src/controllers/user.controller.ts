@@ -65,3 +65,53 @@ export const updateCurrentUser: RequestHandler = async (req: any, res, next) => 
         next(error);
     }
 };
+
+export const syncRedditConnection: RequestHandler = async (req: any, res, next) => {
+    const auth = await req.auth();
+    const userId = auth?.userId;
+
+    if (!userId) {
+        res.status(401).json({ message: 'User not authenticated.' });
+        return;
+    }
+
+    try {
+        // Get user data from database
+        const dbUser = await prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+                hasConnectedReddit: true,
+                redditUsername: true,
+                redditKarma: true
+            }
+        });
+
+        if (!dbUser) {
+            res.status(404).json({ message: 'User not found.' });
+            return;
+        }
+
+        // Sync Clerk metadata with database state
+        const metadataPayload = {
+            publicMetadata: {
+                hasConnectedReddit: dbUser.hasConnectedReddit,
+                redditUsername: dbUser.redditUsername,
+                redditKarma: dbUser.redditKarma
+            }
+        };
+
+        console.log(`[Sync] Syncing Reddit connection for user ${userId}:`, metadataPayload);
+
+        await clerkClient.users.updateUser(userId, metadataPayload);
+
+        res.status(200).json({ 
+            message: 'Reddit connection synced successfully',
+            hasConnectedReddit: dbUser.hasConnectedReddit,
+            redditUsername: dbUser.redditUsername,
+            redditKarma: dbUser.redditKarma
+        });
+    } catch (error) {
+        console.error(`Error syncing Reddit connection for user ${userId}:`, error);
+        next(error);
+    }
+};

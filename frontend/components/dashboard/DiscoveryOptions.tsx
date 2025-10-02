@@ -58,6 +58,27 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
     setDiscoveryProgress(null);
   }, []);
 
+  // Sync Reddit connection on mount to ensure accurate status (ONCE ONLY)
+  useEffect(() => {
+    let hasSynced = false;
+    
+    const syncRedditConnection = async () => {
+      if (isLoaded && user && !hasSynced) {
+        hasSynced = true;
+        try {
+          const token = await getToken();
+          await api.syncRedditConnection(token);
+          await user.reload();
+        } catch (error) {
+          console.error('Failed to sync Reddit connection:', error);
+          hasSynced = false; // Allow retry on error
+        }
+      }
+    };
+
+    syncRedditConnection();
+  }, [isLoaded]); // Only run when isLoaded changes, not on every user change
+
   const COOLDOWN_SECONDS = 10;
   const COOLDOWN_MS = COOLDOWN_SECONDS * 1000;
   

@@ -1,6 +1,6 @@
 // src/routes/user.ts
 import express from 'express';
-import { deleteCurrentUser, updateCurrentUser } from '../controllers/user.controller';
+import { deleteCurrentUser, updateCurrentUser, syncRedditConnection } from '../controllers/user.controller';
 
 const userRouter = express.Router();
 
@@ -9,5 +9,6 @@ const userRouter = express.Router();
 // should be allowed to delete their own account.
 userRouter.delete('/', deleteCurrentUser);
 userRouter.patch('/', updateCurrentUser);
+userRouter.post('/sync-reddit', syncRedditConnection);
 
 export default userRouter;

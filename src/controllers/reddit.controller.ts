@@ -74,7 +74,8 @@ export const handleRedditCallback: RequestHandler = async (req, res, next) => {
                 redditUsername: me.name,
                 redditRefreshToken: r.refreshToken,
                 redditAuthState: null, // Clear the state
-                hasConnectedReddit: true // Mark as connected
+                hasConnectedReddit: true, // Mark as connected
+                redditKarma: (me.link_karma || 0) + (me.comment_karma || 0)
             }
         });
         // Update Clerk's public metadata to reflect Reddit connection
@@ -82,6 +83,7 @@ export const handleRedditCallback: RequestHandler = async (req, res, next) => {
             publicMetadata: {
                 hasConnectedReddit: true,
                 redditUsername: me.name,
+                redditKarma: (me.link_karma || 0) + (me.comment_karma || 0)
             }
         };
 
