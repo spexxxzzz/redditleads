@@ -132,16 +132,17 @@ export const findLeadsWithBusinessIntelligence = async (businessDNA: any, subred
             { sort: 'top', time: 'month' }
         ];
 
-        // Enhanced scraping strategy: Collect 1000-2000 raw posts for better quality
-        const TARGET_RAW_POSTS = 1500; // Target 1500 raw posts for optimal quality
-        const PARALLEL_CHUNK_SIZE = 8; // Increased for more aggressive scraping
+        // High-performance scraping strategy: Maximum parallel processing for speed
+        const TARGET_RAW_POSTS = 2000; // Increased target for maximum lead quality
+        const PARALLEL_CHUNK_SIZE = 12; // Increased for maximum parallel processing speed
         const queryChunks = [];
         for (let i = 0; i < semanticQueries.length; i += PARALLEL_CHUNK_SIZE) {
             queryChunks.push(semanticQueries.slice(i, i + PARALLEL_CHUNK_SIZE));
         }
 
-        console.log(`🔍 [Lead Discovery] Enhanced Strategy: Targeting ${TARGET_RAW_POSTS} raw posts`);
-        console.log(`🔍 [Lead Discovery] Processing ${queryChunks.length} chunks of queries...`);
+        console.log(`🚀 [Lead Discovery] HIGH-PERFORMANCE Strategy: Targeting ${TARGET_RAW_POSTS} raw posts`);
+        console.log(`🚀 [Lead Discovery] Processing ${queryChunks.length} chunks of queries with MAXIMUM PARALLELISM...`);
+        console.log(`🚀 [Lead Discovery] Memory usage: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`);
         
         for (let chunkIndex = 0; chunkIndex < queryChunks.length; chunkIndex++) {
             const chunk = queryChunks[chunkIndex];
@@ -170,7 +171,7 @@ export const findLeadsWithBusinessIntelligence = async (businessDNA: any, subred
                                     subreddit: correctedSubreddit,
                                     sort: strategy.sort, 
                                     time: strategy.time, 
-                                    limit: Math.max(15, Math.floor((50 + (variationLevel * 10)) / targetSubreddits.length))
+                                    limit: Math.max(25, Math.floor((100 + (variationLevel * 20)) / targetSubreddits.length)) // Increased limits for speed
                                 });
                                 successfulSearches++;
                                 console.log(`✅ [Lead Discovery] Found ${results.length} posts in r/${correctedSubreddit}`);
@@ -185,7 +186,7 @@ export const findLeadsWithBusinessIntelligence = async (businessDNA: any, subred
                             query: [query, blacklistQuery].filter(Boolean).join(' '), 
                             sort: strategy.sort, 
                             time: strategy.time, 
-                            limit: 50 + (variationLevel * 10)
+                            limit: 100 + (variationLevel * 20) // Increased limits for speed
                         }).then(results => {
                             totalSearches++;
                             successfulSearches++;
@@ -231,7 +232,8 @@ export const findLeadsWithBusinessIntelligence = async (businessDNA: any, subred
                 break;
             }
             
-            await new Promise(resolve => setTimeout(resolve, 200)); // Further reduced for faster processing
+            // Minimal delay for maximum speed
+            await new Promise(resolve => setTimeout(resolve, 50)); // Minimal delay for maximum speed
         }
         
         const finalLeads = Array.from(uniqueLeads.values());
