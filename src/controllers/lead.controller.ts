@@ -470,24 +470,46 @@ export const getDiscoveryProgress: RequestHandler = async (req: any, res, next) 
             return res.status(404).json({ message: 'Project not found.' });
         }
 
-        // If no discovery is running, return completed status
+        // If no discovery is running, return not started status
         if (!project.discoveryStatus || project.discoveryStatus === 'completed') {
-            return res.status(200).json({
-                status: 'completed',
-                stage: 'completed',
-                leadsFound: 0,
-                message: 'Discovery completed',
-                estimatedTimeLeft: 0
+            // Get actual leads count for this project
+            const leadsCount = await prisma.lead.count({
+                where: { projectId: projectId }
             });
+            
+            // If there are existing leads, show completed status
+            if (leadsCount > 0) {
+                return res.status(200).json({
+                    status: 'completed',
+                    stage: 'completed',
+                    leadsFound: leadsCount,
+                    message: `Discovery completed! Found ${leadsCount} leads.`,
+                    estimatedTimeLeft: 0
+                });
+            } else {
+                // No leads found yet, show not started status
+                return res.status(200).json({
+                    status: 'not_started',
+                    stage: 'not_started',
+                    leadsFound: 0,
+                    message: 'Discovery not started yet. Click the discovery button to begin.',
+                    estimatedTimeLeft: 0
+                });
+            }
         }
 
         // If discovery failed, return failed status
         if (project.discoveryStatus === 'failed') {
+            // Get actual leads count for this project
+            const leadsCount = await prisma.lead.count({
+                where: { projectId: projectId }
+            });
+            
             return res.status(200).json({
                 status: 'failed',
                 stage: 'failed',
-                leadsFound: 0,
-                message: 'Discovery failed',
+                leadsFound: leadsCount,
+                message: `Discovery failed. Found ${leadsCount} leads before failure.`,
                 estimatedTimeLeft: 0
             });
         }

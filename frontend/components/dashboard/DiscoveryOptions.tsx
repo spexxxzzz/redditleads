@@ -423,7 +423,8 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
                           animate={{ opacity: 1, y: 0 }}
                           className="text-orange-300 text-sm font-semibold"
                         >
-                          {realProgress.message}
+                          {realProgress.stage === 'not_started' ? 'Initializing discovery process...' :
+                           realProgress.message || 'Processing your discovery request...'}
                         </motion.span>
                       </div>
                       
@@ -516,7 +517,8 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
                                 transition={{ duration: 1, repeat: Infinity }}
                               />
                               <span>
-                                {realProgress.stage === 'searching' ? 'Scanning...' :
+                                {realProgress.stage === 'not_started' ? 'Starting...' :
+                                 realProgress.stage === 'searching' ? 'Scanning...' :
                                  realProgress.stage === 'analyzing' ? 'Analyzing...' :
                                  realProgress.stage === 'scoring' ? 'Scoring...' :
                                  realProgress.stage === 'saving' ? 'Saving...' : 'Processing...'}

@@ -3,7 +3,7 @@ import { useAuth } from '@clerk/nextjs';
 import { api } from '@/lib/api';
 
 interface DiscoveryProgress {
-  status: 'running' | 'completed' | 'failed';
+  status: 'not_started' | 'running' | 'completed' | 'failed';
   stage: string;
   leadsFound: number;
   message: string;
@@ -57,6 +57,12 @@ export function useDiscoveryProgress({
       if (progressData.status === 'completed' || progressData.status === 'failed') {
         setIsPolling(false);
         onComplete?.(progressData);
+      }
+      
+      // If discovery is not started, don't stop polling yet (wait for it to start)
+      if (progressData.status === 'not_started') {
+        // Keep polling to wait for discovery to start
+        console.log('Discovery not started yet, continuing to poll...');
       }
 
     } catch (err: any) {
