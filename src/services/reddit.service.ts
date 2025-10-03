@@ -113,6 +113,11 @@ export const findLeadsWithBusinessIntelligence = async (businessDNA: any, subred
         const dynamicQueries = await generateDynamicSearchQueries(businessDNA, variationLevel);
         const semanticQueries = [...staticQueries, ...dynamicQueries];
         
+        // Track search success/failure rates
+        let totalSearches = 0;
+        let successfulSearches = 0;
+        let failedSearches = 0;
+        
         console.log(`🔍 [Lead Discovery] Starting discovery process...`);
         console.log(`🔍 [Lead Discovery] Generated ${staticQueries.length} static + ${dynamicQueries.length} dynamic = ${semanticQueries.length} total queries`);
         console.log(`🔍 [Lead Discovery] Business DNA:`, businessDNA.businessName || 'Unknown');
@@ -159,6 +164,7 @@ export const findLeadsWithBusinessIntelligence = async (businessDNA: any, subred
                             console.log(`🔍 [Lead Discovery] Searching subreddit: r/${correctedSubreddit} with query: "${query}"`);
                             
                             try {
+                                totalSearches++;
                                 const results = await reddit.search({ 
                                     query: query, 
                                     subreddit: correctedSubreddit,
@@ -166,9 +172,11 @@ export const findLeadsWithBusinessIntelligence = async (businessDNA: any, subred
                                     time: strategy.time, 
                                     limit: Math.max(15, Math.floor((50 + (variationLevel * 10)) / targetSubreddits.length))
                                 });
+                                successfulSearches++;
                                 console.log(`✅ [Lead Discovery] Found ${results.length} posts in r/${correctedSubreddit}`);
                                 return results;
-    } catch (error: any) {
+                            } catch (error: any) {
+                                failedSearches++;
                                 console.log(`⚠️ [Lead Discovery] Error searching r/${correctedSubreddit}: ${error.message.substring(0, 100)}...`);
                                 return []; // Return empty array for failed searches
                             }
@@ -178,6 +186,15 @@ export const findLeadsWithBusinessIntelligence = async (businessDNA: any, subred
                             sort: strategy.sort, 
                             time: strategy.time, 
                             limit: 50 + (variationLevel * 10)
+                        }).then(results => {
+                            totalSearches++;
+                            successfulSearches++;
+                            return results;
+                        }).catch(error => {
+                            totalSearches++;
+                            failedSearches++;
+                            console.log(`⚠️ [Lead Discovery] Error in general search: ${error.message?.substring(0, 100) || 'Unknown error'}...`);
+                            return [];
                         })];
                     
                     const subredditResults = await Promise.all(subredditSearchPromises);
@@ -226,9 +243,33 @@ export const findLeadsWithBusinessIntelligence = async (businessDNA: any, subred
             avgComments: Math.round(finalLeads.reduce((sum, l) => sum + (l.commentCount || 0), 0) / finalLeads.length)
         });
         
+        console.log(`📊 [Lead Discovery] Search statistics:`, {
+            totalSearches,
+            successfulSearches,
+            failedSearches,
+            successRate: totalSearches > 0 ? Math.round((successfulSearches / totalSearches) * 100) : 0
+        });
+        
+        // If most searches failed, provide helpful feedback
+        if (totalSearches > 0 && failedSearches > successfulSearches) {
+            console.log(`⚠️ [Lead Discovery] WARNING: ${failedSearches}/${totalSearches} searches failed. This may indicate Reddit API rate limits or subreddit access issues.`);
+        }
+        
         return finalLeads;
-    } catch (error) {
+    } catch (error: any) {
         console.error(`❌ [Lead Discovery] Error during discovery:`, error);
+        
+        // Provide more specific error information
+        if (error.message?.includes('429')) {
+            console.error(`❌ [Lead Discovery] Reddit API rate limit exceeded. Please wait before retrying.`);
+        } else if (error.message?.includes('403')) {
+            console.error(`❌ [Lead Discovery] Reddit API access forbidden. Check subreddit permissions.`);
+        } else if (error.message?.includes('404')) {
+            console.error(`❌ [Lead Discovery] Reddit API endpoint not found. Check subreddit names.`);
+        } else {
+            console.error(`❌ [Lead Discovery] Unknown error: ${error.message || 'Unknown error occurred'}`);
+        }
+        
         return [];
     }
 };

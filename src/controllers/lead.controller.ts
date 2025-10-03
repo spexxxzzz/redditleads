@@ -147,6 +147,34 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
         
         const rawLeads = await findLeadsWithBusinessIntelligence(businessDNA, project.subredditBlacklist as string[], variationLevel, userRedditToken);
         
+        // Check if we found any raw leads
+        if (rawLeads.length === 0) {
+            console.log('❌ [Manual Discovery] No raw leads found - likely due to Reddit API errors or no matching content');
+            
+            // Update progress: Discovery failed due to no raw leads
+            try {
+                await prisma.project.update({
+                    where: { id: projectId },
+                    data: {
+                        discoveryStatus: 'failed',
+                        discoveryProgress: {
+                            stage: 'failed',
+                            leadsFound: 0,
+                            message: 'Discovery failed: No posts found. This may be due to Reddit API rate limits or no matching content in target subreddits.'
+                        }
+                    }
+                });
+            } catch (progressError) {
+                console.error('❌ [Manual Discovery] Failed to update failure progress:', progressError);
+            }
+            
+            return res.status(200).json({ 
+                message: 'Discovery completed but no leads found. This may be due to Reddit API rate limits or no matching content in your target subreddits.',
+                leadsFound: 0,
+                discoveryCompleted: true
+            });
+        }
+        
         // Update progress: Found raw leads, starting analysis
         try {
             await prisma.project.update({
