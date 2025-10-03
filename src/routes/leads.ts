@@ -1,6 +1,7 @@
 import express from 'express';
 import {
     runManualDiscovery,
+    getDiscoveryProgress,
     updateLeadStatus,
     deleteLead,
     deleteLeadsByStatus,
@@ -16,6 +17,9 @@ leadRouter.get('/project/:projectId', getLeadsForTable);
 
 // Manually trigger a new search for a project (Pro feature)
 leadRouter.post('/discover/manual/:projectId', runManualDiscovery);
+
+// Get discovery progress for a project
+leadRouter.get('/discover/progress/:projectId', getDiscoveryProgress);
 
 // Update a lead's status (Pro feature)
 leadRouter.patch('/:leadId/status', updateLeadStatus);

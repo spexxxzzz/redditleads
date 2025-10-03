@@ -7,6 +7,7 @@ import { api } from '@/lib/api';
 import { useAuth, useUser } from '@clerk/nextjs';
 import { Inter, Poppins } from 'next/font/google';
 import { toast } from 'sonner';
+import { useDiscoveryProgress } from '@/hooks/useDiscoveryProgress';
 
 const inter = Inter({ subsets: ['latin'] });
 const poppins = Poppins({
@@ -44,18 +45,38 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
   const { user } = useUser();
   const [isRunningGlobal, setIsRunningGlobal] = useState<boolean>(false);
   const [globalTimeLeft, setGlobalTimeLeft] = useState<number | null>(null);
-  const [discoveryProgress, setDiscoveryProgress] = useState<{
-    stage: string;
-    message: string;
-    leadsFound: number;
-  } | null>(null);
+  
+  // Use the real-time discovery progress hook
+  const { 
+    progress: realProgress, 
+    isPolling, 
+    error: progressError,
+    startPolling,
+    stopPolling 
+  } = useDiscoveryProgress({
+    projectId: isRunningGlobal ? projectId : null,
+    enabled: isRunningGlobal,
+    onComplete: (progress) => {
+      console.log('Discovery completed:', progress);
+      setIsRunningGlobal(false);
+      if (progress.status === 'completed') {
+        toast.success(`Discovery completed! Found ${progress.leadsFound} leads.`);
+        onLeadsDiscovered();
+      } else if (progress.status === 'failed') {
+        toast.error('Discovery failed. Please try again.');
+      }
+    },
+    onError: (error) => {
+      console.error('Discovery progress error:', error);
+      toast.error('Failed to track discovery progress.');
+    }
+  });
 
   // Reset discovery state on mount to prevent stuck states
   useEffect(() => {
     console.log('🔄 Resetting discovery state on mount');
     api.resetDiscoveryState();
     setIsRunningGlobal(false);
-    setDiscoveryProgress(null);
   }, []);
 
   // Sync Reddit connection on mount to ensure accurate status (ONCE ONLY)
@@ -286,128 +307,17 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
 
       console.log('🚀 Making API request...');
       
-      // Set initial progress
-      setDiscoveryProgress({
-        stage: 'starting',
-        message: 'Initializing discovery process...',
-        leadsFound: 0
-      });
-      
-      // Add a timeout to reset discovery state if it gets stuck
-      const discoveryTimeout = setTimeout(() => {
-        console.log('⏰ Discovery timeout - resetting state');
-        setIsRunningGlobal(false);
-        setDiscoveryProgress(null);
-        api.resetDiscoveryState();
-      }, 360000); // 6 minute timeout (longer than backend)
-      
-      // Create engaging progress messages with variety
-      const progressMessages = {
-        searching: [
-          '🔍 Scanning Reddit for your perfect leads...',
-          '🚀 Hunting down high-intent prospects...',
-          '⚡ Searching through thousands of conversations...',
-          '🎯 Finding people who need your solution...',
-          '🔎 Deep-diving into relevant subreddits...'
-        ],
-        analyzing: [
-          '🧠 AI is analyzing post quality and intent...',
-          '✨ Our AI is reading between the lines...',
-          '🎪 Identifying genuine business opportunities...',
-          '🔬 Extracting valuable insights from conversations...',
-          '💎 Filtering out the gold from the noise...'
-        ],
-        scoring: [
-          '📊 Scoring leads for maximum relevance...',
-          '⭐ Ranking opportunities by potential...',
-          '🎯 Calculating lead quality scores...',
-          '📈 Evaluating business potential...',
-          '🏆 Identifying your best prospects...'
-        ],
-        saving: [
-          '💾 Saving your qualified leads...',
-          '🎁 Preparing your lead treasure trove...',
-          '✨ Finalizing your prospect list...',
-          '🎉 Almost ready to show you the results...',
-          '🚀 Your leads are being prepared...'
-        ]
-      };
-
-      // Simulate progress updates during discovery
-      const progressInterval = setInterval(() => {
-        setDiscoveryProgress(prev => {
-          if (!prev) return null;
-          
-          const stages = [
-            { 
-              stage: 'searching', 
-              message: progressMessages.searching[Math.floor(Math.random() * progressMessages.searching.length)], 
-              leadsFound: prev.leadsFound 
-            },
-            { 
-              stage: 'analyzing', 
-              message: progressMessages.analyzing[Math.floor(Math.random() * progressMessages.analyzing.length)], 
-              leadsFound: prev.leadsFound + Math.floor(Math.random() * 3) 
-            },
-            { 
-              stage: 'scoring', 
-              message: progressMessages.scoring[Math.floor(Math.random() * progressMessages.scoring.length)], 
-              leadsFound: prev.leadsFound + Math.floor(Math.random() * 2) 
-            },
-            { 
-              stage: 'saving', 
-              message: progressMessages.saving[Math.floor(Math.random() * progressMessages.saving.length)], 
-              leadsFound: prev.leadsFound 
-            }
-          ];
-          
-          const currentIndex = stages.findIndex(s => s.stage === prev.stage);
-          const nextIndex = (currentIndex + 1) % stages.length;
-          return stages[nextIndex];
-        });
-      }, 12000); // Update every 12 seconds for better variety
+      // Start polling for real progress updates
+      startPolling();
       
       try {
         const result = await api.runManualDiscovery(projectId, token) as ApiResponse;
-        clearTimeout(discoveryTimeout);
-        clearInterval(progressInterval);
 
-        const leadCount = Array.isArray(result) ? result.length : (result?.length || 0);
-        
-        // Create engaging success messages
-        const successMessages = leadCount > 0 ? [
-          `🎉 Amazing! Found ${leadCount} high-quality leads for you!`,
-          `✨ Success! Discovered ${leadCount} perfect prospects!`,
-          `🚀 Boom! ${leadCount} qualified leads are ready!`,
-          `💎 Jackpot! Found ${leadCount} valuable opportunities!`,
-          `🏆 Excellent! ${leadCount} leads are waiting for you!`,
-          `🎯 Perfect! Discovered ${leadCount} high-intent prospects!`,
-          `⭐ Fantastic! Found ${leadCount} quality leads!`,
-          `🔥 Incredible! ${leadCount} leads are ready to convert!`
-        ] : [
-          `🔍 Searched thoroughly but no leads found this time...`,
-          `🎯 Quality over quantity - no leads met our high standards`,
-          `✨ We'll keep searching for your perfect prospects!`,
-          `🚀 Try again soon for fresh opportunities!`,
-          `💎 Sometimes the best leads take time to find!`
-        ];
-        
-        // Set final progress with random success message
-        setDiscoveryProgress({
-          stage: 'completed',
-          message: successMessages[Math.floor(Math.random() * successMessages.length)],
-          leadsFound: leadCount
-        });
-      
-        toast.success(`Found ${leadCount} global leads!`, {
-          description: 'Discovered leads from across Reddit using global search'
-        });
-
-        onLeadsDiscovered();
+        // The progress will be handled by the useDiscoveryProgress hook
+        // No need to manually handle success here as the hook will call onComplete
+        console.log('Discovery API call completed, waiting for progress updates...');
       } catch (discoveryError: unknown) {
-        clearTimeout(discoveryTimeout);
-        clearInterval(progressInterval);
-        setDiscoveryProgress(null);
+        stopPolling();
         console.error('Discovery API call failed:', discoveryError);
         throw discoveryError; // Re-throw to be caught by outer catch
       }
@@ -420,7 +330,8 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
         description: errorMessage || 'Please try again later'
       });
     } finally {
-      setIsRunningGlobal(false);
+      // Don't set isRunningGlobal to false here - let the hook handle it
+      // The hook will call onComplete which will set isRunningGlobal to false
     }
   };
 
@@ -467,7 +378,7 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
               </p>
               
               {/* Animated Progress Display */}
-              {discoveryProgress && (
+              {realProgress && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -507,33 +418,33 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
                           />
                         </div>
                         <motion.span 
-                          key={discoveryProgress.message}
+                          key={realProgress.message}
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           className="text-orange-300 text-sm font-semibold"
                         >
-                          {discoveryProgress.message}
+                          {realProgress.message}
                         </motion.span>
                       </div>
                       
-                      {discoveryProgress.leadsFound > 0 && (
+                      {realProgress.leadsFound > 0 && (
                         <motion.div 
                           initial={{ opacity: 0, scale: 0.8 }}
                           animate={{ opacity: 1, scale: 1 }}
                           className="flex items-center gap-2 text-orange-200 text-xs"
                         >
                           <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce"></div>
-                          <span>Found {discoveryProgress.leadsFound} high-quality leads so far!</span>
+                          <span>Found {realProgress.leadsFound} high-quality leads so far!</span>
                         </motion.div>
                       )}
                       
                       {/* Special completion animation */}
-                      {discoveryProgress.stage === 'completed' && (
+                      {realProgress.stage === 'completed' && (
                         <motion.div
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           className={`mt-3 flex items-center gap-2 text-sm font-semibold ${
-                            discoveryProgress.leadsFound > 0 ? 'text-green-300' : 'text-orange-300'
+                            realProgress.leadsFound > 0 ? 'text-green-300' : 'text-orange-300'
                           }`}
                         >
                           <motion.div
@@ -541,10 +452,10 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
                             transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                             className="text-lg"
                           >
-                            {discoveryProgress.leadsFound > 0 ? '🎉' : '🔍'}
+                            {realProgress.leadsFound > 0 ? '🎉' : '🔍'}
                           </motion.div>
                           <span>
-                            {discoveryProgress.leadsFound > 0 
+                            {realProgress.leadsFound > 0 
                               ? 'Your leads are ready to explore!' 
                               : 'Keep trying for better results!'
                             }
@@ -587,7 +498,7 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
                           animate={{ opacity: [0.7, 1, 0.7] }}
                           transition={{ duration: 1.5, repeat: Infinity }}
                         >
-                          {discoveryProgress.stage === 'completed' ? (
+                          {realProgress.stage === 'completed' ? (
                             <>
                               <span>
                                 ✓
@@ -605,10 +516,10 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
                                 transition={{ duration: 1, repeat: Infinity }}
                               />
                               <span>
-                                {discoveryProgress.stage === 'searching' ? 'Scanning...' :
-                                 discoveryProgress.stage === 'analyzing' ? 'Analyzing...' :
-                                 discoveryProgress.stage === 'scoring' ? 'Scoring...' :
-                                 discoveryProgress.stage === 'saving' ? 'Saving...' : 'Processing...'}
+                                {realProgress.stage === 'searching' ? 'Scanning...' :
+                                 realProgress.stage === 'analyzing' ? 'Analyzing...' :
+                                 realProgress.stage === 'scoring' ? 'Scoring...' :
+                                 realProgress.stage === 'saving' ? 'Saving...' : 'Processing...'}
                               </span>
                             </>
                           )}

@@ -89,6 +89,10 @@ model Project {
   lastManualDiscoveryAt DateTime?
   lastGlobalDiscoverAt    DateTime?
   lastTargetedDiscoveryAt  DateTime?
+  // 👈 NEW: Discovery Progress Tracking Fields
+  discoveryStatus       String?         // 'running', 'completed', 'failed', null
+  discoveryProgress     Json?           // { stage, leadsFound, message, estimatedTimeLeft }
+  discoveryStartedAt    DateTime?
   user                  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   leads                 Lead[]
   MarketInsight         MarketInsight[]

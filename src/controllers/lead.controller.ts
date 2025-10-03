@@ -54,6 +54,41 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
         const user = project.user;
         const discoveryStartTime = Date.now();
         
+        // Check if discovery is already running for this project
+        const existingDiscovery = await prisma.project.findFirst({
+            where: { 
+                id: projectId, 
+                userId: userId,
+                discoveryStatus: 'running'
+            }
+        });
+
+        if (existingDiscovery) {
+            return res.status(409).json({ 
+                message: 'Discovery is already running for this project.',
+                discoveryInProgress: true
+            });
+        }
+        
+        // Initialize discovery progress tracking
+        try {
+            await prisma.project.update({
+                where: { id: projectId },
+                data: {
+                    discoveryStatus: 'running',
+                    discoveryStartedAt: new Date(),
+                    discoveryProgress: {
+                        stage: 'initializing',
+                        leadsFound: 0,
+                        message: 'Starting discovery process...'
+                    }
+                }
+            });
+        } catch (progressError) {
+            console.error('❌ [Manual Discovery] Failed to initialize progress tracking:', progressError);
+            // Continue with discovery even if progress initialization fails
+        }
+        
         // Check if user has Reddit connected - REQUIRED for discovery
         const isRedditConnected = await isUserRedditConnected(userId);
         
@@ -92,7 +127,43 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
         console.log(`[Global Discovery] Using variation level ${variationLevel} (${hoursSinceLastDiscovery.toFixed(1)} hours since last discovery)`);
         
         const targetSubreddits = project.targetSubreddits || [];
+        
+        // Update progress: Starting Reddit search
+        try {
+            await prisma.project.update({
+                where: { id: projectId },
+                data: {
+                    discoveryProgress: {
+                        stage: 'searching',
+                        leadsFound: 0,
+                        message: `Searching ${targetSubreddits.length} subreddits for relevant posts...`
+                    }
+                }
+            });
+        } catch (progressError) {
+            console.error('❌ [Manual Discovery] Failed to update search progress:', progressError);
+            // Continue with discovery even if progress update fails
+        }
+        
         const rawLeads = await findLeadsWithBusinessIntelligence(businessDNA, project.subredditBlacklist as string[], variationLevel, userRedditToken);
+        
+        // Update progress: Found raw leads, starting analysis
+        try {
+            await prisma.project.update({
+                where: { id: projectId },
+                data: {
+                    discoveryProgress: {
+                        stage: 'analyzing',
+                        leadsFound: rawLeads.length,
+                        message: `Found ${rawLeads.length} posts, analyzing quality and relevance...`
+                    }
+                }
+            });
+        } catch (progressError) {
+            console.error('❌ [Manual Discovery] Failed to update analysis progress:', progressError);
+            // Continue with discovery even if progress update fails
+        }
+        
         const scoredLeads = await enrichLeadsForUser(rawLeads, user, businessDNA);
         
         // Debug: Show score distribution
@@ -196,6 +267,23 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
             console.log(`   Subreddit: r/${lead.subreddit} | Author: u/${lead.author}`);
         });
         
+        // Update progress: Starting to save leads
+        try {
+            await prisma.project.update({
+                where: { id: projectId },
+                data: {
+                    discoveryProgress: {
+                        stage: 'saving',
+                        leadsFound: qualifiedLeads.length,
+                        message: `Saving ${qualifiedLeads.length} qualified leads to your dashboard...`
+                    }
+                }
+            });
+        } catch (progressError) {
+            console.error('❌ [Manual Discovery] Failed to update saving progress:', progressError);
+            // Continue with discovery even if progress update fails
+        }
+        
         console.log(`💾 [Manual Discovery] Saving ${qualifiedLeads.length} qualified leads to database...`);
         
         const savedLeads = [];
@@ -239,6 +327,25 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
             }
         }
 
+        // Update progress: Discovery completed successfully
+        try {
+            await prisma.project.update({
+                where: { id: projectId },
+                data: {
+                    discoveryStatus: 'completed',
+                    discoveryProgress: {
+                        stage: 'completed',
+                        leadsFound: savedLeads.length,
+                        message: `Discovery completed! Found and saved ${savedLeads.length} qualified leads.`
+                    },
+                    lastManualDiscoveryAt: new Date()
+                }
+            });
+        } catch (progressError) {
+            console.error('❌ [Manual Discovery] Failed to update completion progress:', progressError);
+            // Discovery is still successful even if progress update fails
+        }
+        
         console.log(`🎉 [Manual Discovery] DISCOVERY COMPLETED!`);
         console.log(`📊 [Manual Discovery] Final Results:`, {
             rawLeads: rawLeads.length,
@@ -277,6 +384,24 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
     } catch (error) {
         // Clear the timeout on error
         clearTimeout(discoveryTimeout);
+        
+        // Update progress: Discovery failed
+        try {
+            await prisma.project.update({
+                where: { id: projectId },
+                data: {
+                    discoveryStatus: 'failed',
+                    discoveryProgress: {
+                        stage: 'failed',
+                        leadsFound: 0,
+                        message: 'Discovery failed due to an error. Please try again.'
+                    }
+                }
+            });
+        } catch (updateError) {
+            console.error('❌ [Manual Discovery] Failed to update discovery status on error:', updateError);
+        }
+        
         console.error('❌ [Manual Discovery] Error during discovery:', error);
         next(error);
     }
@@ -285,6 +410,80 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
 // You can add back other controller functions here if needed by the frontend,
 // ensuring they use the new types and logic.
 // For example:
+export const getDiscoveryProgress: RequestHandler = async (req: any, res, next) => {
+    const auth = await req.auth();
+    const userId = auth?.userId;
+    const { projectId } = req.params;
+
+    if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated.' });
+    }
+
+    if (!projectId) {
+        return res.status(400).json({ message: 'Project ID is required.' });
+    }
+
+    try {
+        const project = await prisma.project.findFirst({
+            where: { 
+                id: projectId,
+                userId: userId
+            },
+            select: {
+                id: true,
+                discoveryStatus: true,
+                discoveryProgress: true,
+                discoveryStartedAt: true,
+                lastManualDiscoveryAt: true
+            }
+        });
+
+        if (!project) {
+            return res.status(404).json({ message: 'Project not found.' });
+        }
+
+        // If no discovery is running, return completed status
+        if (!project.discoveryStatus || project.discoveryStatus === 'completed') {
+            return res.status(200).json({
+                status: 'completed',
+                stage: 'completed',
+                leadsFound: 0,
+                message: 'Discovery completed',
+                estimatedTimeLeft: 0
+            });
+        }
+
+        // If discovery failed, return failed status
+        if (project.discoveryStatus === 'failed') {
+            return res.status(200).json({
+                status: 'failed',
+                stage: 'failed',
+                leadsFound: 0,
+                message: 'Discovery failed',
+                estimatedTimeLeft: 0
+            });
+        }
+
+        // Parse progress data
+        const progressData = project.discoveryProgress as any || {};
+        const startedAt = project.discoveryStartedAt ? new Date(project.discoveryStartedAt).getTime() : Date.now();
+        const elapsedTime = Date.now() - startedAt;
+        const estimatedTimeLeft = Math.max(0, 300000 - elapsedTime); // 5 minutes total
+
+        res.status(200).json({
+            status: project.discoveryStatus,
+            stage: progressData.stage || 'initializing',
+            leadsFound: progressData.leadsFound || 0,
+            message: progressData.message || 'Starting discovery...',
+            estimatedTimeLeft: Math.round(estimatedTimeLeft / 1000) // Convert to seconds
+        });
+
+    } catch (error) {
+        console.error('❌ [Discovery Progress] Error getting progress:', error);
+        next(error);
+    }
+};
+
 export const updateLeadStatus: RequestHandler = async (req: any, res, next) => {
     const auth = await req.auth();
     const userId = auth?.userId;
