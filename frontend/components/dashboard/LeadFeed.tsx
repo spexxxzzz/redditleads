@@ -52,13 +52,11 @@ interface Lead {
 
 interface LeadFeedProps {
   leads: Lead[];
-  onManualDiscovery: () => void;
   isRunningDiscovery: boolean;
   onLeadUpdate: (leadId: string, status: Lead['status']) => void;
   isLoading?: boolean;
   activeFilter: string;
   onDelete: (leadId: string) => void;
-
 }
 
 type SortOption = 'createdAt' | 'opportunityScore' | 'numComments' | 'upvoteRatio';
@@ -119,7 +117,6 @@ const intentOptions = [
 
 export const LeadFeed: React.FC<LeadFeedProps> = ({ 
   leads, 
-  onManualDiscovery, 
   isRunningDiscovery,
   onLeadUpdate,
   isLoading = false,

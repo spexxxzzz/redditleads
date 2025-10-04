@@ -5,10 +5,12 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api/proxy';
 
 // Global request lock to prevent duplicate requests
 let isManualDiscoveryRunning = false;
+let currentDiscoveryProjectId: string | null = null;
 
 // Function to reset the lock (for debugging)
 const resetDiscoveryLock = () => {
   isManualDiscoveryRunning = false;
+  currentDiscoveryProjectId = null;
   console.log('🔓 Discovery lock manually reset');
 };
 
@@ -123,13 +125,19 @@ export const api = {
 
   // Manual discovery
   runManualDiscovery: async (projectId: string, token: string | null) => {
-    console.log('🔍 runManualDiscovery called with projectId:', projectId);
-    console.log('🔍 isManualDiscoveryRunning:', isManualDiscoveryRunning);
+    console.log('🔍 [API] runManualDiscovery called with projectId:', projectId);
+    console.log('🔍 [API] isManualDiscoveryRunning:', isManualDiscoveryRunning);
+    console.log('🔍 [API] currentDiscoveryProjectId:', currentDiscoveryProjectId);
     
-    // Check if discovery is already running
-    if (isManualDiscoveryRunning) {
-      console.log('🚫 Manual discovery already running, preventing duplicate request');
-      throw new Error('Discovery is already running. Please wait for it to complete.');
+    // Check if discovery is already running for this specific project
+    if (isManualDiscoveryRunning && currentDiscoveryProjectId === projectId) {
+      console.log('🚫 [API] Manual discovery already running for this project, preventing duplicate request');
+      throw new Error('Discovery is already running for this project. Please wait for it to complete.');
+    }
+    
+    // If discovery is running for a different project, allow it (user might have multiple projects)
+    if (isManualDiscoveryRunning && currentDiscoveryProjectId !== projectId) {
+      console.log('⚠️ [API] Discovery running for different project, allowing new discovery');
     }
 
     console.log('🌐 API Request Details:');
@@ -141,8 +149,9 @@ export const api = {
     console.log('  Process env NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
     console.log('  Full URL being requested:', `${API_BASE_URL}/api/leads/discover/manual/${projectId}`);
     
-    // Set the lock
+    // Set the lock for this specific project
     isManualDiscoveryRunning = true;
+    currentDiscoveryProjectId = projectId;
     
     try {
       // First, test basic connectivity to the backend
@@ -236,14 +245,16 @@ export const api = {
     } finally {
       // Always unlock the request
       isManualDiscoveryRunning = false;
-      console.log('🔓 Manual discovery lock released');
+      currentDiscoveryProjectId = null;
+      console.log('🔓 [API] Manual discovery lock released for project:', projectId);
     }
   },
 
   // Add a function to manually reset the discovery state
   resetDiscoveryState: () => {
-    console.log('🔄 Manually resetting discovery state');
+    console.log('🔄 [API] Manually resetting discovery state');
     isManualDiscoveryRunning = false;
+    currentDiscoveryProjectId = null;
   },
   generateReply: async (leadId: string, token: string | null) => {
     const response = await fetch(`${API_BASE_URL}/api/engagement/generate`, {

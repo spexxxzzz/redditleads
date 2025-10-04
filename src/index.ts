@@ -81,6 +81,14 @@ app.use(express.json());
 // Add request logging
 app.use(logger.requestLogger());
 
+// Add route debugging middleware
+app.use((req, res, next) => {
+  if (req.path.includes('/discover/') || req.path.includes('/leads/')) {
+    console.log('🔍 [Route Debug]', req.method, req.originalUrl, '->', req.path);
+  }
+  next();
+});
+
 // Configure Clerk middleware
 app.use(clerkMiddleware());
 

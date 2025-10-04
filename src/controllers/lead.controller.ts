@@ -10,6 +10,9 @@ const prisma = new PrismaClient();
 
 export const runManualDiscovery: RequestHandler = async (req: any, res, next) => {
     console.log('🔍 [Manual Discovery] Starting discovery process...');
+    console.log('🔍 [Manual Discovery] Request URL:', req.originalUrl);
+    console.log('🔍 [Manual Discovery] Request method:', req.method);
+    console.log('🔍 [Manual Discovery] Request params:', req.params);
     console.log('🔍 [Manual Discovery] Request headers:', req.headers);
     console.log('🔍 [Manual Discovery] Authorization header:', req.headers.authorization);
     
@@ -32,13 +35,30 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
     }
 
     try {
+        console.log('🔍 [Manual Discovery] Looking up project in database...');
         const project = await prisma.project.findFirst({
             where: { id: projectId, userId: userId },
             include: { user: true }
         });
 
+        console.log('🔍 [Manual Discovery] Project lookup result:', project ? 'Found' : 'Not found');
+
         if (!project || !project.user) {
-            return res.status(404).json({ message: 'Project not found.' });
+            console.log('❌ [Manual Discovery] Project not found in database');
+            
+            // Check if project exists with different user
+            const projectExists = await prisma.project.findFirst({
+                where: { id: projectId },
+                select: { id: true, userId: true }
+            });
+            
+            if (projectExists) {
+                console.log('🔍 [Manual Discovery] Project exists but belongs to different user:', projectExists.userId);
+                return res.status(403).json({ message: 'Project not found or access denied.' });
+            } else {
+                console.log('❌ [Manual Discovery] Project does not exist at all');
+                return res.status(404).json({ message: 'Project not found.' });
+            }
         }
         const user = project.user;
         
@@ -52,13 +72,30 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
         });
 
         if (existingDiscovery) {
+            console.log('⚠️ [Manual Discovery] Discovery already running, rejecting request');
             return res.status(409).json({ 
                 message: 'Discovery is already running for this project.',
                 discoveryInProgress: true
             });
         }
+
+        // Reset any previous discovery status (completed/failed) to allow new discovery
+        console.log('🔄 [Manual Discovery] Resetting any previous discovery status');
+        try {
+            await prisma.project.update({
+                where: { id: projectId },
+                data: {
+                    discoveryStatus: null, // Reset to null first
+                    discoveryProgress: null,
+                    discoveryStartedAt: null
+                }
+            });
+        } catch (resetError) {
+            console.error('❌ [Manual Discovery] Failed to reset previous discovery status:', resetError);
+            // Continue anyway - this is not critical
+        }
         
-        // Initialize discovery progress tracking
+        // Initialize discovery progress tracking - reset any previous state
         try {
             await prisma.project.update({
                 where: { id: projectId },
@@ -72,6 +109,7 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
                     }
                 }
             });
+            console.log('✅ [Manual Discovery] Discovery status reset and initialized');
         } catch (progressError) {
             console.error('❌ [Manual Discovery] Failed to initialize progress tracking:', progressError);
             return res.status(500).json({ message: 'Failed to initialize discovery process.' });
@@ -468,19 +506,30 @@ async function runDiscoveryInBackground(projectId: string, userId: string, user:
 // ensuring they use the new types and logic.
 // For example:
 export const getDiscoveryProgress: RequestHandler = async (req: any, res, next) => {
+    console.log('🔍 [Discovery Progress] Starting progress check...');
+    console.log('🔍 [Discovery Progress] Request URL:', req.originalUrl);
+    console.log('🔍 [Discovery Progress] Request method:', req.method);
+    console.log('🔍 [Discovery Progress] Request params:', req.params);
+    
     const auth = await req.auth();
     const userId = auth?.userId;
     const { projectId } = req.params;
 
+    console.log('🔍 [Discovery Progress] User ID:', userId);
+    console.log('🔍 [Discovery Progress] Project ID:', projectId);
+
     if (!userId) {
+        console.log('❌ [Discovery Progress] Missing userId');
         return res.status(401).json({ message: 'User not authenticated.' });
     }
 
     if (!projectId) {
+        console.log('❌ [Discovery Progress] Missing projectId');
         return res.status(400).json({ message: 'Project ID is required.' });
     }
 
     try {
+        console.log('🔍 [Discovery Progress] Looking up project in database...');
         const project = await prisma.project.findFirst({
             where: { 
                 id: projectId,
@@ -495,8 +544,24 @@ export const getDiscoveryProgress: RequestHandler = async (req: any, res, next) 
             }
         });
 
+        console.log('🔍 [Discovery Progress] Project lookup result:', project);
+
         if (!project) {
-            return res.status(404).json({ message: 'Project not found.' });
+            console.log('❌ [Discovery Progress] Project not found in database');
+            
+            // Check if project exists with different user
+            const projectExists = await prisma.project.findFirst({
+                where: { id: projectId },
+                select: { id: true, userId: true }
+            });
+            
+            if (projectExists) {
+                console.log('🔍 [Discovery Progress] Project exists but belongs to different user:', projectExists.userId);
+                return res.status(403).json({ message: 'Project not found or access denied.' });
+            } else {
+                console.log('❌ [Discovery Progress] Project does not exist at all');
+                return res.status(404).json({ message: 'Project not found.' });
+            }
         }
 
         // If no discovery is running, return not started status

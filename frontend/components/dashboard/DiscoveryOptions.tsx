@@ -20,9 +20,10 @@ interface DiscoveryButtonsProps {
   targetSubreddits: string[];
   onLeadsDiscovered: () => void;
   lastDiscoveryAt: Date | null;
-  lastGlobalDiscoveryAt?: Date | null;
-  lastTargetedDiscoveryAt?: Date | null;
   disabled?: boolean;
+  isDiscoveryRunning?: boolean;
+  onDiscoveryStart?: () => void;
+  onDiscoveryComplete?: () => void;
 }
 
 interface ApiResponse {
@@ -38,16 +39,16 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
   targetSubreddits,
   onLeadsDiscovered,
   lastDiscoveryAt,
-  lastGlobalDiscoveryAt,
-  lastTargetedDiscoveryAt,
-  disabled = false
+  disabled = false,
+  isDiscoveryRunning = false,
+  onDiscoveryStart,
+  onDiscoveryComplete
 }) => {
   const { getToken, isLoaded, isSignedIn, userId } = useAuth();
   const { user } = useUser();
   const [isRunningGlobal, setIsRunningGlobal] = useState<boolean>(false);
-  const [globalTimeLeft, setGlobalTimeLeft] = useState<number | null>(null);
   
-  // Use the real-time discovery progress hook
+  // Use the real-time discovery progress hook - coordinate with parent state
   const { 
     progress: realProgress, 
     isPolling, 
@@ -55,11 +56,12 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
     startPolling,
     stopPolling 
   } = useDiscoveryProgress({
-    projectId: isRunningGlobal ? projectId : null,
-    enabled: isRunningGlobal,
+    projectId: (isRunningGlobal || isDiscoveryRunning) ? projectId : null,
+    enabled: isRunningGlobal || isDiscoveryRunning,
     onComplete: (progress) => {
       console.log('Discovery completed:', progress);
       setIsRunningGlobal(false);
+      onDiscoveryComplete?.(); // Notify parent component
       if (progress.status === 'completed') {
         toast.success(`Discovery completed! Found ${progress.leadsFound} leads.`);
         onLeadsDiscovered();
@@ -70,6 +72,8 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
     onError: (error) => {
       console.error('Discovery progress error:', error);
       toast.error('Failed to track discovery progress.');
+      setIsRunningGlobal(false);
+      onDiscoveryComplete?.(); // Notify parent component
     }
   });
 
@@ -101,88 +105,21 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
     syncRedditConnection();
   }, [isLoaded]); // Only run when isLoaded changes, not on every user change
 
-  const COOLDOWN_SECONDS = 10;
-  const COOLDOWN_MS = COOLDOWN_SECONDS * 1000;
+  // Simplified: No cooldown needed - user can run discovery anytime
   
   // Check Reddit connection status
   const isRedditConnected = !!user?.publicMetadata?.hasConnectedReddit;
 
-  // Calculate time remaining for cooldowns
-  const calculateTimeLeft = useCallback((lastRunAt: Date | null): number | null => {
-    console.log('🔍 [Cooldown] calculateTimeLeft called with lastRunAt:', lastRunAt);
-    if (!lastRunAt) {
-      console.log('🔍 [Cooldown] No lastRunAt, returning null');
-      return null;
-    }
-    
-    try {
-      const now = new Date().getTime();
-      const lastRun = new Date(lastRunAt).getTime();
-      
-      console.log('🔍 [Cooldown] Now:', now, 'LastRun:', lastRun);
-      console.log('🔍 [Cooldown] COOLDOWN_MS:', COOLDOWN_MS);
-      
-      // Check if dates are valid
-      if (isNaN(now) || isNaN(lastRun)) {
-        console.log('🔍 [Cooldown] Invalid dates, returning null');
-        return null;
-      }
-      
-      const timePassed = now - lastRun;
-      const timeLeft = COOLDOWN_MS - timePassed;
-      
-      console.log('🔍 [Cooldown] TimePassed:', timePassed, 'TimeLeft:', timeLeft);
-      
-      const result = timeLeft > 0 ? timeLeft : null;
-      console.log('🔍 [Cooldown] Returning:', result);
-      return result;
-    } catch (error) {
-      console.error('Error calculating time left:', error);
-      return null;
-    }
-  }, [COOLDOWN_MS]);
-
-  // Update timers every second
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setGlobalTimeLeft(calculateTimeLeft(lastGlobalDiscoveryAt || null));
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [calculateTimeLeft, lastGlobalDiscoveryAt]);
-
-  // Initialize timers on mount
-  useEffect(() => {
-    setGlobalTimeLeft(calculateTimeLeft(lastGlobalDiscoveryAt || null));
-  }, [calculateTimeLeft, lastGlobalDiscoveryAt]);
-
-  // Format time remaining
-  const formatTimeLeft = (timeMs: number): string => {
-    try {
-      const hours = Math.floor(timeMs / (60 * 60 * 1000));
-      const minutes = Math.floor((timeMs % (60 * 60 * 1000)) / (60 * 1000));
-      const seconds = Math.floor((timeMs % (60 * 1000)) / 1000);
-      
-      if (hours > 0) {
-        return `${hours}h ${minutes}m ${seconds}s`;
-      } else if (minutes > 0) {
-        return `${minutes}m ${seconds}s`;
-      } else {
-        return `${seconds}s`;
-      }
-    } catch (error) {
-      console.error('Error formatting time:', error);
-      return '0s';
-    }
-  };
+  // Simplified: No cooldown logic needed
 
   const handleGlobalDiscovery = async (): Promise<void> => {
-    console.log('🚀 handleGlobalDiscovery called');
-    console.log('🚀 isRunningGlobal:', isRunningGlobal);
-    console.log('🚀 isLoaded:', isLoaded);
-    console.log('🚀 isSignedIn:', isSignedIn);
-    console.log('🚀 projectId:', projectId);
-    console.log('🚀 userId:', userId);
+    console.log('🚀 [DiscoveryOptions] handleGlobalDiscovery called');
+    console.log('🚀 [DiscoveryOptions] isRunningGlobal:', isRunningGlobal);
+    console.log('🚀 [DiscoveryOptions] isDiscoveryRunning:', isDiscoveryRunning);
+    console.log('🚀 [DiscoveryOptions] isLoaded:', isLoaded);
+    console.log('🚀 [DiscoveryOptions] isSignedIn:', isSignedIn);
+    console.log('🚀 [DiscoveryOptions] projectId:', projectId);
+    console.log('🚀 [DiscoveryOptions] userId:', userId);
     
     // Check if user is authenticated
     if (!isLoaded) {
@@ -195,23 +132,18 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
       return;
     }
 
-    if (globalTimeLeft && globalTimeLeft > 0) {
-      toast.error('Global search is on cooldown', {
-        description: `Please wait ${formatTimeLeft(globalTimeLeft)} before running again`
-      });
-      return;
-    }
+    // Simplified: No cooldown check needed
 
-    // Prevent multiple simultaneous requests
-    if (isRunningGlobal) {
-      console.log('🚀 Discovery already running, preventing duplicate request');
+    // Prevent multiple simultaneous requests - check both local and parent state
+    if (isRunningGlobal || isDiscoveryRunning) {
+      console.log('🚀 [DiscoveryOptions] Discovery already running, preventing duplicate request');
       toast.error('Discovery is already running. Please wait for it to complete.');
       return;
     }
 
     // Validate projectId before proceeding
     if (!projectId) {
-      console.error('❌ No project ID available for discovery');
+      console.error('❌ [DiscoveryOptions] No project ID available for discovery');
       toast.error('No project selected', {
         description: 'Please select a project before running discovery'
       });
@@ -220,7 +152,7 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
 
     // Check if user is properly authenticated
     if (!isSignedIn || !isLoaded) {
-      console.error('❌ User not properly authenticated');
+      console.error('❌ [DiscoveryOptions] User not properly authenticated');
       toast.error('Authentication required', {
         description: 'Please sign in again to run discovery'
       });
@@ -228,12 +160,13 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
     }
 
     try {
-      console.log('🚀 Starting discovery process...');
-      console.log('🔑 Auth state - isSignedIn:', isSignedIn);
-      console.log('🔑 Auth state - isLoaded:', isLoaded);
-      console.log('🔑 Auth state - userId:', userId);
+      console.log('🚀 [DiscoveryOptions] Starting discovery process...');
+      console.log('🔑 [DiscoveryOptions] Auth state - isSignedIn:', isSignedIn);
+      console.log('🔑 [DiscoveryOptions] Auth state - isLoaded:', isLoaded);
+      console.log('🔑 [DiscoveryOptions] Auth state - userId:', userId);
       
       setIsRunningGlobal(true);
+      onDiscoveryStart?.(); // Notify parent component that discovery is starting
       
       // Always get a fresh token for each request
       console.log('🔄 Getting fresh token for discovery...');
@@ -342,7 +275,6 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
   };
 
   const isAnyRunning = isRunningGlobal;
-  const isGlobalOnCooldown = globalTimeLeft !== null && globalTimeLeft > 0;
 
   return (
     <div className="space-y-6">
@@ -355,32 +287,22 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
       >
         {/* Global Discovery */}
         <motion.div
-          whileHover={!isGlobalOnCooldown ? { scale: 1.02 } : {}}
-          whileTap={!isGlobalOnCooldown ? { scale: 0.98 } : {}}
+          whileHover={!isAnyRunning ? { scale: 1.02 } : {}}
+          whileTap={!isAnyRunning ? { scale: 0.98 } : {}}
           className="group relative h-full flex flex-col"
         >
           <div className={`bg-black/40 backdrop-blur-sm border rounded-lg p-3 sm:p-4 flex flex-col h-full min-h-[210px] transition-all duration-300 ${
-            isGlobalOnCooldown ? 'border-red-500/30 bg-red-500/5' : 'border-white/10'
+            isAnyRunning ? 'border-orange-500/30 bg-orange-500/5' : 'border-white/10'
           }`}>
             <div className="space-y-2 flex-1">
               <div className="flex items-center justify-between">
                 <h3 className={`text-base sm:text-lg font-bold text-white ${poppins.className}`}>
                   Global Search
                 </h3>
-                {isGlobalOnCooldown && globalTimeLeft !== null && (
-                  <div className="flex items-center gap-1 text-red-400">
-                    <Clock className="w-4 h-4" />
-                    <span className={`text-xs font-medium ${inter.className}`}>
-                      {formatTimeLeft(globalTimeLeft)}
-                    </span>
-                  </div>
-                )}
+                {/* Simplified - no cooldown display */}
               </div>
               <p className={`text-white/60 text-sm ${inter.className}`}>
-                {isGlobalOnCooldown && globalTimeLeft !== null
-                  ? `Global search is on cooldown. Next search available in ${formatTimeLeft(globalTimeLeft)}.`
-                  : 'AI-powered search across the entire Reddit platform for discovering new opportunities.'
-                }
+                AI-powered search across the entire Reddit platform for discovering new opportunities.
               </p>
               
               {/* Animated Progress Display */}
@@ -547,31 +469,28 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
                 }
                 console.log('🔘 Button clicked!');
                 console.log('🔘 isAnyRunning:', isAnyRunning);
-                console.log('🔘 isGlobalOnCooldown:', isGlobalOnCooldown);
+                // Simplified logging
                 console.log('🔘 isRunningGlobal:', isRunningGlobal);
                 console.log('🔘 projectId:', projectId);
-                console.log('🔘 Button disabled:', isAnyRunning || isGlobalOnCooldown || !isRedditConnected);
-                console.log('🔘 globalTimeLeft:', globalTimeLeft);
+                console.log('🔘 Button disabled:', isAnyRunning || !isRedditConnected);
                 handleGlobalDiscovery();
               }}
-              disabled={isAnyRunning || isGlobalOnCooldown || disabled || !isRedditConnected}
+              disabled={isAnyRunning || disabled || !isRedditConnected}
               className={`w-full border-0 shadow-sm hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-semibold h-9 sm:h-10 px-3 sm:px-4 text-sm sm:text-base rounded-md ${
                 !isRedditConnected
                   ? 'bg-gray-500/20 text-gray-400 hover:bg-gray-500/20'
-                  : isGlobalOnCooldown 
-                    ? 'bg-red-500/20 text-red-400 hover:bg-red-500/20' 
-                    : 'bg-white text-blue-600 hover:bg-gray-50'
+                  : isAnyRunning
+                    ? 'bg-orange-500/20 text-orange-400 hover:bg-orange-500/20'
+                    : 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white'
               }`}
             >
-              {isRunningGlobal ? (
-                <span className={poppins.className}>Discovering Globally...</span>
-              ) : isGlobalOnCooldown ? (
-                <span className={poppins.className}>On Cooldown</span>
+              {isAnyRunning ? (
+                <span className={poppins.className}>Discovering...</span>
               ) : !isRedditConnected ? (
                 <span className={poppins.className}>Connect Reddit to Start</span>
               ) : (
                 <div className="flex items-center justify-center gap-2">
-                  <span className={poppins.className}>Start Global Discovery</span>
+                  <span className={poppins.className}>Start Discovery</span>
                   <span className="text-xs text-green-400">✓ Reddit</span>
                 </div>
               )}

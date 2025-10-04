@@ -7,7 +7,7 @@ import { api } from '@/lib/api';
 import { Inter, Poppins } from 'next/font/google';
 import { RedditLeadsHeader } from './DashboardHeader';
 import { useAuth } from '@clerk/nextjs';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { batchLeadsForSession, getLeadBatchingMessage, LeadBatchingOptions } from '@/utils/leadBatching';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -57,6 +57,7 @@ interface Project {
 export const DashboardLayout = () => {
   const { getToken } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [allLeads, setAllLeads] = useState<Lead[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -86,6 +87,18 @@ export const DashboardLayout = () => {
 
 
 
+  // Handle URL project parameter
+  useEffect(() => {
+    const projectIdFromUrl = searchParams.get('project');
+    if (projectIdFromUrl && projects.length > 0) {
+      const projectExists = projects.find(p => p.id === projectIdFromUrl);
+      if (projectExists) {
+        console.log('🎯 Setting active project from URL:', projectIdFromUrl);
+        setActiveProject(projectIdFromUrl);
+      }
+    }
+  }, [searchParams, projects]);
+
   // Responsive
   useEffect(() => {
     const checkScreenSize = () => {
@@ -110,10 +123,22 @@ export const DashboardLayout = () => {
       }
       
       const data = await api.getProjects(token);
+      console.log('📋 Fetched projects:', data?.map((p: Project) => ({ id: p.id, name: p.name })));
+      console.log('🎯 Current active project:', activeProject);
       setProjects(data || []);
       
-      if (data && data.length > 0 && !activeProject) {
-        setActiveProject(data[0].id);
+      if (data && data.length > 0) {
+        // Check if current active project still exists
+        const currentProjectExists = activeProject ? data.find((p: Project) => p.id === activeProject) : null;
+        console.log('🔍 Current project exists:', !!currentProjectExists);
+        
+        if (!activeProject || !currentProjectExists) {
+          // Either no active project or current active project doesn't exist anymore
+          console.log('🔄 Setting active project to:', data[0].id);
+          setActiveProject(data[0].id);
+        } else {
+          console.log('✅ Active project still exists, keeping:', activeProject);
+        }
       } else if (!data || data.length === 0) {
         // New user with no projects - this is normal, not an error
         setError(null); // Clear any previous errors
@@ -192,58 +217,21 @@ export const DashboardLayout = () => {
     }
   }, [getToken, activeFilter, intentFilter, sortBy, sortOrder]);
 
-  const handleManualDiscovery = async () => {
-    if (!activeProject) {
-      console.error('❌ No active project selected for discovery');
-      setError('Please select a project before running discovery');
-      return;
-    }
-    
-    // Force reset discovery state before starting new discovery
-    api.resetDiscoveryState();
-    setIsRunningDiscovery(false);
-    
-    // Small delay to ensure reset takes effect
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    setIsRunningDiscovery(true);
-    
-    // Add a safety timeout to prevent stuck state
-    const timeoutId = setTimeout(() => {
-      setIsRunningDiscovery(false);
-      api.resetDiscoveryState(); // Also reset API state
-    }, 180000); // 3 minutes timeout
-    
-    try {
-      const token = await getToken();
-      
-      if (!token) {
-        throw new Error('Authentication token not available');
-      }
-      
-      const result = await api.runManualDiscovery(activeProject, token);
-      
-      setTimeout(() => {
-        fetchLeads(activeProject);
-        fetchUserUsage(); // Refresh usage data after discovery
-      }, 2000);
-    } catch (err: any) {
-      console.error('❌ Discovery failed:', err);
-      setError(`Manual discovery failed: ${err.message}`);
-      
-      // Force reset on error to prevent stuck state
-      forceResetDiscovery();
-    } finally {
-      clearTimeout(timeoutId);
-      setIsRunningDiscovery(false);
-    }
-  };
+  // REMOVED: This function was redundant - DiscoveryOptions handles discovery
 
   const handleLeadsDiscovered = () => {
     if (activeProject) {
       fetchLeads(activeProject);
       fetchProjects();
     }
+  };
+
+  const handleProjectDeleted = () => {
+    // Reset active project when a project is deleted
+    setActiveProject(null);
+    setLeads([]);
+    setAllLeads([]);
+    fetchProjects(); // This will set a new active project if available
   };
 
   const resetDiscoveryState = () => {
@@ -253,13 +241,11 @@ export const DashboardLayout = () => {
     api.resetDiscoveryState();
   };
 
-  // Add a more aggressive reset function
+  // Simplified reset function
   const forceResetDiscovery = () => {
     setIsRunningDiscovery(false);
     setError(null);
     api.resetDiscoveryState();
-    
-    // Also refresh user usage to get latest data
     fetchUserUsage();
   };
 
@@ -568,8 +554,17 @@ export const DashboardLayout = () => {
                             targetSubreddits={currentProject?.targetSubreddits || []}
                             onLeadsDiscovered={handleLeadsDiscovered}
                             lastDiscoveryAt={currentProject?.lastManualDiscoveryAt ? new Date(currentProject.lastManualDiscoveryAt) : null}
-                            lastGlobalDiscoveryAt={currentProject?.lastGlobalDiscoveryAt ? new Date(currentProject.lastGlobalDiscoveryAt) : null}
-                            lastTargetedDiscoveryAt={currentProject?.lastTargetedDiscoveryAt ? new Date(currentProject.lastTargetedDiscoveryAt) : null}
+                            isDiscoveryRunning={isRunningDiscovery}
+                            onDiscoveryStart={() => {
+                              console.log('🚀 [DashBoardLayout] Discovery started');
+                              setIsRunningDiscovery(true);
+                            }}
+                            onDiscoveryComplete={() => {
+                              console.log('✅ [DashBoardLayout] Discovery completed');
+                              setIsRunningDiscovery(false);
+                              fetchLeads(activeProject);
+                              fetchUserUsage();
+                            }}
                             disabled={isLeadLimitExceeded}
                           />
                           
@@ -702,7 +697,6 @@ export const DashboardLayout = () => {
                         {projects.length > 0 && (
                           <LeadFeed
                             leads={leads}
-                            onManualDiscovery={handleManualDiscovery}
                             isRunningDiscovery={isRunningDiscovery}
                             onDelete={handleLeadDelete}
                             onLeadUpdate={handleLeadUpdate}
