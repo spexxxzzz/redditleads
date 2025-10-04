@@ -46,6 +46,13 @@ export function useDiscoveryProgress({
       });
 
       if (!response.ok) {
+        // If project not found (404) or unauthorized (401), stop polling
+        if (response.status === 404 || response.status === 401) {
+          console.log(`Stopping polling due to ${response.status} error`);
+          setIsPolling(false);
+          setError(response.status === 404 ? 'Project not found' : 'Unauthorized');
+          return;
+        }
         throw new Error(`Failed to fetch progress: ${response.status}`);
       }
 
