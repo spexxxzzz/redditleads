@@ -564,6 +564,22 @@ export const getDiscoveryProgress: RequestHandler = async (req: any, res, next) 
             }
         }
 
+        // If discovery is running, return current progress
+        if (project.discoveryStatus === 'running') {
+            const progressData = project.discoveryProgress as any || {};
+            const startedAt = project.discoveryStartedAt ? new Date(project.discoveryStartedAt).getTime() : Date.now();
+            const elapsedTime = Date.now() - startedAt;
+            const estimatedTimeLeft = Math.max(0, 300000 - elapsedTime); // 5 minutes total
+
+            return res.status(200).json({
+                status: project.discoveryStatus,
+                stage: progressData.stage || 'initializing',
+                leadsFound: progressData.leadsFound || 0,
+                message: progressData.message || 'Starting discovery...',
+                estimatedTimeLeft: Math.round(estimatedTimeLeft / 1000) // Convert to seconds
+            });
+        }
+
         // If no discovery is running, return not started status
         if (!project.discoveryStatus || project.discoveryStatus === 'completed') {
             // Get actual leads count for this project
@@ -608,18 +624,13 @@ export const getDiscoveryProgress: RequestHandler = async (req: any, res, next) 
             });
         }
 
-        // Parse progress data
-        const progressData = project.discoveryProgress as any || {};
-        const startedAt = project.discoveryStartedAt ? new Date(project.discoveryStartedAt).getTime() : Date.now();
-        const elapsedTime = Date.now() - startedAt;
-        const estimatedTimeLeft = Math.max(0, 300000 - elapsedTime); // 5 minutes total
-
+        // This should not be reached due to the conditions above
         res.status(200).json({
-            status: project.discoveryStatus,
-            stage: progressData.stage || 'initializing',
-            leadsFound: progressData.leadsFound || 0,
-            message: progressData.message || 'Starting discovery...',
-            estimatedTimeLeft: Math.round(estimatedTimeLeft / 1000) // Convert to seconds
+            status: 'unknown',
+            stage: 'unknown',
+            leadsFound: 0,
+            message: 'Unknown discovery status',
+            estimatedTimeLeft: 0
         });
 
     } catch (error) {
