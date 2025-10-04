@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { api } from '@/lib/api';
 
@@ -29,6 +29,19 @@ export function useDiscoveryProgress({
   const [progress, setProgress] = useState<DiscoveryProgress | null>(null);
   const [isPolling, setIsPolling] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Use refs to avoid recreating the polling effect
+  const onCompleteRef = useRef(onComplete);
+  const onErrorRef = useRef(onError);
+  
+  // Update refs when callbacks change
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+  
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
 
   const fetchProgress = useCallback(async () => {
     if (!projectId || !enabled) return;
@@ -63,7 +76,7 @@ export function useDiscoveryProgress({
       // Call onComplete if discovery is finished
       if (progressData.status === 'completed' || progressData.status === 'failed') {
         setIsPolling(false);
-        onComplete?.(progressData);
+        onCompleteRef.current?.(progressData);
       }
       
       // If discovery is not started, don't stop polling yet (wait for it to start)
@@ -75,9 +88,9 @@ export function useDiscoveryProgress({
     } catch (err: any) {
       console.error('Error fetching discovery progress:', err);
       setError(err.message);
-      onError?.(err);
+      onErrorRef.current?.(err);
     }
-  }, [projectId, enabled, getToken, onComplete, onError]);
+  }, [projectId, enabled, getToken]);
 
   const startPolling = useCallback(() => {
     if (!projectId || !enabled) return;
@@ -99,7 +112,7 @@ export function useDiscoveryProgress({
 
     const interval = setInterval(fetchProgress, pollInterval);
     return () => clearInterval(interval);
-  }, [isPolling, projectId, enabled, pollInterval, fetchProgress]);
+  }, [isPolling, projectId, enabled, pollInterval]);
 
   // Auto-start polling when projectId changes and enabled is true
   useEffect(() => {
@@ -109,6 +122,13 @@ export function useDiscoveryProgress({
       stopPolling();
     }
   }, [projectId, enabled, startPolling, stopPolling]);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      stopPolling();
+    };
+  }, [stopPolling]);
 
   return {
     progress,

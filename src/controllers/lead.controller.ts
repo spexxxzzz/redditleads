@@ -31,17 +31,6 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
         return res.status(400).json({ message: 'Project ID is required.' });
     }
 
-    // Set a timeout for the entire discovery process
-    const discoveryTimeout = setTimeout(() => {
-        console.log('⏰ [Manual Discovery] Process timeout reached (5 minutes)');
-        if (!res.headersSent) {
-            res.status(408).json({ 
-                message: 'Discovery process timed out. Please try again with a smaller scope or try again later.',
-                timeout: true
-            });
-        }
-    }, 300000); // 5 minutes timeout
-
     try {
         const project = await prisma.project.findFirst({
             where: { id: projectId, userId: userId },
@@ -52,7 +41,6 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
             return res.status(404).json({ message: 'Project not found.' });
         }
         const user = project.user;
-        const discoveryStartTime = Date.now();
         
         // Check if discovery is already running for this project
         const existingDiscovery = await prisma.project.findFirst({
@@ -86,25 +74,77 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
             });
         } catch (progressError) {
             console.error('❌ [Manual Discovery] Failed to initialize progress tracking:', progressError);
-            // Continue with discovery even if progress initialization fails
+            return res.status(500).json({ message: 'Failed to initialize discovery process.' });
         }
+        
+        // Return immediately to frontend - discovery will run in background
+        res.status(202).json({
+            message: 'Discovery process started successfully. Use the progress endpoint to track status.',
+            discoveryStarted: true
+        });
+        
+        // Start discovery process in background (don't await)
+        runDiscoveryInBackground(projectId, userId, user, project).catch(error => {
+            console.error('❌ [Background Discovery] Error:', error);
+            // Update status to failed
+            prisma.project.update({
+                where: { id: projectId },
+                data: {
+                    discoveryStatus: 'failed',
+                    discoveryProgress: {
+                        stage: 'failed',
+                        leadsFound: 0,
+                        message: 'Discovery failed due to an error. Please try again.'
+                    }
+                }
+            }).catch(updateError => {
+                console.error('❌ [Background Discovery] Failed to update status on error:', updateError);
+            });
+        });
+        
+    } catch (error) {
+        console.error('❌ [Manual Discovery] Error during discovery initialization:', error);
+        next(error);
+    }
+};
+
+// Background discovery process
+async function runDiscoveryInBackground(projectId: string, userId: string, user: any, project: any) {
+    try {
+        const discoveryStartTime = Date.now();
         
         // Check if user has Reddit connected - REQUIRED for discovery
         const isRedditConnected = await isUserRedditConnected(userId);
         
         if (!isRedditConnected) {
-            return res.status(400).json({ 
-                message: 'Reddit account connection required for lead discovery. Please connect your Reddit account in Settings.',
-                requiresRedditConnection: true
+            await prisma.project.update({
+                where: { id: projectId },
+                data: {
+                    discoveryStatus: 'failed',
+                    discoveryProgress: {
+                        stage: 'failed',
+                        leadsFound: 0,
+                        message: 'Reddit account connection required for lead discovery. Please connect your Reddit account in Settings.'
+                    }
+                }
             });
+            return;
         }
         
         const userRedditToken = user.redditRefreshToken;
         if (!userRedditToken) {
-            return res.status(400).json({ 
-                message: 'Reddit refresh token not available. Please reconnect your Reddit account.',
-                requiresRedditConnection: true
+            await prisma.project.update({
+                where: { id: projectId },
+                data: {
+                    discoveryStatus: 'failed',
+                    discoveryProgress: {
+                        stage: 'failed',
+                        leadsFound: 0,
+                        message: 'Reddit refresh token not available. Please reconnect your Reddit account.'
+                    }
+                }
             });
+            return;
         }
         
         console.log(`🔍 [Manual Discovery] Using user Reddit account for discovery`);
@@ -168,11 +208,9 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
                 console.error('❌ [Manual Discovery] Failed to update failure progress:', progressError);
             }
             
-            return res.status(200).json({ 
-                message: 'Discovery completed but no leads found. This may be due to Reddit API rate limits or no matching content in your target subreddits.',
-                leadsFound: 0,
-                discoveryCompleted: true
-            });
+            // Discovery completed but no leads found
+            console.log('❌ [Background Discovery] No raw leads found - likely due to Reddit API errors or no matching content');
+            return;
         }
         
         // Update progress: Found raw leads, starting analysis
@@ -401,18 +439,10 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
             console.error(`❌ [Manual Discovery] Failed to broadcast discovery completion webhook:`, webhookError);
         }
         
-        // Clear the timeout since we're responding successfully
-        clearTimeout(discoveryTimeout);
+        // Discovery completed successfully
+        console.log(`✅ [Background Discovery] Discovery completed successfully! Found and saved ${savedLeads.length} new leads.`);
         
-        res.status(200).json({
-            message: `Discovery complete! Found and saved ${savedLeads.length} new leads.`,
-            leads: savedLeads
-        });
-         
     } catch (error) {
-        // Clear the timeout on error
-        clearTimeout(discoveryTimeout);
-        
         // Update progress: Discovery failed
         try {
             await prisma.project.update({
@@ -427,11 +457,10 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
                 }
             });
         } catch (updateError) {
-            console.error('❌ [Manual Discovery] Failed to update discovery status on error:', updateError);
+            console.error('❌ [Background Discovery] Failed to update discovery status on error:', updateError);
         }
         
-        console.error('❌ [Manual Discovery] Error during discovery:', error);
-        next(error);
+        console.error('❌ [Background Discovery] Error during discovery:', error);
     }
 };
 

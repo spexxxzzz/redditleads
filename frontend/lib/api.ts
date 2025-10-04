@@ -199,6 +199,13 @@ export const api = {
         
         throw new Error(`Failed to run manual discovery: ${response.status} ${errorText}`);
       }
+      
+      // Handle 202 Accepted response (discovery started in background)
+      if (response.status === 202) {
+        console.log('✅ Discovery started in background, returning success');
+        return { message: 'Discovery started successfully', discoveryStarted: true };
+      }
+      
       return response.json();
     } catch (error: any) {
       console.error('🚨 Fetch Error Details:', error);

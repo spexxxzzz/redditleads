@@ -30,6 +30,7 @@ interface ApiResponse {
   leads?: unknown[];
   subredditsSearched?: string[];
   message?: string;
+  discoveryStarted?: boolean;
 }
 
 export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
@@ -313,9 +314,14 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
       try {
         const result = await api.runManualDiscovery(projectId, token) as ApiResponse;
 
-        // The progress will be handled by the useDiscoveryProgress hook
-        // No need to manually handle success here as the hook will call onComplete
-        console.log('Discovery API call completed, waiting for progress updates...');
+        // Check if discovery was started successfully
+        if (result.discoveryStarted) {
+          console.log('✅ Discovery started successfully in background, polling for progress...');
+          // The progress will be handled by the useDiscoveryProgress hook
+          // No need to manually handle success here as the hook will call onComplete
+        } else {
+          console.log('Discovery API call completed, waiting for progress updates...');
+        }
       } catch (discoveryError: unknown) {
         stopPolling();
         console.error('Discovery API call failed:', discoveryError);
