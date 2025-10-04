@@ -72,11 +72,32 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
         });
 
         if (existingDiscovery) {
-            console.log('⚠️ [Manual Discovery] Discovery already running, rejecting request');
-            return res.status(409).json({ 
-                message: 'Discovery is already running for this project.',
-                discoveryInProgress: true
-            });
+            // Check if discovery has been running for more than 10 minutes (stuck)
+            const discoveryStartedAt = existingDiscovery.discoveryStartedAt;
+            const isStuck = discoveryStartedAt && 
+                (Date.now() - new Date(discoveryStartedAt).getTime()) > 600000; // 10 minutes
+            
+            if (isStuck) {
+                console.log('⚠️ [Manual Discovery] Discovery stuck for >10 minutes, resetting and allowing new discovery');
+                // Reset the stuck discovery
+                await prisma.project.update({
+                    where: { id: projectId },
+                    data: {
+                        discoveryStatus: 'failed',
+                        discoveryProgress: {
+                            stage: 'failed',
+                            leadsFound: 0,
+                            message: 'Previous discovery timed out. Starting new discovery...'
+                        }
+                    }
+                });
+            } else {
+                console.log('⚠️ [Manual Discovery] Discovery already running, rejecting request');
+                return res.status(409).json({ 
+                    message: 'Discovery is already running for this project.',
+                    discoveryInProgress: true
+                });
+            }
         }
 
         // Reset any previous discovery status (completed/failed) to allow new discovery
@@ -121,18 +142,29 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
             discoveryStarted: true
         });
         
-        // Start discovery process in background (don't await)
-        runDiscoveryInBackground(projectId, userId, user, project).catch(error => {
-            console.error('❌ [Background Discovery] Error:', error);
+        // Start discovery process in background with timeout (don't await)
+        const discoveryPromise = runDiscoveryInBackground(projectId, userId, user, project);
+        
+        // Add a 15-minute timeout to prevent stuck discoveries
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => {
+                reject(new Error('Discovery timeout after 15 minutes'));
+            }, 15 * 60 * 1000); // 15 minutes
+        });
+        
+        Promise.race([discoveryPromise, timeoutPromise]).catch(error => {
+            console.error('❌ [Background Discovery] Error or timeout:', error);
             // Update status to failed
             prisma.project.update({
                 where: { id: projectId },
-                data: {
+                data: { 
                     discoveryStatus: 'failed',
                     discoveryProgress: {
                         stage: 'failed',
                         leadsFound: 0,
-                        message: 'Discovery failed due to an error. Please try again.'
+                        message: error.message.includes('timeout') 
+                            ? 'Discovery timed out after 15 minutes. Please try again.'
+                            : 'Discovery failed due to an error. Please try again.'
                     }
                 }
             }).catch(updateError => {

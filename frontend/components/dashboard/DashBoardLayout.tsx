@@ -381,10 +381,7 @@ export const DashboardLayout = () => {
 
   return (
     <div className="min-h-screen bg-black">
-      {/* Loading overlay for discovery operations */}
-      {isRunningDiscovery && (
-        <LoadingOverlay message="Discovering leads... This may take a few minutes." />
-      )}
+      {/* Removed blocking loading overlay - discovery runs in background */}
       
       <div className="relative z-10">
         <RedditLeadsHeader />
