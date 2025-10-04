@@ -1,5 +1,5 @@
 import { RequestHandler } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { findLeadsWithBusinessIntelligence } from '../services/reddit.service';
 import { enrichLeadsForUser } from '../services/enrichment.service';
 import { extractBusinessDNA } from '../services/ai.service';
@@ -86,7 +86,7 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
                 where: { id: projectId },
                 data: {
                     discoveryStatus: null, // Reset to null first
-                    discoveryProgress: null,
+                    discoveryProgress: Prisma.JsonNull,
                     discoveryStartedAt: null
                 }
             });
