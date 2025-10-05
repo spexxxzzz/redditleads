@@ -19,70 +19,86 @@ const monitorRateLimit = () => {
 // System Reddit instance removed - all Reddit API calls now use user accounts
 
 export const generateQueriesFromDNA = (dna: any, variationLevel: number = 0): string[] => {
-    const queries = new Set<string>();
-    const { naturalLanguageVocabulary: vocab, customerProfile, geographicalFocus } = dna;
+    try {
+        const queries = new Set<string>();
+        const { naturalLanguageVocabulary: vocab, customerProfile, geographicalFocus } = dna || {};
 
-    // Add variation based on variationLevel (0-2)
-    const painPointCount = Math.min(8 + variationLevel * 2, vocab.painPoints?.length || 0);
-    const solutionCount = Math.min(6 + variationLevel * 2, vocab.solutionKeywords?.length || 0);
-    const competitorCount = Math.min(4 + variationLevel, vocab.competitors?.length || 0);
+        // Add variation based on variationLevel (0-2)
+        const painPointCount = Math.min(8 + variationLevel * 2, vocab?.painPoints?.length || 0);
+        const solutionCount = Math.min(6 + variationLevel * 2, vocab?.solutionKeywords?.length || 0);
+        const competitorCount = Math.min(4 + variationLevel, vocab?.competitors?.length || 0);
 
-    // Pain Point Queries (Highest Priority) - with business context
-    if (vocab.painPoints) {
-        const shuffledPainPoints = [...vocab.painPoints].sort(() => Math.random() - 0.5);
-        shuffledPainPoints.slice(0, painPointCount).forEach((pain: string) => {
-            queries.add(`"${pain}"`);
-            if (variationLevel > 0) {
-                queries.add(`struggling with ${pain}`);
-                queries.add(`need help with ${pain}`);
-            }
-        });
+        // Pain Point Queries (Highest Priority) - with business context
+        if (vocab?.painPoints && Array.isArray(vocab.painPoints)) {
+            const shuffledPainPoints = [...vocab.painPoints].sort(() => Math.random() - 0.5);
+            shuffledPainPoints.slice(0, painPointCount).forEach((pain: string) => {
+                if (pain && typeof pain === 'string') {
+                    queries.add(`"${pain}"`);
+                    if (variationLevel > 0) {
+                        queries.add(`struggling with ${pain}`);
+                        queries.add(`need help with ${pain}`);
+                    }
+                }
+            });
+        }
+
+        // Solution-Oriented Queries - with business context
+        if (vocab?.solutionKeywords && Array.isArray(vocab.solutionKeywords)) {
+            const shuffledSolutions = [...vocab.solutionKeywords].sort(() => Math.random() - 0.5);
+            shuffledSolutions.slice(0, solutionCount).forEach((solution: string) => {
+                if (solution && typeof solution === 'string') {
+                    const commonTitles = customerProfile?.commonTitles;
+                    const jobTitle = (Array.isArray(commonTitles) && commonTitles.length > 0) 
+                        ? commonTitles[Math.floor(Math.random() * commonTitles.length)]
+                        : 'business';
+                    queries.add(`best ${solution} for ${jobTitle}`);
+                    queries.add(`${solution}`);
+                    
+                    // Add variation queries
+                    if (variationLevel > 0) {
+                        queries.add(`need ${solution}`);
+                        queries.add(`looking for ${solution}`);
+                    }
+                }
+            });
+        }
+
+        // Competitor Queries - with variation
+        if (vocab?.competitors && Array.isArray(vocab.competitors)) {
+            const shuffledCompetitors = [...vocab.competitors].sort(() => Math.random() - 0.5);
+            shuffledCompetitors.slice(0, competitorCount).forEach((competitor: string) => {
+                if (competitor && typeof competitor === 'string') {
+                    queries.add(`alternative to ${competitor}`);
+                    queries.add(`${competitor}`);
+                    if (variationLevel > 0) {
+                        queries.add(`${competitor} vs`);
+                        queries.add(`better than ${competitor}`);
+                    }
+                }
+            });
+        }
+
+        // Add time-based variation queries
+        if (variationLevel > 0) {
+            const timeVariations = ['recently', 'lately', 'this year', '2024'];
+            const randomTime = timeVariations[Math.floor(Math.random() * timeVariations.length)];
+            const currentQueries = Array.from(queries);
+            currentQueries.forEach(q => queries.add(`${q} ${randomTime}`));
+        }
+        
+        // Geo-targeted Queries
+        if (geographicalFocus && geographicalFocus.toLowerCase() !== 'global' && queries.size > 0) {
+            const geoQueries = new Set<string>();
+            queries.forEach(q => geoQueries.add(`${q} ${geographicalFocus}`));
+            return Array.from(geoQueries);
+        }
+
+        return Array.from(queries);
+    } catch (error) {
+        console.error('❌ [Query Generation] Error in generateQueriesFromDNA:', error);
+        // Return basic fallback queries
+        return [`"${dna?.businessName || 'business'}"`, 'help', 'solution', 'problem'];
     }
-
-    // Solution-Oriented Queries - with business context
-    if (vocab.solutionKeywords) {
-        const shuffledSolutions = [...vocab.solutionKeywords].sort(() => Math.random() - 0.5);
-        shuffledSolutions.slice(0, solutionCount).forEach((solution: string) => {
-            const jobTitle = customerProfile?.commonTitles?.[Math.floor(Math.random() * (customerProfile.commonTitles.length || 1))] || 'call center';
-            queries.add(`best ${solution} for ${jobTitle}`);
-            queries.add(`${solution}`);
-            
-            // Add variation queries
-            if (variationLevel > 0) {
-                queries.add(`need ${solution}`);
-                queries.add(`looking for ${solution}`);
-            }
-        });
-    }
-
-    // Competitor Queries - with variation
-    if (vocab.competitors) {
-        const shuffledCompetitors = [...vocab.competitors].sort(() => Math.random() - 0.5);
-        shuffledCompetitors.slice(0, competitorCount).forEach((competitor: string) => {
-            queries.add(`alternative to ${competitor}`);
-            queries.add(`${competitor}`);
-            if (variationLevel > 0) {
-                queries.add(`${competitor} vs`);
-                queries.add(`better than ${competitor}`);
-            }
-        });
-    }
-
-    // Add time-based variation queries
-    if (variationLevel > 0) {
-        const timeVariations = ['recently', 'lately', 'this year', '2024'];
-        const randomTime = timeVariations[Math.floor(Math.random() * timeVariations.length)];
-        queries.forEach(q => queries.add(`${q} ${randomTime}`));
-    }
-    
-    // Geo-targeted Queries
-    if (geographicalFocus && geographicalFocus.toLowerCase() !== 'global' && queries.size > 0) {
-        const geoQueries = new Set<string>();
-        queries.forEach(q => geoQueries.add(`${q} ${geographicalFocus}`));
-        return Array.from(geoQueries);
-    }
-
-    return Array.from(queries);
 };
 
 async function isQualityPost(post: any, oneYearAgo: number): Promise<boolean> {
