@@ -224,12 +224,38 @@ async function runDiscoveryInBackground(projectId: string, userId: string, user:
         
         let businessDNA = project.businessDNA as any;
         if (!businessDNA || !businessDNA.businessName) {
-            const websiteText = await scrapeAndProcessWebsite(project.analyzedUrl);
-            businessDNA = await extractBusinessDNA(websiteText);
-        await prisma.project.update({
-            where: { id: projectId },
-                data: { businessDNA: businessDNA as any },
-            });
+            console.log(`🔍 [Manual Discovery] Extracting business DNA from website...`);
+            try {
+                const websiteText = await Promise.race([
+                    scrapeAndProcessWebsite(project.analyzedUrl),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Website scraping timeout after 45 seconds')), 45000))
+                ]) as string;
+                
+                businessDNA = await Promise.race([
+                    extractBusinessDNA(websiteText),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('AI extraction timeout after 60 seconds')), 60000))
+                ]) as any;
+                
+                await prisma.project.update({
+                    where: { id: projectId },
+                    data: { businessDNA: businessDNA as any },
+                });
+                console.log(`✅ [Manual Discovery] Business DNA extracted successfully`);
+            } catch (error: any) {
+                console.error(`❌ [Manual Discovery] Failed to extract business DNA: ${error.message}`);
+                await prisma.project.update({
+                    where: { id: projectId },
+                    data: {
+                        discoveryStatus: 'failed',
+                        discoveryProgress: {
+                            stage: 'failed',
+                            leadsFound: 0,
+                            message: `Failed to analyze website: ${error.message}`
+                        }
+                    }
+                });
+                return;
+            }
         }
 
         // Get variation level based on how many times discovery has been run recently
