@@ -139,14 +139,17 @@ export const findLeadsWithBusinessIntelligence = async (businessDNA: any, subred
         console.log(`🔍 [Lead Discovery] Generating search queries...`);
         let staticQueries: string[] = [];
         try {
+            console.log(`🔍 [Lead Discovery] Starting static query generation...`);
             staticQueries = await withTimeout(
                 Promise.resolve(generateQueriesFromDNA(businessDNA, variationLevel)),
-                10000 // 10 second timeout for static query generation
+                5000 // Reduced to 5 second timeout for static query generation
             );
             console.log(`✅ [Lead Discovery] Generated ${staticQueries.length} static queries`);
         } catch (error: any) {
             console.error(`❌ [Lead Discovery] Static query generation failed: ${error.message}`);
-            throw new Error(`Failed to generate search queries: ${error.message}`);
+            // Fallback to basic queries if generation fails
+            console.log(`🔄 [Lead Discovery] Using fallback basic queries...`);
+            staticQueries = [`"${businessDNA.businessName || 'business'}"`, 'help', 'solution', 'problem'];
         }
         let dynamicQueries: string[] = [];
         try {
