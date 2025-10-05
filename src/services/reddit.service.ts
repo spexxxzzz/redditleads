@@ -120,10 +120,34 @@ export const findLeadsWithBusinessIntelligence = async (businessDNA: any, subred
             Promise.resolve(getUserRedditInstance(userRedditToken)), 
             10000 // 10 second timeout for Reddit instance creation
         );
+        
+        // Test Reddit instance with a simple API call to ensure it's working
+        console.log(`🔍 [Lead Discovery] Testing Reddit instance connectivity...`);
+        try {
+            await withTimeout(
+                reddit.getMe().then(() => console.log(`✅ [Lead Discovery] Reddit instance verified`)),
+                15000 // 15 second timeout for Reddit connectivity test
+            );
+        } catch (error: any) {
+            console.error(`❌ [Lead Discovery] Reddit instance test failed: ${error.message}`);
+            throw new Error(`Reddit authentication failed: ${error.message}`);
+        }
         const oneYearAgo = Math.floor(Date.now() / 1000) - 31536000;
         const uniqueLeads = new Map<string, RawLead>();
+        
         // Generate both static and dynamic queries for maximum diversity
-        const staticQueries = generateQueriesFromDNA(businessDNA, variationLevel);
+        console.log(`🔍 [Lead Discovery] Generating search queries...`);
+        let staticQueries: string[] = [];
+        try {
+            staticQueries = await withTimeout(
+                Promise.resolve(generateQueriesFromDNA(businessDNA, variationLevel)),
+                10000 // 10 second timeout for static query generation
+            );
+            console.log(`✅ [Lead Discovery] Generated ${staticQueries.length} static queries`);
+        } catch (error: any) {
+            console.error(`❌ [Lead Discovery] Static query generation failed: ${error.message}`);
+            throw new Error(`Failed to generate search queries: ${error.message}`);
+        }
         let dynamicQueries: string[] = [];
         try {
             dynamicQueries = await withTimeout(generateDynamicSearchQueries(businessDNA, variationLevel), 30000); // 30 second timeout for AI query generation
