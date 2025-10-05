@@ -47,6 +47,7 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
   const { getToken, isLoaded, isSignedIn, userId } = useAuth();
   const { user } = useUser();
   const [isRunningGlobal, setIsRunningGlobal] = useState<boolean>(false);
+  const [cooldownRemaining, setCooldownRemaining] = useState(0); // 👈 NEW: Cooldown state
   
   // Use the real-time discovery progress hook - coordinate with parent state
   const { 
@@ -105,6 +106,36 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
     syncRedditConnection();
   }, [isLoaded]); // Only run when isLoaded changes, not on every user change
 
+  // 👈 NEW: Check for cooldown when lastDiscoveryAt changes
+  useEffect(() => {
+    if (lastDiscoveryAt) {
+      const timeSinceLastDiscovery = Date.now() - new Date(lastDiscoveryAt).getTime();
+      const cooldownPeriod = 5 * 60 * 1000; // 5 minutes
+      
+      if (timeSinceLastDiscovery < cooldownPeriod) {
+        const remaining = Math.ceil((cooldownPeriod - timeSinceLastDiscovery) / 1000);
+        setCooldownRemaining(remaining);
+        
+        // Start countdown timer
+        const timer = setInterval(() => {
+          setCooldownRemaining(prev => {
+            if (prev <= 1) {
+              clearInterval(timer);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+        
+        return () => clearInterval(timer);
+      } else {
+        setCooldownRemaining(0);
+      }
+    } else {
+      setCooldownRemaining(0);
+    }
+  }, [lastDiscoveryAt]);
+
   // Simplified: No cooldown needed - user can run discovery anytime
   
   // Check Reddit connection status
@@ -129,6 +160,12 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
 
     if (!isSignedIn) {
       toast.error('Please sign in to run discovery');
+      return;
+    }
+
+    // Check for cooldown before starting discovery
+    if (cooldownRemaining > 0) {
+      toast.error(`Please wait ${cooldownRemaining} seconds before starting another discovery.`);
       return;
     }
 
@@ -258,6 +295,30 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
       } catch (discoveryError: unknown) {
         stopPolling();
         console.error('Discovery API call failed:', discoveryError);
+        
+        // Handle cooldown error specifically
+        if (discoveryError && typeof discoveryError === 'object' && 'status' in discoveryError) {
+          const error = discoveryError as any;
+          if (error.status === 429 && error.cooldownActive) {
+            const remainingSeconds = error.remainingSeconds || 0;
+            setCooldownRemaining(remainingSeconds);
+            
+            // Start countdown timer
+            const timer = setInterval(() => {
+              setCooldownRemaining(prev => {
+                if (prev <= 1) {
+                  clearInterval(timer);
+                  return 0;
+                }
+                return prev - 1;
+              });
+            }, 1000);
+            
+            toast.error(`Please wait ${remainingSeconds} seconds before starting another discovery.`);
+            return; // Don't throw the error, just return
+          }
+        }
+        
         throw discoveryError; // Re-throw to be caught by outer catch
       }
     } catch (error: unknown) {
@@ -475,17 +536,24 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
                 console.log('🔘 Button disabled:', isAnyRunning || !isRedditConnected);
                 handleGlobalDiscovery();
               }}
-              disabled={isAnyRunning || disabled || !isRedditConnected}
+              disabled={isAnyRunning || disabled || !isRedditConnected || cooldownRemaining > 0}
               className={`w-full border-0 shadow-sm hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-semibold h-9 sm:h-10 px-3 sm:px-4 text-sm sm:text-base rounded-md ${
                 !isRedditConnected
                   ? 'bg-gray-500/20 text-gray-400 hover:bg-gray-500/20'
-                  : isAnyRunning
-                    ? 'bg-orange-500/20 text-orange-400 hover:bg-orange-500/20'
-                    : 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white'
+                  : cooldownRemaining > 0
+                    ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/20'
+                    : isAnyRunning
+                      ? 'bg-orange-500/20 text-orange-400 hover:bg-orange-500/20'
+                      : 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white'
               }`}
             >
               {isAnyRunning ? (
                 <span className={poppins.className}>Discovering...</span>
+              ) : cooldownRemaining > 0 ? (
+                <div className="flex items-center justify-center gap-2">
+                  <Clock className="w-4 h-4" />
+                  <span className={poppins.className}>Wait {cooldownRemaining}s</span>
+                </div>
               ) : !isRedditConnected ? (
                 <span className={poppins.className}>Connect Reddit to Start</span>
               ) : (

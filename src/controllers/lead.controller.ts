@@ -103,6 +103,31 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
             }
         }
 
+        // Check for 5-minute cooldown after last completed discovery
+        const lastCompletedDiscovery = await prisma.project.findFirst({
+            where: { 
+                id: projectId,
+                discoveryStatus: 'completed',
+                discoveryCompletedAt: { not: null }
+            },
+            orderBy: { discoveryCompletedAt: 'desc' }
+        });
+
+        if (lastCompletedDiscovery && lastCompletedDiscovery.discoveryCompletedAt) {
+            const timeSinceCompletion = Date.now() - new Date(lastCompletedDiscovery.discoveryCompletedAt).getTime();
+            const cooldownPeriod = 5 * 60 * 1000; // 5 minutes
+            
+            if (timeSinceCompletion < cooldownPeriod) {
+                const remainingTime = Math.ceil((cooldownPeriod - timeSinceCompletion) / 1000);
+                console.log(`⏰ [Manual Discovery] Discovery cooldown active. ${remainingTime} seconds remaining`);
+                return res.status(429).json({
+                    message: `Please wait ${remainingTime} seconds before starting another discovery.`,
+                    cooldownActive: true,
+                    remainingSeconds: remainingTime
+                });
+            }
+        }
+
         // Reset any previous discovery status (completed/failed) to allow new discovery
         console.log('🔄 [Manual Discovery] Resetting any previous discovery status');
         try {
@@ -506,7 +531,8 @@ async function runDiscoveryInBackground(projectId: string, userId: string, user:
                         leadsFound: savedLeads.length,
                         message: `Discovery completed! Found and saved ${savedLeads.length} qualified leads.`
                     },
-                    lastManualDiscoveryAt: new Date()
+                    lastManualDiscoveryAt: new Date(),
+                    discoveryCompletedAt: new Date() // Add completion timestamp for cooldown
                 }
             });
         } catch (progressError) {

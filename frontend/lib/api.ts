@@ -196,6 +196,28 @@ export const api = {
         const errorText = await response.text();
         console.error('❌ API Error Response:', errorText);
         
+        // Handle 429 (Too Many Requests) - cooldown active
+        if (response.status === 429) {
+          try {
+            const errorData = JSON.parse(errorText);
+            if (errorData.cooldownActive) {
+              // Create an error object with status and cooldown info
+              const cooldownError = new Error(errorData.message || 'Discovery cooldown active') as any;
+              cooldownError.status = 429;
+              cooldownError.cooldownActive = true;
+              cooldownError.remainingSeconds = errorData.remainingSeconds || 0;
+              throw cooldownError;
+            }
+          } catch (parseError) {
+            // If parsing fails, throw generic 429 error
+            const cooldownError = new Error('Discovery cooldown active. Please wait before trying again.') as any;
+            cooldownError.status = 429;
+            cooldownError.cooldownActive = true;
+            cooldownError.remainingSeconds = 0;
+            throw cooldownError;
+          }
+        }
+        
         // Try to parse error data for Reddit connection requirement
         try {
           const errorData = JSON.parse(errorText);

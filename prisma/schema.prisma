@@ -93,6 +93,7 @@ model Project {
   discoveryStatus       String?         // 'running', 'completed', 'failed', null
   discoveryProgress     Json?           // { stage, leadsFound, message, estimatedTimeLeft }
   discoveryStartedAt    DateTime?
+  discoveryCompletedAt  DateTime?      // 👈 NEW: Timestamp when discovery completed (for cooldown)
   user                  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   leads                 Lead[]
   MarketInsight         MarketInsight[]
