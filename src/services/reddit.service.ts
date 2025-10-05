@@ -113,8 +113,13 @@ export const findLeadsWithBusinessIntelligence = async (businessDNA: any, subred
             throw new Error('User Reddit token is required for lead discovery');
         }
         
-        const reddit = getUserRedditInstance(userRedditToken);
         console.log(`🔍 [Lead Discovery] Using user Reddit account for discovery`);
+        
+        // Add timeout to Reddit instance creation to prevent hanging
+        const reddit = await withTimeout(
+            Promise.resolve(getUserRedditInstance(userRedditToken)), 
+            10000 // 10 second timeout for Reddit instance creation
+        );
         const oneYearAgo = Math.floor(Date.now() / 1000) - 31536000;
         const uniqueLeads = new Map<string, RawLead>();
         // Generate both static and dynamic queries for maximum diversity

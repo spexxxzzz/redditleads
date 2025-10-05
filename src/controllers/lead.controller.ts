@@ -1,6 +1,6 @@
 import { RequestHandler } from 'express';
 import { PrismaClient, Prisma } from '@prisma/client';
-import { findLeadsWithBusinessIntelligence } from '../services/reddit.service';
+import { findLeadsWithBusinessIntelligence, RawLead } from '../services/reddit.service';
 import { enrichLeadsForUser } from '../services/enrichment.service';
 import { extractBusinessDNA } from '../services/ai.service';
 import { scrapeAndProcessWebsite } from '../utils/scraping';
@@ -284,7 +284,10 @@ async function runDiscoveryInBackground(projectId: string, userId: string, user:
             // Continue with discovery even if progress update fails
         }
         
-        const rawLeads = await findLeadsWithBusinessIntelligence(businessDNA, project.subredditBlacklist as string[], variationLevel, userRedditToken);
+        const rawLeads = await Promise.race([
+            findLeadsWithBusinessIntelligence(businessDNA, project.subredditBlacklist as string[], variationLevel, userRedditToken),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Lead discovery timeout after 120 seconds')), 120000))
+        ]) as RawLead[];
         
         // Check if we found any raw leads
         if (rawLeads.length === 0) {
