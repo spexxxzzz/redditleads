@@ -97,6 +97,15 @@ async function isQualityPost(post: any, oneYearAgo: number): Promise<boolean> {
     return true;
 }
 
+// Helper function to add timeout to Reddit API calls
+const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number = 10000): Promise<T> => {
+    const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error(`Reddit API call timed out after ${timeoutMs}ms`)), timeoutMs);
+    });
+    
+    return Promise.race([promise, timeoutPromise]);
+};
+
 export const findLeadsWithBusinessIntelligence = async (businessDNA: any, subredditBlacklist: string[] = [], variationLevel: number = 0, userRedditToken: string): Promise<RawLead[]> => {
     try {
         // REQUIRED: Use user's Reddit account for discovery
@@ -166,13 +175,13 @@ export const findLeadsWithBusinessIntelligence = async (businessDNA: any, subred
                             
                             try {
                                 totalSearches++;
-                                const results = await reddit.search({ 
+                                const results = await withTimeout(reddit.search({ 
                                     query: query, 
                                     subreddit: correctedSubreddit,
                                     sort: strategy.sort, 
                                     time: strategy.time, 
                                     limit: Math.max(25, Math.floor((100 + (variationLevel * 20)) / targetSubreddits.length)) // Increased limits for speed
-                                });
+                                }), 15000); // 15 second timeout for subreddit searches
                                 successfulSearches++;
                                 console.log(`✅ [Lead Discovery] Found ${results.length} posts in r/${correctedSubreddit}`);
                                 return results;
@@ -182,12 +191,12 @@ export const findLeadsWithBusinessIntelligence = async (businessDNA: any, subred
                                 return []; // Return empty array for failed searches
                             }
                         })
-                        : [reddit.search({ 
+                        : [withTimeout(reddit.search({ 
                             query: [query, blacklistQuery].filter(Boolean).join(' '), 
                             sort: strategy.sort, 
                             time: strategy.time, 
                             limit: 100 + (variationLevel * 20) // Increased limits for speed
-                        }).then(results => {
+                        }), 15000).then(results => {
                             totalSearches++;
                             successfulSearches++;
                             return results;
