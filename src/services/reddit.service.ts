@@ -119,7 +119,13 @@ export const findLeadsWithBusinessIntelligence = async (businessDNA: any, subred
         const uniqueLeads = new Map<string, RawLead>();
         // Generate both static and dynamic queries for maximum diversity
         const staticQueries = generateQueriesFromDNA(businessDNA, variationLevel);
-        const dynamicQueries = await generateDynamicSearchQueries(businessDNA, variationLevel);
+        let dynamicQueries: string[] = [];
+        try {
+            dynamicQueries = await withTimeout(generateDynamicSearchQueries(businessDNA, variationLevel), 30000); // 30 second timeout for AI query generation
+        } catch (error: any) {
+            console.log(`⚠️ [Lead Discovery] AI query generation timed out, using static queries only: ${error.message}`);
+            dynamicQueries = [];
+        }
         const semanticQueries = [...staticQueries, ...dynamicQueries];
         
         // Track search success/failure rates
