@@ -72,13 +72,13 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
         });
 
         if (existingDiscovery) {
-            // Check if discovery has been running for more than 10 minutes (stuck)
+            // Check if discovery has been running for more than 30 seconds (stuck)
             const discoveryStartedAt = existingDiscovery.discoveryStartedAt;
             const isStuck = discoveryStartedAt && 
-                (Date.now() - new Date(discoveryStartedAt).getTime()) > 600000; // 10 minutes
+                (Date.now() - new Date(discoveryStartedAt).getTime()) > 30000; // 30 seconds
             
             if (isStuck) {
-                console.log('⚠️ [Manual Discovery] Discovery stuck for >10 minutes, resetting and allowing new discovery');
+                console.log('⚠️ [Manual Discovery] Discovery stuck for >30 seconds, resetting and allowing new discovery');
                 // Reset the stuck discovery
                 await prisma.project.update({
                     where: { id: projectId },
@@ -93,6 +93,9 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
                 });
             } else {
                 console.log('⚠️ [Manual Discovery] Discovery already running, rejecting request');
+                console.log('🔍 [Manual Discovery] Discovery started at:', discoveryStartedAt);
+                console.log('🔍 [Manual Discovery] Time since start:', discoveryStartedAt ? 
+                    Math.round((Date.now() - new Date(discoveryStartedAt).getTime()) / 1000) + ' seconds' : 'unknown');
                 return res.status(409).json({ 
                     message: 'Discovery is already running for this project.',
                     discoveryInProgress: true
@@ -145,11 +148,11 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
         // Start discovery process in background with timeout (don't await)
         const discoveryPromise = runDiscoveryInBackground(projectId, userId, user, project);
         
-        // Add a 15-minute timeout to prevent stuck discoveries
+        // Add a 30-second timeout to prevent stuck discoveries
         const timeoutPromise = new Promise((_, reject) => {
             setTimeout(() => {
-                reject(new Error('Discovery timeout after 15 minutes'));
-            }, 15 * 60 * 1000); // 15 minutes
+                reject(new Error('Discovery timeout after 30 seconds'));
+            }, 30 * 1000); // 30 seconds
         });
         
         Promise.race([discoveryPromise, timeoutPromise]).catch(error => {
@@ -163,7 +166,7 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
                         stage: 'failed',
                         leadsFound: 0,
                         message: error.message.includes('timeout') 
-                            ? 'Discovery timed out after 15 minutes. Please try again.'
+                            ? 'Discovery timed out after 30 seconds. Please try again.'
                             : 'Discovery failed due to an error. Please try again.'
                     }
                 }
