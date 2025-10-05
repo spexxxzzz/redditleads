@@ -72,13 +72,13 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
         });
 
         if (existingDiscovery) {
-            // Check if discovery has been running for more than 30 seconds (stuck)
+            // Check if discovery has been running for more than 6 minutes (stuck)
             const discoveryStartedAt = existingDiscovery.discoveryStartedAt;
             const isStuck = discoveryStartedAt && 
-                (Date.now() - new Date(discoveryStartedAt).getTime()) > 30000; // 30 seconds
+                (Date.now() - new Date(discoveryStartedAt).getTime()) > 6 * 60 * 1000; // 6 minutes
             
             if (isStuck) {
-                console.log('⚠️ [Manual Discovery] Discovery stuck for >30 seconds, resetting and allowing new discovery');
+                console.log('⚠️ [Manual Discovery] Discovery stuck for >6 minutes, resetting and allowing new discovery');
                 // Reset the stuck discovery
                 await prisma.project.update({
                     where: { id: projectId },
@@ -148,11 +148,11 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
         // Start discovery process in background with timeout (don't await)
         const discoveryPromise = runDiscoveryInBackground(projectId, userId, user, project);
         
-        // Add a 30-second timeout to prevent stuck discoveries
+        // Add a 5-minute timeout to allow for AI analysis of large batches
         const timeoutPromise = new Promise((_, reject) => {
             setTimeout(() => {
-                reject(new Error('Discovery timeout after 30 seconds'));
-            }, 30 * 1000); // 30 seconds
+                reject(new Error('Discovery timeout after 5 minutes'));
+            }, 5 * 60 * 1000); // 5 minutes
         });
         
         Promise.race([discoveryPromise, timeoutPromise]).catch(error => {
@@ -166,7 +166,7 @@ export const runManualDiscovery: RequestHandler = async (req: any, res, next) =>
                         stage: 'failed',
                         leadsFound: 0,
                         message: error.message.includes('timeout') 
-                            ? 'Discovery timed out after 30 seconds. Please try again.'
+                            ? 'Discovery timed out after 5 minutes. Please try again.'
                             : 'Discovery failed due to an error. Please try again.'
                     }
                 }
