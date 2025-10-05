@@ -60,14 +60,17 @@ const corsOptions = {
     });
     
     if (!isAllowed) {
+      console.log('🚫 CORS blocked origin:', origin);
       const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
       return callback(new Error(msg), false);
     }
+    console.log('✅ CORS allowed origin:', origin);
     return callback(null, true);
   },
   methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  credentials: true,
+  optionsSuccessStatus: 200 // Some legacy browsers (IE11, various SmartTVs) choke on 204
 };
 app.use(cors(corsOptions));
 // --- END CORS CONFIGURATION ---
@@ -87,6 +90,16 @@ app.use((req, res, next) => {
     console.log('🔍 [Route Debug]', req.method, req.originalUrl, '->', req.path);
   }
   next();
+});
+
+// --- Health check endpoint ---
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    cors: 'enabled',
+    origin: req.get('origin') || 'no-origin'
+  });
 });
 
 // Configure Clerk middleware
