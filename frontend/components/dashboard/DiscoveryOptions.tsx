@@ -525,7 +525,8 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
               data-tour="discovery-button"
               onClick={() => {
                 if (!isRedditConnected) {
-                  toast.error('Please connect your Reddit account first');
+                  // Redirect to Reddit integration page
+                  window.location.href = '/dashboard/settings?view=reddit';
                   return;
                 }
                 console.log('🔘 Button clicked!');
@@ -536,10 +537,10 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
                 console.log('🔘 Button disabled:', isAnyRunning || !isRedditConnected);
                 handleGlobalDiscovery();
               }}
-              disabled={isAnyRunning || disabled || !isRedditConnected || cooldownRemaining > 0}
+              disabled={isAnyRunning || disabled || cooldownRemaining > 0}
               className={`w-full border-0 shadow-sm hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-semibold h-9 sm:h-10 px-3 sm:px-4 text-sm sm:text-base rounded-md ${
                 !isRedditConnected
-                  ? 'bg-gray-500/20 text-gray-400 hover:bg-gray-500/20'
+                  ? 'bg-green-500 hover:bg-green-600 text-white'
                   : cooldownRemaining > 0
                     ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/20'
                     : isAnyRunning
@@ -555,7 +556,10 @@ export const DiscoveryButtons: React.FC<DiscoveryButtonsProps> = ({
                   <span className={poppins.className}>Wait {cooldownRemaining}s</span>
                 </div>
               ) : !isRedditConnected ? (
-                <span className={poppins.className}>Connect Reddit to Start</span>
+                <div className="flex items-center justify-center gap-2">
+                  <span className={poppins.className}>Connect Reddit Account</span>
+                  <span className="text-xs text-green-200">→</span>
+                </div>
               ) : (
                 <div className="flex items-center justify-center gap-2">
                   <span className={poppins.className}>Start Discovery</span>
