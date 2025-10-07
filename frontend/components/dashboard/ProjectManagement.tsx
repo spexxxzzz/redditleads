@@ -129,14 +129,14 @@ export default function ProjectsManagementPage() {
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-6">
               <Button
                 onClick={() => router.push('/dashboard')}
                 variant="ghost"
-                size="sm"
-                className="text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
+                size="lg"
+                className="text-white hover:text-orange-400 hover:bg-white/10 transition-colors px-4 py-2"
               >
-                <ArrowLeftIcon className="w-4 h-4 mr-2" />
+                <ArrowLeftIcon className="w-6 h-6 mr-3" />
                 Back to Dashboard
               </Button>
               <div className="space-y-2">
