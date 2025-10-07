@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   PlusIcon, 
   PencilIcon, 
-  TrashIcon, 
   EyeIcon,
   GlobeAltIcon,
   TagIcon,
@@ -20,7 +19,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EditProjectModal } from '@/components/dashboard/EditProjectModal';
-import { DeleteProjectModal } from '@/components/dashboard/DeleteProjectModal';
 import { CreateProjectModal } from '@/components/dashboard/CreateProjectModal';
 import { toast } from 'sonner';
 import PulsatingDotsLoaderDashboard from '@/components/loading/LoadingDashboard';
@@ -58,7 +56,6 @@ export default function ProjectsManagementPage() {
   const [loading, setLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const { canCreateProject, currentProjects, maxProjects, isLoading: limitsLoading } = useProjectLimits();
 
@@ -85,20 +82,9 @@ export default function ProjectsManagementPage() {
     setShowEditModal(true);
   };
 
-  const handleDeleteProject = (project: Project) => {
-    setSelectedProject(project);
-    setShowDeleteModal(true);
-  };
-
   const handleProjectUpdated = () => {
     fetchProjects();
     setShowEditModal(false);
-    setSelectedProject(null);
-  };
-
-  const handleProjectDeleted = () => {
-    fetchProjects();
-    setShowDeleteModal(false);
     setSelectedProject(null);
   };
 
@@ -315,18 +301,10 @@ export default function ProjectsManagementPage() {
                             variant="outline"
                             size="sm"
                             onClick={() => handleEditProject(project)}
-                            className="flex-1 border-zinc-700 text-white hover:bg-zinc-800"
+                            className="w-full border-zinc-700 text-white hover:bg-zinc-800"
                           >
                             <PencilIcon className="w-4 h-4 mr-2" />
                             Edit
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDeleteProject(project)}
-                            className="border-red-500/20 text-red-400 hover:bg-red-500/10"
-                          >
-                            <TrashIcon className="w-4 h-4" />
                           </Button>
                         </div>
                       </CardContent>
@@ -345,13 +323,6 @@ export default function ProjectsManagementPage() {
         onClose={() => setShowEditModal(false)}
         project={selectedProject}
         onProjectUpdated={handleProjectUpdated}
-      />
-
-      <DeleteProjectModal
-        isOpen={showDeleteModal}
-        onClose={() => setShowDeleteModal(false)}
-        project={selectedProject}
-        onProjectDeleted={handleProjectDeleted}
       />
 
       <CreateProjectModal
