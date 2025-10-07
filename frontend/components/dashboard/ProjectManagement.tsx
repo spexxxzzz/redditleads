@@ -9,10 +9,12 @@ import {
   GlobeAltIcon,
   TagIcon,
   BuildingOfficeIcon,
-  CalendarDaysIcon
+  CalendarDaysIcon,
+  ArrowLeftIcon
 } from '@heroicons/react/24/outline';
 import { api } from '@/lib/api';
 import { useAuth } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
 import { Inter, Poppins } from 'next/font/google';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +53,7 @@ interface Project {
 
 export default function ProjectsManagementPage() {
   const { getToken } = useAuth();
+  const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -126,13 +129,24 @@ export default function ProjectsManagementPage() {
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
-            <div className="space-y-2">
-              <h1 className={`text-4xl font-black tracking-tight text-white ${poppins.className}`}>
-                Project <span className="bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 bg-clip-text text-transparent">Management</span>
-              </h1>
-              <p className={`text-xl text-zinc-400 font-medium ${inter.className}`}>
-                Create, edit, and manage your lead generation projects
-              </p>
+            <div className="flex items-center gap-4">
+              <Button
+                onClick={() => router.push('/dashboard')}
+                variant="ghost"
+                size="sm"
+                className="text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <ArrowLeftIcon className="w-4 h-4 mr-2" />
+                Back to Dashboard
+              </Button>
+              <div className="space-y-2">
+                <h1 className={`text-4xl font-black tracking-tight text-white ${poppins.className}`}>
+                  Project <span className="bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 bg-clip-text text-transparent">Management</span>
+                </h1>
+                <p className={`text-xl text-zinc-400 font-medium ${inter.className}`}>
+                  Create, edit, and manage your lead generation projects
+                </p>
+              </div>
             </div>
             <div className="flex flex-col items-end gap-2">
               <Button

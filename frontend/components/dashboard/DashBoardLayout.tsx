@@ -23,6 +23,7 @@ import { useUserUsage, useProjectLeads } from '@/hooks/useOptimizedAPI';
 import { useRealTimeLeads, useRealTimeUsage } from '@/hooks/useWebSocket';
 import { PerformanceMonitor } from '@/hooks/usePerformanceMonitor';
 import { ResponsiveContainer, ResponsiveGrid } from '../ui/ResponsiveContainer';
+import { CreateProjectModal } from './CreateProjectModal';
 
 // Dynamic imports for heavy components
 const AnalyticalDashboard = dynamic(() => import('./AnalyticalDashboard').then(mod => ({ default: mod.AnalyticalDashboard })), {
@@ -77,6 +78,11 @@ export const DashboardLayout = () => {
   const [sortBy, setSortBy] = useState("opportunityScore");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const { isOpen: isReplyModalOpen, lead: replyModalLead, onClose: onReplyModalClose } = useReplyModal();
+
+  // New user onboarding state
+  const [showCreateProjectModal, setShowCreateProjectModal] = useState(false);
+  const [isNewUser, setIsNewUser] = useState(false);
+  const [hasShownOnboarding, setHasShownOnboarding] = useState(false);
 
   // Lead batching state
   const [userPlan, setUserPlan] = useState<string>('basic');
@@ -143,6 +149,14 @@ export const DashboardLayout = () => {
         // New user with no projects - this is normal, not an error
         setError(null); // Clear any previous errors
         setIsLoading(false);
+        
+        // Check if this is a new user and we haven't shown onboarding yet
+        if (!hasShownOnboarding) {
+          setIsNewUser(true);
+          setHasShownOnboarding(true);
+          // Auto-open project creation modal for new users
+          setShowCreateProjectModal(true);
+        }
       }
     } catch (err: any) {
       console.error('Error fetching projects:', err);
@@ -232,6 +246,21 @@ export const DashboardLayout = () => {
     setLeads([]);
     setAllLeads([]);
     fetchProjects(); // This will set a new active project if available
+  };
+
+  const handleProjectCreated = () => {
+    // Close the modal and refresh projects
+    setShowCreateProjectModal(false);
+    fetchProjects();
+    
+    // If this was a new user's first project, redirect to leads section
+    if (isNewUser) {
+      setIsNewUser(false);
+      // Small delay to ensure project is loaded
+      setTimeout(() => {
+        setActiveView('leads');
+      }, 500);
+    }
   };
 
   const resetDiscoveryState = () => {
@@ -722,6 +751,12 @@ export const DashboardLayout = () => {
         projectId={activeProject ?? ""}
         leadStats={leadStats}
         onLeadsDeleted={handleLeadsDiscovered}
+      />
+
+      <CreateProjectModal
+        isOpen={showCreateProjectModal}
+        onClose={() => setShowCreateProjectModal(false)}
+        onProjectCreated={handleProjectCreated}
       />
 
     </div>
